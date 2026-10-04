@@ -5,6 +5,15 @@ Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie 
 
 ## [Unreleased]
 
+### Added
+- Battery energy storage: capacity, usable %, initial/min/max SOC, charge/discharge power and efficiency, battery type (LiFePO4, Li-ion, AGM, GEL, other) with validation
+- Consumption profile: constant load or hourly periods
+- `EnergyFlowSimulator` (15-minute steps) using the existing PV estimator: PV → loads → battery → grid/generator, surplus and losses
+- Multi-day simulation (today, tomorrow, 7 days, month, year) carrying SOC over to the next day
+- "Energia" tab: energy balance, with/without battery comparison, flow chart, SOC chart, battery statistics, autonomy calculator, yearly costs and payback
+- Battery card on the dashboard (SOC, stored energy, charge/discharge power)
+- Optional energy prices (grid, generator, feed-in, battery cost)
+
 ## [v0.1.0] - 2026-10-04
 
 - Created Android project (Kotlin, Jetpack Compose, Material 3)

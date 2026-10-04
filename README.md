@@ -14,6 +14,8 @@ i **szacowania** produkcji energii z instalacji fotowoltaicznej.
 - Produkcja miesięczna dla kątów 0°, 30°, 45°, 60°, 90°
 - Ustawienia: moc [kWp], kąt, azymut, lokalizacja (GPS lub ręcznie)
 - Tryb ciemny
+- Magazyn energii: symulacja przepływu PV → zużycie → bateria → sieć/agregat,
+  bilans, wykresy przepływów i SOC, statystyki, autonomia, koszty i okres zwrotu
 
 ## Architektura
 
@@ -30,7 +32,18 @@ Warstwa danych          app/src/main/java/.../data (DataStore, lokalizacja)
 Moduł `:core` zawiera:
 - `solar/SolarCalculator` – algorytm NOAA (Meeus) pozycji słońca i wschodu/zachodu,
 - `pv/IrradianceModel` – model nasłonecznienia (wymienny, domyślnie bezchmurne niebo),
-- `pv/PvEstimator` – moc, energia dzienna, porównanie kątów, produkcja miesięczna.
+- `pv/PvEstimator` – moc, energia dzienna, porównanie kątów, produkcja miesięczna,
+- `energy/BatteryStorage` – parametry i walidacja magazynu energii,
+- `energy/EnergyFlowSimulator` – symulacja przepływu energii (krok 15 min, SOC przenoszony między dniami);
+  produkcję PV bierze z `PvEstimator`, więc to jeden wspólny model,
+- `energy/AutonomyCalculator`, `energy/EnergyCost` – autonomia i koszty.
+
+### Model magazynu
+- SOC [%] odnosi się do pojemności użytecznej (pojemność nominalna × użyteczna %).
+- Nadwyżka PV ładuje baterię do maks. SOC, z limitem mocy ładowania i sprawnością ładowania;
+  reszta to nadwyżka (eksport / utracona energia).
+- Deficyt pokrywa bateria do min. SOC, z limitem mocy rozładowania i sprawnością rozładowania;
+  reszta to energia z sieci/agregatu.
 
 ## Model szacowania
 - Masa powietrza: Kasten–Young (1989)

@@ -65,6 +65,7 @@ fun SettingsScreen(
     settings: AppSettings?,
     gpsStatus: GpsStatus,
     actions: SettingsActions,
+    energyActions: EnergySettingsActions,
     modifier: Modifier = Modifier,
 ) {
     if (settings == null) {
@@ -82,6 +83,9 @@ fun SettingsScreen(
         PeakPowerSection(settings.system.peakPowerKw, actions::setPeakPower)
         TiltSection(settings.system.tiltDeg, actions::setTilt)
         AzimuthSection(settings.system.azimuthDeg, actions::setPanelAzimuth)
+        BatterySection(settings.batteryEnabled, settings.battery, energyActions)
+        ConsumptionSection(settings.consumption, energyActions)
+        PricesSection(settings.prices, energyActions)
         LocationSection(settings, gpsStatus, actions)
         ThemeSection(settings.themeMode, actions::setThemeMode)
     }

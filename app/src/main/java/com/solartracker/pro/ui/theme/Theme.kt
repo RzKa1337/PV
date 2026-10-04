@@ -54,8 +54,16 @@ private val DarkColors = darkColorScheme(
     outline = Color(0xFF9E8E81),
 )
 
-/** Colors used for charts, independent of light/dark scheme. */
+/** Colors used for charts, independent of light/dark scheme (mid tones readable on both). */
 object ChartColors {
+    val pv = Color(0xFFFFB300)
+    val consumption = Color(0xFF42A5F5)
+    val charge = Color(0xFF66BB6A)
+    val discharge = Color(0xFFAB47BC)
+    val grid = Color(0xFFEF5350)
+    val surplus = Color(0xFF26A69A)
+    val soc = Color(0xFF43A047)
+
     val tiltSeries = listOf(
         SkyBlue,
         SunOrange,

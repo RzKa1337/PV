@@ -14,6 +14,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -25,7 +29,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.solartracker.pro.core.solar.DayType
 import com.solartracker.pro.data.LocationSource
+import com.solartracker.pro.ui.BatteryNow
 import com.solartracker.pro.ui.DashboardState
+import com.solartracker.pro.ui.theme.ChartColors
 import com.solartracker.pro.ui.Format
 import com.solartracker.pro.ui.components.EstimateBadge
 import com.solartracker.pro.ui.components.PowerChart
@@ -80,6 +86,8 @@ fun DashboardScreen(state: DashboardState?, modifier: Modifier = Modifier) {
                 modifier = Modifier.weight(1f),
             )
         }
+
+        state.battery?.let { BatteryCard(it) }
 
         SectionCard {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -190,6 +198,56 @@ private fun SunEvent(label: String, value: String) {
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onPrimaryContainer,
+        )
+    }
+}
+
+@Composable
+private fun BatteryCard(b: BatteryNow) {
+    SectionCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "🔋 Magazyn energii",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f),
+            )
+            EstimateBadge()
+        }
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text("SOC ${Format.percent(b.socPercent)}", fontSize = 32.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.size(12.dp))
+            Text(
+                "${Format.decimal(b.storedKwh, 1)} / ${Format.decimal(b.usableKwh, 1)} kWh",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 4.dp),
+            )
+        }
+        LinearProgressIndicator(
+            progress = { (b.socPercent / 100.0).toFloat().coerceIn(0f, 1f) },
+            color = ChartColors.soc,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(10.dp)
+                .clip(RoundedCornerShape(5.dp)),
+        )
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(
+                "Ładowanie: +${Format.kw(b.chargeKw)}",
+                color = if (b.chargeKw > 0.0) ChartColors.charge else MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                "Rozładowanie: ${Format.kw(b.dischargeKw)}",
+                color = if (b.dischargeKw > 0.0) ChartColors.discharge else MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+        Text(
+            "Symulacja od północy z początkowym SOC z ustawień.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

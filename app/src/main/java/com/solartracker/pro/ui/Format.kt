@@ -21,6 +21,12 @@ object Format {
 
     fun kw(value: Double): String = "${decimal(value)} kW"
 
+    fun percent(value: Double, digits: Int = 0): String = "${decimal(value, digits)}%"
+
+    fun money(value: Double): String = "${decimal(value, 2)} zł"
+
+    fun kwhShort(value: Double): String = "${decimal(value, if (kotlin.math.abs(value) >= 100) 0 else 1)} kWh"
+
     fun degrees(value: Double, digits: Int = 0): String = "${decimal(value, digits)}°"
 
     fun time(instant: Instant?, zone: ZoneId): String =

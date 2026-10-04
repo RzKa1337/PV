@@ -1,6 +1,10 @@
 package com.solartracker.pro.ui
 
+import com.solartracker.pro.core.energy.BatteryStorage
+import com.solartracker.pro.core.energy.EnergyPrices
 import com.solartracker.pro.core.solar.GeoLocation
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import com.solartracker.pro.data.FakeDataStore
 import com.solartracker.pro.data.LocationProvider
 import com.solartracker.pro.data.LocationSource
@@ -128,5 +132,54 @@ class MainViewModelTest {
         val s = withTimeout(10_000) { repository.settings.first { it.locationName == "Sydney" } }
         assertEquals(GeoLocation(-33.87, 151.21), s.location)
         assertEquals(LocationSource.MANUAL, s.locationSource)
+    }
+
+    @Test
+    fun withoutBattery_energyBalanceHasNoBatteryFlows() = runBlocking {
+        val vm = viewModel()
+        val state = withTimeout(10_000) { vm.energy.filterNotNull().first() }
+        assertEquals(EnergyPeriod.TODAY, state.period)
+        assertNull(state.withoutBattery)
+        assertNull(state.result.balance.endSocPercent)
+        assertEquals(0.0, state.result.balance.toBatteryKwh, 0.0)
+        assertTrue(state.result.balance.pvKwh > 0.0)
+        val dash = withTimeout(10_000) { vm.dashboard.filterNotNull().first() }
+        assertNull(dash.battery)
+    }
+
+    @Test
+    fun withBattery_dashboardAndBalanceIncludeBattery() = runBlocking {
+        repository.setBattery(true, BatteryStorage())
+        val vm = viewModel()
+        val dash = withTimeout(10_000) { vm.dashboard.filterNotNull().first { it.battery != null } }
+        val b = dash.battery!!
+        assertTrue(b.socPercent in 10.0..100.0)
+        assertEquals(9.0, b.usableKwh, 1e-9)
+        val state = withTimeout(10_000) { vm.energy.filterNotNull().first { it.result.hasBattery } }
+        assertNotNull(state.withoutBattery)
+        assertTrue(state.result.balance.surplusKwh <= state.withoutBattery!!.balance.surplusKwh)
+        assertNotNull(state.result.statistics)
+    }
+
+    @Test
+    fun tomorrowStartsWithTodaysFinalSoc() = runBlocking {
+        repository.setBattery(true, BatteryStorage())
+        val vm = viewModel()
+        val today = withTimeout(10_000) { vm.energy.filterNotNull().first { it.result.hasBattery } }
+        vm.setEnergyPeriod(EnergyPeriod.TOMORROW)
+        val tomorrow = withTimeout(10_000) { vm.energy.filterNotNull().first { it.period == EnergyPeriod.TOMORROW } }
+        assertEquals(today.startDate.plusDays(1), tomorrow.startDate)
+        assertEquals(today.result.balance.endSocPercent!!, tomorrow.result.balance.startSocPercent!!, 1e-9)
+    }
+
+    @Test
+    fun costs_requireBackupPriceAndShowSavings() = runBlocking {
+        val vm = viewModel()
+        assertNull(withTimeout(20_000) { vm.costs.first() })
+        repository.setPrices(EnergyPrices(gridPricePerKwh = 1.0, feedInPricePerKwh = 0.2, batteryCost = 20000.0))
+        repository.setBattery(true, BatteryStorage())
+        val costs = withTimeout(30_000) { vm.costs.filterNotNull().first { it.hasBattery } }
+        assertTrue(costs.comparison.yearlySavings > 0.0)
+        assertNotNull(costs.comparison.paybackYears)
     }
 }

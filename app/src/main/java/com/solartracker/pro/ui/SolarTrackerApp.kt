@@ -6,6 +6,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BarChart
+import androidx.compose.material.icons.outlined.BatteryChargingFull
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.WbSunny
@@ -23,9 +24,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.solartracker.pro.core.energy.BatteryStorage
+import com.solartracker.pro.core.energy.EnergyPrices
+import com.solartracker.pro.data.ConsumptionSettings
 import com.solartracker.pro.data.ThemeMode
 import com.solartracker.pro.ui.screens.AngleComparisonScreen
 import com.solartracker.pro.ui.screens.DashboardScreen
+import com.solartracker.pro.ui.screens.EnergyScreen
+import com.solartracker.pro.ui.screens.EnergySettingsActions
 import com.solartracker.pro.ui.screens.MonthlyScreen
 import com.solartracker.pro.ui.screens.SettingsActions
 import com.solartracker.pro.ui.screens.SettingsScreen
@@ -34,6 +40,7 @@ private enum class Tab(val label: String, val icon: ImageVector) {
     DASHBOARD("Pulpit", Icons.Outlined.WbSunny),
     ANGLES("Kąty", Icons.Outlined.Tune),
     MONTHLY("Miesiące", Icons.Outlined.BarChart),
+    ENERGY("Energia", Icons.Outlined.BatteryChargingFull),
     SETTINGS("Ustawienia", Icons.Outlined.Settings),
 }
 
@@ -59,6 +66,15 @@ fun SolarTrackerApp(viewModel: MainViewModel) {
                     arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
                 )
             }
+        }
+    }
+
+    val energyActions = remember(viewModel) {
+        object : EnergySettingsActions {
+            override fun setBatteryEnabled(enabled: Boolean) = viewModel.setBatteryEnabled(enabled)
+            override suspend fun saveBattery(enabled: Boolean, battery: BatteryStorage) = viewModel.saveBattery(enabled, battery)
+            override suspend fun saveConsumption(consumption: ConsumptionSettings) = viewModel.saveConsumption(consumption)
+            override suspend fun savePrices(prices: EnergyPrices) = viewModel.savePrices(prices)
         }
     }
 
@@ -90,10 +106,16 @@ fun SolarTrackerApp(viewModel: MainViewModel) {
                 val state by viewModel.monthly.collectAsStateWithLifecycle()
                 MonthlyScreen(state, contentModifier)
             }
+            Tab.ENERGY -> {
+                val state by viewModel.energy.collectAsStateWithLifecycle()
+                val costs by viewModel.costs.collectAsStateWithLifecycle()
+                val period by viewModel.energyPeriod.collectAsStateWithLifecycle()
+                EnergyScreen(state, costs, period, viewModel::setEnergyPeriod, contentModifier)
+            }
             Tab.SETTINGS -> {
                 val settings by viewModel.settings.collectAsStateWithLifecycle()
                 val gpsStatus by viewModel.gpsStatus.collectAsStateWithLifecycle()
-                SettingsScreen(settings, gpsStatus, settingsActions, contentModifier)
+                SettingsScreen(settings, gpsStatus, settingsActions, energyActions, contentModifier)
             }
         }
     }
