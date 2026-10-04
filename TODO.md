@@ -11,8 +11,8 @@ Legenda: `[ ]` do zrobienia, `[x]` zrobione **i przetestowane**.
 - [ ] CI GitHub Actions (testy, lint, APK)
 
 ### Obliczenia (`:core`)
-- [ ] Pozycja słońca (wysokość, azymut)
-- [ ] Wschód, zachód, długość dnia, noc i dzień polarny
+- [x] Pozycja słońca (wysokość, azymut)
+- [x] Wschód, zachód, długość dnia, noc i dzień polarny
 - [ ] Model produkcji PV (bezchmurne niebo, kąt i azymut paneli)
 - [ ] Dzienny profil mocy i energia dzienna
 - [ ] Porównanie kątów 0–90°

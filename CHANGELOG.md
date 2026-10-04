@@ -7,4 +7,5 @@ Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie 
 
 - Created Android project (Kotlin, Jetpack Compose, Material 3)
 - Added pure Kotlin `:core` module for calculations
+- Added solar position calculations (elevation, azimuth, sunrise, sunset, day length)
 - Added GitHub Actions CI (unit tests, lint, debug APK)
