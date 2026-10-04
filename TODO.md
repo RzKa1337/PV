@@ -8,7 +8,7 @@ Legenda: `[ ]` do zrobienia, `[x]` zrobione **i przetestowane**.
 - [x] Repozytorium Git + remote GitHub
 - [x] `.gitignore` dla Android Studio / Kotlin / Gradle
 - [x] Projekt Gradle (moduły `:core` i `:app`), wrapper Gradle
-- [ ] CI GitHub Actions (testy, lint, APK)
+- [x] CI GitHub Actions (testy, lint, APK)
 
 ### Obliczenia (`:core`)
 - [x] Pozycja słońca (wysokość, azymut)
@@ -19,11 +19,12 @@ Legenda: `[ ]` do zrobienia, `[x]` zrobione **i przetestowane**.
 - [x] Produkcja miesięczna dla kątów 0/30/45/60/90°
 
 ### Dane (`:app`)
-- [ ] Ustawienia PV zapisywane w DataStore (moc, kąt, azymut)
-- [ ] Lokalizacja ręczna
-- [ ] Lokalizacja z GPS (opcjonalna)
+- [x] Ustawienia PV zapisywane w DataStore (moc, kąt, azymut) — testy jednostkowe
+- [x] Lokalizacja ręczna — testy jednostkowe
+- [ ] Lokalizacja z GPS (opcjonalna) — zaimplementowane, logika ViewModelu przetestowana; czeka na test na telefonie
 
 ### Interfejs (`:app`)
+Zaimplementowane, kompiluje się i przechodzi lint w CI — **czeka na ręczny test na telefonie**.
 - [ ] Ekran główny (słońce, PV, dziś, aktualna moc, wschód/zachód)
 - [ ] Wykres godzina → moc PV
 - [ ] Ekran porównania kątów
@@ -32,9 +33,9 @@ Legenda: `[ ]` do zrobienia, `[x]` zrobione **i przetestowane**.
 - [ ] Dark Mode
 
 ### Wydanie
-- [ ] Testy jednostkowe zielone w CI
-- [ ] APK zbudowane w CI
-- [ ] Tag `v0.1.0`
+- [x] Testy jednostkowe zielone w CI
+- [x] APK zbudowane w CI
+- [x] Tag `v0.1.0`
 
 ## Później (pomysły)
 - [ ] Prognoza pogody / zachmurzenie zamiast modelu bezchmurnego nieba
