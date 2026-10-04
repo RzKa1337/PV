@@ -4,22 +4,25 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.ui.Modifier
+import androidx.activity.viewModels
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.solartracker.pro.data.ThemeMode
+import com.solartracker.pro.ui.MainViewModel
+import com.solartracker.pro.ui.SolarTrackerApp
+import com.solartracker.pro.ui.theme.SolarTrackerTheme
 
 class MainActivity : ComponentActivity() {
+
+    private val viewModel: MainViewModel by viewModels { MainViewModel.Factory }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            MaterialTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
-                    Text("Solar Tracker PRO", modifier = Modifier.wrapContentSize())
-                }
+            val settings by viewModel.settings.collectAsStateWithLifecycle()
+            SolarTrackerTheme(themeMode = settings?.themeMode ?: ThemeMode.SYSTEM) {
+                SolarTrackerApp(viewModel)
             }
         }
     }
