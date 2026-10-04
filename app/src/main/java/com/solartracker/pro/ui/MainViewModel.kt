@@ -93,7 +93,7 @@ class MainViewModel(
     }
 
     private val today: Flow<LocalDate> = ticker
-        .map { LocalDate.ofInstant(it, zoneProvider()) }
+        .map { it.atZone(zoneProvider()).toLocalDate() }
         .distinctUntilChanged()
 
     private val validSettings: Flow<AppSettings> = settingsRepository.settings.distinctUntilChanged()
@@ -130,7 +130,7 @@ class MainViewModel(
 
     private fun buildDashboard(s: AppSettings, now: Instant): DashboardState {
         val zone = zoneProvider()
-        val date = LocalDate.ofInstant(now, zone)
+        val date = now.atZone(zone).toLocalDate()
         val dayStart = date.atStartOfDay(zone).toInstant()
         return DashboardState(
             now = now,
