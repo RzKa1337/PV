@@ -13,10 +13,10 @@ Legenda: `[ ]` do zrobienia, `[x]` zrobione **i przetestowane**.
 ### Obliczenia (`:core`)
 - [x] Pozycja słońca (wysokość, azymut)
 - [x] Wschód, zachód, długość dnia, noc i dzień polarny
-- [ ] Model produkcji PV (bezchmurne niebo, kąt i azymut paneli)
-- [ ] Dzienny profil mocy i energia dzienna
-- [ ] Porównanie kątów 0–90°
-- [ ] Produkcja miesięczna dla kątów 0/30/45/60/90°
+- [x] Model produkcji PV (bezchmurne niebo, kąt i azymut paneli)
+- [x] Dzienny profil mocy i energia dzienna
+- [x] Porównanie kątów 0–90°
+- [x] Produkcja miesięczna dla kątów 0/30/45/60/90°
 
 ### Dane (`:app`)
 - [ ] Ustawienia PV zapisywane w DataStore (moc, kąt, azymut)
