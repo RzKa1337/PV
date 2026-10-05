@@ -37,6 +37,7 @@ import com.solartracker.pro.data.SettingsRepository
 import com.solartracker.pro.data.ThemeMode
 import com.solartracker.pro.data.WeatherProvider
 import com.solartracker.pro.data.WeatherRepository
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -283,7 +284,10 @@ class MainViewModel(
             }
         }
         .flowOn(Dispatchers.Default)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(0), null)
+        // Shared off the main thread: every second is published on time even when the UI thread
+        // is briefly busy (e.g. first composition); same Job as viewModelScope, so it is still
+        // cancelled with the ViewModel and stopped when the screen stops collecting.
+        .stateIn(CoroutineScope(viewModelScope.coroutineContext + Dispatchers.Default), SharingStarted.WhileSubscribed(0), null)
 
     /** Today's sun path; recomputed when the date or location changes, not every second. */
     val liveSunPath: StateFlow<SunPathUi?> = combine(
