@@ -46,6 +46,11 @@ import com.solartracker.pro.data.LocationSource
 import com.solartracker.pro.data.ThemeMode
 import com.solartracker.pro.ui.Format
 import com.solartracker.pro.ui.GpsStatus
+import com.solartracker.pro.ui.WeatherState
+import com.solartracker.pro.ui.describeSources
+import com.solartracker.pro.core.weather.ClimateSource
+import com.solartracker.pro.core.weather.OpenMeteo
+import androidx.compose.material3.Switch
 import com.solartracker.pro.ui.components.ScreenTitle
 import com.solartracker.pro.ui.components.SectionCard
 import kotlin.math.roundToInt
@@ -58,12 +63,15 @@ interface SettingsActions {
     fun setManualLocation(latitude: Double, longitude: Double, name: String)
     fun requestGpsLocation()
     fun setThemeMode(mode: ThemeMode)
+    fun setWeatherEnabled(enabled: Boolean)
+    fun refreshWeather()
 }
 
 @Composable
 fun SettingsScreen(
     settings: AppSettings?,
     gpsStatus: GpsStatus,
+    weather: WeatherState,
     actions: SettingsActions,
     energyActions: EnergySettingsActions,
     modifier: Modifier = Modifier,
@@ -87,6 +95,7 @@ fun SettingsScreen(
         ConsumptionSection(settings.consumption, energyActions)
         PricesSection(settings.prices, energyActions)
         LocationSection(settings, gpsStatus, actions)
+        WeatherSection(settings.weatherEnabled, weather, actions)
         ThemeSection(settings.themeMode, actions::setThemeMode)
     }
 }
@@ -257,6 +266,53 @@ private fun ThemeSection(current: ThemeMode, onSelect: (ThemeMode) -> Unit) {
                     shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
                 ) { Text(label) }
             }
+        }
+    }
+}
+
+@Composable
+private fun WeatherSection(enabled: Boolean, weather: WeatherState, actions: SettingsActions) {
+    SectionCard {
+        SectionTitle("Pogoda")
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Uwzględniaj pogodę", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    "Prognoza godzinowa (zachmurzenie, nasłonecznienie, temperatura) na 16 dni " +
+                        "i średnie klimatyczne z ostatnich 3 lat. Wymaga internetu, dane są zapisywane do pracy offline.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Switch(checked = enabled, onCheckedChange = actions::setWeatherEnabled)
+        }
+        if (enabled) {
+            Text("Obecnie: ${describeSources(weather)}", style = MaterialTheme.typography.bodySmall)
+            weather.forecast?.coversUntil?.let {
+                Text(
+                    "Prognoza do: ${it.atZone(java.time.ZoneId.systemDefault()).toLocalDate()}",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            weather.climate?.let {
+                Text(
+                    when (it.source) {
+                        ClimateSource.ARCHIVE -> "Klimat: archiwum Open-Meteo dla tej lokalizacji (${it.years} lata)"
+                        ClimateSource.DEFAULT_POLAND -> "Klimat: przybliżone średnie dla Polski (offline)"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            weather.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            FilledTonalButton(onClick = actions::refreshWeather, enabled = !weather.loading) {
+                Text(if (weather.loading) "Pobieranie…" else "Odśwież pogodę")
+            }
+            Text(OpenMeteo.ATTRIBUTION, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            Text(
+                "Wyłączone: obliczenia zakładają bezchmurne niebo (górna granica produkcji).",
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
     }
 }

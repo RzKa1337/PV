@@ -61,6 +61,8 @@ fun SolarTrackerApp(viewModel: MainViewModel) {
             override fun setManualLocation(latitude: Double, longitude: Double, name: String) =
                 viewModel.setManualLocation(latitude, longitude, name)
             override fun setThemeMode(mode: ThemeMode) = viewModel.setThemeMode(mode)
+            override fun setWeatherEnabled(enabled: Boolean) = viewModel.setWeatherEnabled(enabled)
+            override fun refreshWeather() = viewModel.refreshWeather()
             override fun requestGpsLocation() {
                 permissionLauncher.launch(
                     arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
@@ -96,7 +98,7 @@ fun SolarTrackerApp(viewModel: MainViewModel) {
         when (Tab.entries[tab]) {
             Tab.DASHBOARD -> {
                 val state by viewModel.dashboard.collectAsStateWithLifecycle()
-                DashboardScreen(state, contentModifier)
+                DashboardScreen(state, viewModel::refreshWeather, contentModifier)
             }
             Tab.ANGLES -> {
                 val state by viewModel.tiltComparison.collectAsStateWithLifecycle()
@@ -115,7 +117,8 @@ fun SolarTrackerApp(viewModel: MainViewModel) {
             Tab.SETTINGS -> {
                 val settings by viewModel.settings.collectAsStateWithLifecycle()
                 val gpsStatus by viewModel.gpsStatus.collectAsStateWithLifecycle()
-                SettingsScreen(settings, gpsStatus, settingsActions, energyActions, contentModifier)
+                val weather by viewModel.weather.collectAsStateWithLifecycle()
+                SettingsScreen(settings, gpsStatus, weather, settingsActions, energyActions, contentModifier)
             }
         }
     }

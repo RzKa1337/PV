@@ -22,6 +22,8 @@ data class AppSettings(
     val battery: BatteryStorage = BatteryStorage(),
     val consumption: ConsumptionSettings = ConsumptionSettings(),
     val prices: EnergyPrices = EnergyPrices(),
+    /** Use the Open-Meteo forecast and climate data instead of a clear sky. */
+    val weatherEnabled: Boolean = true,
 ) {
     /** The battery used in simulations, or null when the user has none. */
     val activeBattery: BatteryStorage? get() = battery.takeIf { batteryEnabled && it.isValid }

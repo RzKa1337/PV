@@ -14,6 +14,8 @@ data class Irradiance(
     val dni: Double,
     /** Diffuse horizontal irradiance. */
     val dhi: Double,
+    /** Ambient air temperature [°C]; null = unknown (typical temperature losses assumed). */
+    val ambientTemperatureC: Double? = null,
 ) {
     fun ghi(position: SolarPosition): Double =
         dni * max(0.0, cos(Math.toRadians(position.zenithDeg))) + dhi
@@ -46,13 +48,14 @@ class ClearSkyModel : IrradianceModel {
         return Irradiance(dni = dni, dhi = 0.1 * dni)
     }
 
-    private fun extraterrestrialIrradiance(instant: Instant): Double {
-        val dayOfYear = instant.atZone(ZoneOffset.UTC).dayOfYear
-        return SOLAR_CONSTANT * (1.0 + 0.033 * cos(2.0 * Math.PI * dayOfYear / 365.0))
-    }
-
     companion object {
         const val SOLAR_CONSTANT = 1361.0
+
+        /** Extraterrestrial normal irradiance [W/m²], corrected for Earth–Sun distance. */
+        fun extraterrestrialIrradiance(instant: Instant): Double {
+            val dayOfYear = instant.atZone(ZoneOffset.UTC).dayOfYear
+            return SOLAR_CONSTANT * (1.0 + 0.033 * cos(2.0 * Math.PI * dayOfYear / 365.0))
+        }
     }
 }
 

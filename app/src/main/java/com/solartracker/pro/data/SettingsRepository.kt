@@ -76,6 +76,10 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         return true
     }
 
+    suspend fun setWeatherEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[Keys.WEATHER_ENABLED] = enabled }
+    }
+
     suspend fun setBatteryEnabled(enabled: Boolean) {
         dataStore.edit { prefs -> prefs[Keys.BATTERY_ENABLED] = enabled }
     }
@@ -167,6 +171,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             battery = toBattery(),
             consumption = toConsumption(),
             prices = toPrices(),
+            weatherEnabled = this[Keys.WEATHER_ENABLED] ?: defaults.weatherEnabled,
         )
     }
 
@@ -201,6 +206,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         val PRICE_FEED_IN = doublePreferencesKey("price_feed_in")
         val PRICE_BATTERY = doublePreferencesKey("price_battery")
         val BACKUP_SOURCE = stringPreferencesKey("backup_source")
+        val WEATHER_ENABLED = booleanPreferencesKey("weather_enabled")
     }
 
     companion object {

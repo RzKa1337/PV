@@ -22,7 +22,8 @@ data class MonthlyEstimate(val tiltDeg: Double, val energyByMonthKwh: Map<Month,
 
 /**
  * Local PV production estimator. All results are ESTIMATES derived from a model
- * ([IrradianceModel], clear sky by default) – never measurements.
+ * ([IrradianceModel]: clear sky by default, or weather data) – never measurements.
+ * When the model provides the air temperature, panel temperature losses are computed.
  */
 class PvEstimator(
     private val irradianceModel: IrradianceModel = ClearSkyModel(),
@@ -151,11 +152,34 @@ class PvEstimator(
         return DoubleArray(systems.size) { i ->
             val s = systems[i]
             val poa = planeOfArrayIrradiance(irradiance, position, s.tiltDeg, s.azimuthDeg)
-            (s.peakPowerKw * poa / STC_IRRADIANCE * s.performanceRatio).coerceIn(0.0, s.peakPowerKw)
+            val temperature = temperatureFactor(poa, irradiance.ambientTemperatureC)
+            (s.peakPowerKw * poa / STC_IRRADIANCE * s.performanceRatio * temperature).coerceIn(0.0, s.peakPowerKw)
         }
     }
 
     companion object {
+        /** Panel power temperature coefficient [1/°C] (typical crystalline silicon). */
+        const val TEMPERATURE_COEFFICIENT = -0.004
+
+        /** Nominal operating cell temperature [°C] (800 W/m², 20 °C air). */
+        const val NOCT = 45.0
+
+        /**
+         * Average temperature loss already contained in [PvSystem.performanceRatio]. When the
+         * real air temperature is known, this part is replaced by the computed temperature factor.
+         */
+        const val TYPICAL_TEMPERATURE_FACTOR = 0.95
+
+        /** Cell temperature (NOCT model) [°C]. */
+        fun cellTemperatureC(poa: Double, ambientC: Double): Double = ambientC + poa / 800.0 * (NOCT - 20.0)
+
+        /** Multiplier for the performance ratio; 1.0 when the air temperature is unknown. */
+        fun temperatureFactor(poa: Double, ambientC: Double?): Double {
+            if (ambientC == null) return 1.0
+            val cell = cellTemperatureC(poa, ambientC)
+            return ((1.0 + TEMPERATURE_COEFFICIENT * (cell - 25.0)) / TYPICAL_TEMPERATURE_FACTOR).coerceIn(0.5, 1.2)
+        }
+
         /** Standard test conditions irradiance [W/m²] at which kWp is rated. */
         const val STC_IRRADIANCE = 1000.0
         const val DEFAULT_STEP_MINUTES = 5L

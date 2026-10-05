@@ -149,4 +149,12 @@ class SettingsRepositoryTest {
         assertEquals(periods, SettingsRepository.decodePeriods(encoded))
         assertNull(SettingsRepository.decodePeriods("garbage"))
     }
+
+    @Test
+    fun weather_isEnabledByDefaultAndCanBeDisabled() = runTest {
+        val repo = SettingsRepository(FakeDataStore())
+        assertTrue(repo.settings.first().weatherEnabled)
+        repo.setWeatherEnabled(false)
+        assertFalse(repo.settings.first().weatherEnabled)
+    }
 }

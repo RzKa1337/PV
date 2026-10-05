@@ -3,8 +3,9 @@
 Aplikacja Android (Kotlin + Jetpack Compose + Material 3) do śledzenia pozycji słońca
 i **szacowania** produkcji energii z instalacji fotowoltaicznej.
 
-> Wszystkie wartości produkcji to **SZACUNEK** z lokalnego modelu bezchmurnego nieba,
-> a nie pomiar. Rzeczywista produkcja zwykle jest niższa (chmury, zacienienie, temperatura).
+> Wszystkie wartości produkcji to **SZACUNEK**, a nie pomiar. Przy włączonej pogodzie
+> model korzysta z prognozy Open-Meteo i średnich klimatycznych; bez niej – z modelu
+> bezchmurnego nieba (górna granica). Zacienienie i śnieg na panelach nie są uwzględniane.
 
 ## Funkcje
 - Aktualna wysokość i azymut słońca, wschód, zachód, długość dnia
@@ -44,6 +45,16 @@ Moduł `:core` zawiera:
   reszta to nadwyżka (eksport / utracona energia).
 - Deficyt pokrywa bateria do min. SOC, z limitem mocy rozładowania i sprawnością rozładowania;
   reszta to energia z sieci/agregatu.
+
+## Pogoda
+- Prognoza godzinowa Open-Meteo na 16 dni (promieniowanie bezpośrednie i rozproszone, temperatura,
+  zachmurzenie) – bez klucza API, dane CC BY 4.0.
+- Dla dni bez prognozy: średnie miesięczne z archiwum Open-Meteo (ostatnie 3 lata) dla lokalizacji.
+  Miesiąc modelowany jako mieszanka dni bezchmurnych i pochmurnych (światło rozproszone ≈ 25%
+  bezchmurnego), dobrana tak, by średnie nasłonecznienie zgadzało się z klimatem.
+- Offline: ostatnio pobrane dane, a w Polsce – wbudowane przybliżone średnie.
+- Temperatura paneli: model NOCT (45 °C), współczynnik −0,4%/°C.
+- Dla Warszawy model klimatyczny daje ok. 890 kWh/kWp (płasko) i ok. 1060 kWh/kWp (30–45°, południe).
 
 ## Model szacowania
 - Masa powietrza: Kasten–Young (1989)

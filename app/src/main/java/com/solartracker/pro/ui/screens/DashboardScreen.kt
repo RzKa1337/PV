@@ -31,6 +31,12 @@ import com.solartracker.pro.core.solar.DayType
 import com.solartracker.pro.data.LocationSource
 import com.solartracker.pro.ui.BatteryNow
 import com.solartracker.pro.ui.DashboardState
+import com.solartracker.pro.ui.WeatherNow
+import com.solartracker.pro.ui.describeSources
+import com.solartracker.pro.core.weather.OpenMeteo
+import com.solartracker.pro.core.weather.WeatherSource
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material3.IconButton
 import com.solartracker.pro.ui.theme.ChartColors
 import com.solartracker.pro.ui.Format
 import com.solartracker.pro.ui.components.EstimateBadge
@@ -39,7 +45,7 @@ import com.solartracker.pro.ui.components.SectionCard
 import com.solartracker.pro.ui.components.StatTile
 
 @Composable
-fun DashboardScreen(state: DashboardState?, modifier: Modifier = Modifier) {
+fun DashboardScreen(state: DashboardState?, onRefreshWeather: () -> Unit, modifier: Modifier = Modifier) {
     if (state == null) {
         Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         return
@@ -53,6 +59,7 @@ fun DashboardScreen(state: DashboardState?, modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         LocationHeader(state)
+        state.weather?.let { WeatherCard(it, onRefreshWeather) }
         SunCard(state)
 
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -103,8 +110,9 @@ fun DashboardScreen(state: DashboardState?, modifier: Modifier = Modifier) {
         }
 
         Text(
-            "Wartości produkcji to szacunek z modelu bezchmurnego nieba, a nie pomiar. " +
-                "Rzeczywista produkcja zwykle jest niższa (chmury, cień, temperatura paneli).",
+            "Wartości produkcji to szacunek, a nie pomiar. Źródło: " +
+                (state.weather?.state?.let(::describeSources) ?: "model bezchmurnego nieba (pogoda wyłączona)") +
+                ". Model nie uwzględnia zacienienia ani śniegu na panelach.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -247,6 +255,54 @@ private fun BatteryCard(b: BatteryNow) {
         Text(
             "Symulacja od północy z początkowym SOC z ustawień.",
             style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun WeatherCard(w: WeatherNow, onRefresh: () -> Unit) {
+    val st = w.state
+    SectionCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                val icon = when {
+                    w.source != WeatherSource.FORECAST -> "📊"
+                    (w.cloudCoverPercent ?: 0.0) >= 70 -> "☁️"
+                    (w.cloudCoverPercent ?: 0.0) >= 30 -> "⛅"
+                    else -> "☀️"
+                }
+                Text("$icon POGODA", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                Text(
+                    when (w.source) {
+                        WeatherSource.FORECAST -> listOfNotNull(
+                            w.temperatureC?.let { "${Format.decimal(it, 0)}°C" },
+                            w.cloudCoverPercent?.let { "zachmurzenie ${Format.percent(it)}" },
+                        ).joinToString(" · ").ifEmpty { "prognoza" }
+                        WeatherSource.CLIMATE -> "średnie klimatyczne (brak prognozy na tę godzinę)"
+                        WeatherSource.CLEAR_SKY -> if (st.loading) "pobieranie danych…" else "brak danych – bezchmurne niebo"
+                    },
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+            if (st.loading) {
+                CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+            } else {
+                IconButton(onClick = onRefresh) { Icon(Icons.Outlined.Refresh, contentDescription = "Odśwież pogodę") }
+            }
+        }
+        st.updatedAt?.let {
+            Text(
+                "Prognoza z ${Format.time(it, java.time.ZoneId.systemDefault())}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        st.error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
+        Text(
+            OpenMeteo.ATTRIBUTION,
+            style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }

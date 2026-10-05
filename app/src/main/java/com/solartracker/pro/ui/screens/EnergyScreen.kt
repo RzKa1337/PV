@@ -108,9 +108,9 @@ fun EnergyScreen(
         CostsCard(costs)
 
         Text(
-            "Symulacja co 15 minut z prognozą PV dla bezchmurnego nieba (SZACUNEK). " +
+            "Symulacja co 15 minut (SZACUNEK). Źródło PV: ${state.sourceDescription}. " +
                 "Każdy dzień zaczyna się z SOC, z jakim zakończył się poprzedni. " +
-                "Rzeczywista produkcja zwykle jest niższa, więc pobór z sieci/agregatu może być większy.",
+                "Dla dni bez prognozy użyto średnich klimatycznych – to wartości typowe, nie konkretna pogoda.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -388,8 +388,8 @@ private fun CostsCard(costs: CostState?) {
             Text("Włącz magazyn energii, aby zobaczyć oszczędności.", style = MaterialTheme.typography.bodySmall)
         }
         Text(
-            "Koszt = energia z sieci/agregatu × cena − nadwyżka × cena sprzedaży. Model bezchmurnego nieba " +
-                "zawyża produkcję, więc rzeczywiste oszczędności mogą się różnić.",
+            "Koszt = energia z sieci/agregatu × cena − nadwyżka × cena sprzedaży. Prognoza roczna " +
+                "opiera się na prognozie pogody i średnich klimatycznych – rzeczywiste oszczędności mogą się różnić.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

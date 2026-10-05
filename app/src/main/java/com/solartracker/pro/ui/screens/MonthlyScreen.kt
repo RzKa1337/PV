@@ -115,8 +115,8 @@ fun MonthlyScreen(state: MonthlyState?, modifier: Modifier = Modifier) {
             }
 
             Text(
-                "Szacunek dla bezchmurnego nieba – górna granica produkcji. " +
-                    "W polskim klimacie rzeczywista produkcja, zwłaszcza zimą, jest wyraźnie niższa.",
+                "Szacunek. Źródło: ${state.sourceDescription}. Średnie klimatyczne opisują typowy rok – " +
+                    "konkretny miesiąc może być wyraźnie lepszy lub gorszy.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

@@ -5,6 +5,15 @@ Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie 
 
 ## [Unreleased]
 
+### Added
+- Weather: hourly Open-Meteo forecast (16 days: direct/diffuse irradiance, temperature, cloud cover) and monthly climate from the Open-Meteo archive (last 3 years), cached for offline use; built-in approximate climate for Poland as offline fallback
+- `WeatherAwareIrradianceModel` used by the shared PV estimator: forecast → climate (two-state clear/overcast sky) → clear sky
+- Panel temperature losses from air temperature (NOCT model, −0.4%/°C)
+- Weather card on the dashboard, "Pogoda" settings section (on/off, refresh, status), data source shown under every estimate
+
+### Changed
+- All estimates (dashboard, angles, monthly, energy balance, battery, costs) now follow the weather data when enabled
+
 ## [v0.2.0] - 2026-10-04
 
 ### Added

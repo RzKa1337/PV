@@ -59,9 +59,29 @@ Zaimplementowane, kompiluje się i przechodzi lint w CI — **czeka na ręczny t
 - [ ] Zakładka „Energia”: bilans, porównanie, wykres przepływów, wykres SOC, statystyki, autonomia, koszty
 - [ ] Karta „🔋 Magazyn energii” na pulpicie
 
+## v0.3.0 — Pogoda
+
+### Obliczenia (`:core`)
+- [x] Parser Open-Meteo: prognoza godzinowa (GHI, DNI, DHI, temperatura, zachmurzenie) i archiwum klimatyczne
+- [x] `WeatherAwareIrradianceModel`: prognoza → średnie klimatyczne (model dwustanowy: dni bezchmurne + pochmurne) → bezchmurne niebo
+- [x] Temperatura paneli (NOCT, −0,4%/°C) w `PvEstimator`
+- [x] Wszystkie prognozy (pulpit, kąty, miesiące, bilans, magazyn, koszty) korzystają z tego samego modelu
+- [x] Wbudowane przybliżone średnie dla Polski do pracy offline
+
+### Dane i ViewModel (`:app`)
+- [x] Pobieranie i cache (prognoza 1 h, klimat 180 dni), praca offline — logika ViewModelu w testach
+- [x] Przełącznik „Uwzględniaj pogodę” — testy jednostkowe
+
+### Interfejs (`:app`)
+Zaimplementowane, kompiluje się i przechodzi lint w CI — **czeka na ręczny test na telefonie**.
+- [ ] Karta pogody na pulpicie, sekcja „Pogoda” w ustawieniach, źródło danych pod wynikami
+- [ ] Pobieranie danych Open-Meteo na prawdziwym telefonie (sieć niedostępna w środowisku budowania)
+
 ## Później (pomysły)
+- [ ] Śnieg na panelach (np. z `snow_depth` w prognozie)
+- [ ] Wpływ temperatury na pojemność i moc ładowania baterii
+- [ ] Zacienienie (horyzont, drzewa, budynki)
 - [ ] Tryb pojazdu/kampera (gotowe ustawienia PV + bateria + zużycie)
-- [ ] Prognoza pogody / zachmurzenie zamiast modelu bezchmurnego nieba
 - [ ] Współczynnik korekty na podstawie rzeczywistych odczytów z falownika
 - [ ] Wpisywanie rzeczywistej produkcji i porównanie z szacunkiem
 - [ ] Widget na ekran główny

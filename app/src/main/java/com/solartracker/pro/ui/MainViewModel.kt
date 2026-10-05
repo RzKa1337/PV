@@ -20,6 +20,10 @@ import com.solartracker.pro.core.solar.GeoLocation
 import com.solartracker.pro.core.solar.SolarCalculator
 import com.solartracker.pro.core.solar.SolarPosition
 import com.solartracker.pro.core.solar.SunTimes
+import com.solartracker.pro.core.weather.MonthlyClimate
+import com.solartracker.pro.core.weather.WeatherAwareIrradianceModel
+import com.solartracker.pro.core.weather.WeatherForecast
+import com.solartracker.pro.core.weather.WeatherSource
 import com.solartracker.pro.data.AppSettings
 import com.solartracker.pro.data.ConsumptionSettings
 import com.solartracker.pro.data.LocationProvider
@@ -27,6 +31,8 @@ import com.solartracker.pro.data.LocationRepository
 import com.solartracker.pro.data.LocationSource
 import com.solartracker.pro.data.SettingsRepository
 import com.solartracker.pro.data.ThemeMode
+import com.solartracker.pro.data.WeatherProvider
+import com.solartracker.pro.data.WeatherRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -34,6 +40,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flow
@@ -58,7 +65,36 @@ data class DashboardState(
     val profile: List<PowerPoint>,
     /** Simulated battery state now, null without a battery. */
     val battery: BatteryNow? = null,
+    val weather: WeatherNow? = null,
 )
+
+/** Weather data state: what was loaded and whether a refresh is running. */
+data class WeatherState(
+    val enabled: Boolean = false,
+    val loading: Boolean = false,
+    val forecast: WeatherForecast? = null,
+    val climate: MonthlyClimate? = null,
+    val error: String? = null,
+    val updatedAt: Instant? = null,
+)
+
+/** Weather shown on the dashboard for the current moment. */
+data class WeatherNow(
+    val state: WeatherState,
+    /** Source used for the current hour. */
+    val source: WeatherSource,
+    val cloudCoverPercent: Double?,
+    val temperatureC: Double?,
+)
+
+/** Short Polish description of the data behind the estimates. */
+fun describeSources(state: WeatherState): String = when {
+    !state.enabled -> "model bezchmurnego nieba (pogoda wyłączona)"
+    state.forecast != null && state.climate != null -> "prognoza pogody na najbliższe dni + średnie klimatyczne"
+    state.forecast != null -> "prognoza pogody (dalej: bezchmurne niebo)"
+    state.climate != null -> "średnie klimatyczne (brak prognozy)"
+    else -> "model bezchmurnego nieba (brak danych pogodowych)"
+}
 
 /** Battery state at the current moment, from today's energy-flow simulation. */
 data class BatteryNow(
@@ -91,6 +127,7 @@ data class EnergyState(
     val result: SimulationResult,
     /** Same period without a battery; null when no battery is configured. */
     val withoutBattery: SimulationResult?,
+    val sourceDescription: String = "",
 )
 
 /** Yearly cost comparison (365 days from today). */
@@ -104,6 +141,7 @@ data class TiltComparisonState(
     val date: LocalDate,
     val system: PvSystem,
     val estimates: List<TiltEstimate>,
+    val sourceDescription: String = "",
 ) {
     val best: TiltEstimate? get() = estimates.maxByOrNull { it.energyKwh }
 }
@@ -112,6 +150,7 @@ data class MonthlyState(
     val year: Int,
     val system: PvSystem,
     val estimates: List<MonthlyEstimate>,
+    val sourceDescription: String = "",
 )
 
 sealed interface GpsStatus {
@@ -124,8 +163,7 @@ sealed interface GpsStatus {
 class MainViewModel(
     private val settingsRepository: SettingsRepository,
     private val locationRepository: LocationProvider,
-    private val estimator: PvEstimator = PvEstimator(),
-    private val simulator: EnergyFlowSimulator = EnergyFlowSimulator(estimator),
+    private val weatherProvider: WeatherProvider? = null,
     private val zoneProvider: () -> ZoneId = { ZoneId.systemDefault() },
     private val clock: () -> Instant = { Instant.now() },
 ) : ViewModel() {
@@ -147,28 +185,95 @@ class MainViewModel(
 
     private val validSettings: Flow<AppSettings> = settingsRepository.settings.distinctUntilChanged()
 
-    val dashboard: StateFlow<DashboardState?> = combine(validSettings, ticker) { s, now -> buildDashboard(s, now) }
+    private val _weather = MutableStateFlow(WeatherState())
+    val weather: StateFlow<WeatherState> = _weather.asStateFlow()
+
+    /** Shared PV estimator + energy simulator; rebuilt when the weather data changes. */
+    private class Engine(val estimator: PvEstimator, val model: WeatherAwareIrradianceModel?, val weather: WeatherState) {
+        val simulator = EnergyFlowSimulator(estimator)
+    }
+
+    private val engine: Flow<Engine> = combine(
+        validSettings.map { it.location }.distinctUntilChanged(),
+        _weather,
+    ) { location, w ->
+        if (!w.enabled) {
+            Engine(PvEstimator(), null, w)
+        } else {
+            val model = WeatherAwareIrradianceModel(location, w.forecast, w.climate)
+            model.monthlyClearnessFactor // precompute off the main thread
+            Engine(PvEstimator(model), model, w)
+        }
+    }.flowOn(Dispatchers.Default)
+
+    /** Settings and engine together, so every estimate follows the same weather. */
+    private val inputs: Flow<Pair<AppSettings, Engine>> = combine(validSettings, engine) { s, e -> s to e }
+
+    init {
+        viewModelScope.launch {
+            validSettings.map { it.location to it.weatherEnabled }.distinctUntilChanged().collectLatest { (location, enabled) ->
+                if (!enabled || weatherProvider == null) {
+                    _weather.value = WeatherState(enabled = false)
+                    return@collectLatest
+                }
+                _weather.value = WeatherState(enabled = true, loading = true)
+                while (true) {
+                    loadWeather(location, force = false)
+                    delay(WEATHER_REFRESH_MS)
+                }
+            }
+        }
+    }
+
+    private suspend fun loadWeather(location: GeoLocation, force: Boolean) {
+        val provider = weatherProvider ?: return
+        _weather.value = _weather.value.copy(enabled = true, loading = true)
+        val result = provider.load(location, force)
+        _weather.value = WeatherState(
+            enabled = true,
+            loading = false,
+            forecast = result.forecast,
+            climate = result.climate,
+            error = result.error,
+            updatedAt = result.forecast?.fetchedAt ?: _weather.value.updatedAt,
+        )
+    }
+
+    /** Forces a fresh download of the forecast. */
+    fun refreshWeather() {
+        val s = settings.value ?: return
+        if (!s.weatherEnabled || _weather.value.loading) return
+        viewModelScope.launch { loadWeather(s.location, force = true) }
+    }
+
+    fun setWeatherEnabled(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setWeatherEnabled(enabled) }
+    }
+
+    val dashboard: StateFlow<DashboardState?> = combine(inputs, ticker) { (s, e), now -> buildDashboard(s, e, now) }
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), null)
 
-    val tiltComparison: StateFlow<TiltComparisonState?> = combine(validSettings, today) { s, date ->
+    val tiltComparison: StateFlow<TiltComparisonState?> = combine(inputs, today) { (s, e), date ->
         TiltComparisonState(
             date = date,
             system = s.system,
-            estimates = estimator.compareTilts(s.system, s.location, date, zoneProvider()),
+            estimates = e.estimator.compareTilts(s.system, s.location, date, zoneProvider()),
+            sourceDescription = describeSources(e.weather),
         )
     }
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), null)
 
     val monthly: StateFlow<MonthlyState?> = combine(
-        validSettings,
+        inputs,
         today.map { it.year }.distinctUntilChanged(),
-    ) { s, year ->
+    ) { (s, e), year ->
         MonthlyState(
             year = year,
             system = s.system,
-            estimates = estimator.monthlyEnergy(s.system, s.location, year, zoneProvider()),
+            estimates = e.estimator.monthlyEnergy(s.system, s.location, year, zoneProvider()),
+            sourceDescription = describeSources(e.weather),
         )
     }
         .flowOn(Dispatchers.Default)
@@ -177,31 +282,35 @@ class MainViewModel(
     private val _energyPeriod = MutableStateFlow(EnergyPeriod.TODAY)
     val energyPeriod: StateFlow<EnergyPeriod> = _energyPeriod.asStateFlow()
 
-    val energy: StateFlow<EnergyState?> = combine(validSettings, today, _energyPeriod) { s, date, period ->
-        buildEnergy(s, date, period)
+    val energy: StateFlow<EnergyState?> = combine(inputs, today, _energyPeriod) { (s, e), date, period ->
+        buildEnergy(s, e, date, period)
     }
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), null)
 
     /** Yearly costs; null when no backup energy price is set. */
     val costs: StateFlow<CostState?> = combine(
-        validSettings.map { CostInputs(it) }.distinctUntilChanged(),
+        inputs.map { (s, e) -> CostInputs(s, e) }.distinctUntilChanged(),
         today,
-    ) { inputs, date -> buildCosts(inputs.settings, date) }
+    ) { c, date -> buildCosts(c.settings, c.engine, date) }
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), null)
 
     /** Settings that influence costs; theme or GPS status changes do not trigger a yearly re-run. */
-    private data class CostInputs(val settings: AppSettings) {
-        override fun equals(other: Any?) = other is CostInputs && key(settings) == key(other.settings)
-        override fun hashCode() = key(settings).hashCode()
-        private fun key(s: AppSettings) = listOf(s.system, s.location, s.activeBattery, s.consumption, s.prices)
+    private class CostInputs(val settings: AppSettings, val engine: Engine) {
+        override fun equals(other: Any?) = other is CostInputs && key() == other.key()
+        override fun hashCode() = key().hashCode()
+        private fun key() = listOf(
+            settings.system, settings.location, settings.activeBattery, settings.consumption, settings.prices,
+            engine.weather.enabled, engine.weather.forecast?.fetchedAt, engine.weather.climate,
+        )
     }
 
     private val _gpsStatus = MutableStateFlow<GpsStatus>(GpsStatus.Idle)
     val gpsStatus: StateFlow<GpsStatus> = _gpsStatus.asStateFlow()
 
-    private fun buildDashboard(s: AppSettings, now: Instant): DashboardState {
+    private fun buildDashboard(s: AppSettings, e: Engine, now: Instant): DashboardState {
+        val estimator = e.estimator
         val zone = zoneProvider()
         val date = now.atZone(zone).toLocalDate()
         val dayStart = date.atStartOfDay(zone).toInstant()
@@ -215,12 +324,23 @@ class MainViewModel(
             energySoFarKwh = estimator.energyKwh(s.system, s.location, dayStart, now),
             energyTodayKwh = estimator.dailyEnergyKwh(s.system, s.location, date, zone),
             profile = estimator.dailyProfile(s.system, s.location, date, zone, stepMinutes = 10),
-            battery = s.activeBattery?.let { batteryNow(s, it, date, zone, now) },
+            battery = s.activeBattery?.let { batteryNow(s, e, it, date, zone, now) },
+            weather = if (e.weather.enabled) {
+                val hour = e.weather.forecast?.at(now)
+                WeatherNow(
+                    state = e.weather,
+                    source = e.model?.sourceAt(now) ?: WeatherSource.CLEAR_SKY,
+                    cloudCoverPercent = hour?.cloudCoverPercent,
+                    temperatureC = hour?.temperatureC,
+                )
+            } else {
+                null
+            },
         )
     }
 
-    private fun batteryNow(s: AppSettings, battery: BatteryStorage, date: LocalDate, zone: ZoneId, now: Instant): BatteryNow {
-        val result = simulator.simulate(s.system, s.location, date, 1, zone, s.consumption.profile(), battery)
+    private fun batteryNow(s: AppSettings, e: Engine, battery: BatteryStorage, date: LocalDate, zone: ZoneId, now: Instant): BatteryNow {
+        val result = e.simulator.simulate(s.system, s.location, date, 1, zone, s.consumption.profile(), battery)
         val current = result.steps.lastOrNull { !it.start.isAfter(now) } ?: result.steps.first()
         return BatteryNow(
             socPercent = current.socPercent,
@@ -231,8 +351,9 @@ class MainViewModel(
         )
     }
 
-    private fun buildEnergy(s: AppSettings, today: LocalDate, period: EnergyPeriod): EnergyState {
+    private fun buildEnergy(s: AppSettings, e: Engine, today: LocalDate, period: EnergyPeriod): EnergyState {
         val zone = zoneProvider()
+        val simulator = e.simulator
         val series = simulator.pvSeries(s.system, s.location, today, period.simulatedDays, zone)
         val profile = s.consumption.profile()
         val battery = s.activeBattery
@@ -240,11 +361,12 @@ class MainViewModel(
         val to = today.plusDays(period.simulatedDays - 1L)
         val result = simulator.run(series, profile, battery).slice(from, to)
         val without = if (battery != null) simulator.run(series, profile, null).slice(from, to) else null
-        return EnergyState(period, from, to, zone, s, result, without)
+        return EnergyState(period, from, to, zone, s, result, without, describeSources(e.weather))
     }
 
-    private fun buildCosts(s: AppSettings, today: LocalDate): CostState? {
+    private fun buildCosts(s: AppSettings, e: Engine, today: LocalDate): CostState? {
         if (s.prices.backupPricePerKwh == null) return null
+        val simulator = e.simulator
         val series = simulator.pvSeries(s.system, s.location, today, EnergyPeriod.YEAR.simulatedDays, zoneProvider())
         val profile = s.consumption.profile()
         val without = simulator.run(series, profile, null)
@@ -319,13 +441,14 @@ class MainViewModel(
 
     companion object {
         const val REFRESH_INTERVAL_MS = 30_000L
+        const val WEATHER_REFRESH_MS = 60 * 60_000L
         private const val STOP_TIMEOUT_MS = 5_000L
         const val GPS_LOCATION_NAME = "GPS"
 
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 val app = this[APPLICATION_KEY]!!
-                MainViewModel(SettingsRepository(app), LocationRepository(app))
+                MainViewModel(SettingsRepository(app), LocationRepository(app), WeatherRepository(app))
             }
         }
     }

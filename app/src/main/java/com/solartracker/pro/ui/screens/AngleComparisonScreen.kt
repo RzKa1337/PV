@@ -80,7 +80,7 @@ fun AngleComparisonScreen(state: TiltComparisonState?, modifier: Modifier = Modi
         }
         item {
             Text(
-                "Obliczone z modelu bezchmurnego nieba dla bieżącej lokalizacji i azymutu paneli.",
+                "Obliczone dla bieżącej lokalizacji i azymutu paneli. Źródło: ${state.sourceDescription}.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

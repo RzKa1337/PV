@@ -3,6 +3,12 @@ package com.solartracker.pro.ui
 import com.solartracker.pro.core.energy.BatteryStorage
 import com.solartracker.pro.core.energy.EnergyPrices
 import com.solartracker.pro.core.solar.GeoLocation
+import com.solartracker.pro.core.weather.HourlyWeather
+import com.solartracker.pro.core.weather.MonthlyClimate
+import com.solartracker.pro.core.weather.WeatherForecast
+import com.solartracker.pro.core.weather.WeatherSource
+import com.solartracker.pro.data.WeatherProvider
+import com.solartracker.pro.data.WeatherResult
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import com.solartracker.pro.data.FakeDataStore
@@ -181,5 +187,83 @@ class MainViewModelTest {
         val costs = withTimeout(30_000) { vm.costs.filterNotNull().first { it.hasBattery } }
         assertTrue(costs.comparison.yearlySavings > 0.0)
         assertNotNull(costs.comparison.paybackYears)
+    }
+
+    // --- Weather ---
+
+    private class FakeWeather(var result: WeatherResult) : WeatherProvider {
+        var calls = 0
+        override suspend fun load(location: GeoLocation, forceRefresh: Boolean): WeatherResult {
+            calls++
+            return result
+        }
+    }
+
+    /** Fully overcast and dark forecast around [noon]: no PV at all. */
+    private fun darkForecast(): WeatherForecast {
+        val start = noon.minusSeconds(2 * 86_400L)
+        val hours = (1..24 * 4).map {
+            HourlyWeather(start.plusSeconds(3600L * it), 0.0, 0.0, 0.0, 12.0, 100.0)
+        }
+        return WeatherForecast(hours, noon)
+    }
+
+    private fun viewModel(weather: WeatherProvider) = MainViewModel(
+        settingsRepository = repository,
+        locationRepository = location,
+        weatherProvider = weather,
+        zoneProvider = { zone },
+        clock = { noon },
+    )
+
+    @Test
+    fun forecastDrivesAllEstimates() = runBlocking {
+        val weather = FakeWeather(WeatherResult(darkForecast(), null))
+        val vm = viewModel(weather)
+        val dash = withTimeout(10_000) {
+            vm.dashboard.filterNotNull().first { it.weather?.state?.forecast != null }
+        }
+        assertEquals(0.0, dash.currentPowerKw, 0.0)
+        assertEquals(0.0, dash.energyTodayKwh, 1e-9)
+        assertEquals(WeatherSource.FORECAST, dash.weather!!.source)
+        assertEquals(100.0, dash.weather!!.cloudCoverPercent!!, 0.0)
+        val energy = withTimeout(10_000) { vm.energy.filterNotNull().first { it.sourceDescription.contains("prognoza") } }
+        assertEquals(0.0, energy.result.balance.pvKwh, 1e-9)
+        assertTrue(weather.calls >= 1)
+    }
+
+    @Test
+    fun weatherDisabled_usesClearSky() = runBlocking {
+        repository.setWeatherEnabled(false)
+        val weather = FakeWeather(WeatherResult(darkForecast(), null))
+        val vm = viewModel(weather)
+        val dash = withTimeout(10_000) { vm.dashboard.filterNotNull().first() }
+        assertNull(dash.weather)
+        assertTrue(dash.energyTodayKwh > 5.0)
+        assertEquals(0, weather.calls)
+    }
+
+    @Test
+    fun climateLowersMonthlyEstimatesComparedToClearSky() = runBlocking {
+        val clearVm = viewModel()
+        val clear = withTimeout(20_000) { clearVm.monthly.filterNotNull().first() }
+        val climateVm = viewModel(FakeWeather(WeatherResult(null, MonthlyClimate.DEFAULT_POLAND)))
+        val climate = withTimeout(20_000) {
+            climateVm.monthly.filterNotNull().first { it.sourceDescription.contains("klimatyczne") }
+        }
+        assertTrue(climate.estimates[0].yearlyKwh < clear.estimates[0].yearlyKwh * 0.85)
+    }
+
+    @Test
+    fun refreshWeather_forcesReload() = runBlocking {
+        val weather = FakeWeather(WeatherResult(null, MonthlyClimate.DEFAULT_POLAND, error = "brak internetu"))
+        val vm = viewModel(weather)
+        withTimeout(10_000) { vm.weather.first { it.climate != null && !it.loading } }
+        assertEquals("brak internetu", vm.weather.value.error)
+        withTimeout(10_000) { vm.settings.filterNotNull().first() }
+        val before = weather.calls
+        vm.refreshWeather()
+        withTimeout(10_000) { while (weather.calls == before) kotlinx.coroutines.delay(10) }
+        assertTrue(weather.calls > before)
     }
 }
