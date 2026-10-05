@@ -114,6 +114,25 @@ class LiveSolarTest {
     }
 
     @Test
+    fun ticker_backfillsSecondsMissedBecauseOfAShortStall() = runTest {
+        var stall = 0L
+        val start = at(10, 0, 0).plusMillis(3)
+        val ticker = SecondTicker({ start.plusMillis(testScheduler.currentTime + stall) })
+        val ticks = mutableListOf<Instant>()
+        val job = launch { ticker.ticks().collect { ticks += it } }
+        runCurrent()
+        advanceTimeBy(1_500)
+        stall = 2_600 // the process was frozen for 2.6 s
+        advanceTimeBy(1_000)
+        job.cancel()
+        val seconds = ticks.map { it.epochSecond - start.epochSecond }
+        assertEquals((0L..seconds.last()).toList(), seconds)
+        assertTrue(seconds.last() >= 4)
+        // Back-filled ticks carry the exact instant of their own second (no fractional part).
+        assertTrue("some seconds were back-filled", ticks.any { it.nano == 0 })
+    }
+
+    @Test
     fun ticker_stopsWhenCollectorIsCancelled() = runTest {
         var reads = 0
         val ticker = SecondTicker({ reads++; Instant.EPOCH.plusMillis(testScheduler.currentTime) })

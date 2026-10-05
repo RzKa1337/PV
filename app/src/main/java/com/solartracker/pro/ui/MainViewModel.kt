@@ -46,6 +46,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.onCompletion
@@ -278,7 +279,15 @@ class MainViewModel(
             if (paused) {
                 emptyFlow()
             } else {
-                combine(liveTicker(clock), inputs) { now, (s, e) -> buildLive(now, s, e) }
+                // One computation per tick, in order (no conflation of ticks); the latest settings and
+                // weather engine are read from a state that follows `inputs`.
+                channelFlow {
+                    val latest = inputs.stateIn(this)
+                    liveTicker(clock).collect { now ->
+                        val (s, e) = latest.value
+                        send(buildLive(now, s, e))
+                    }
+                }
                     .onStart { _liveActive.value = true }
                     .onCompletion { _liveActive.value = false }
             }

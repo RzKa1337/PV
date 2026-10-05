@@ -112,6 +112,7 @@ class LiveSolarInstrumentedTest {
             csv.println("deviceTime,displayedClock,azimuth,elevation,power,soc")
             screenshot("01-live-start")
             val end = SystemClock.elapsedRealtime() + seconds * 1000
+            device.setCompressedLayoutHeirarchy(true)
             while (SystemClock.elapsedRealtime() < end) {
                 val clockText = text(LiveTags.CLOCK)
                 if (clockText != null && clockText.length == 8 && samples.lastOrNull()?.clockText != clockText) {
@@ -135,7 +136,7 @@ class LiveSolarInstrumentedTest {
                     }
                 }
                 if (samples.size == 90) screenshot("02-live-middle")
-                Thread.sleep(100)
+                Thread.sleep(200)
             }
             csv.close()
             stateScope.cancel() // stop our extra subscriber before the background check
@@ -143,7 +144,9 @@ class LiveSolarInstrumentedTest {
             File(outDir, "live-states.csv").printWriter().use { out ->
                 out.println("epochMillis,clock,azimuth,elevation,poa,pvKw,socPercent,batteryKw")
                 stateList.forEach {
-                    out.println("${it.epochMillis},${it.clockText},${it.sun.azimuthDeg},${it.sun.elevationDeg},${it.pv.poa},${it.pv.modeledPowerKw},${it.energy.socPercent},${it.energy.batteryKw}")
+                    val line = "${it.epochMillis},${it.clockText},${it.sun.azimuthDeg},${it.sun.elevationDeg},${it.pv.poa},${it.pv.modeledPowerKw},${it.energy.socPercent},${it.energy.batteryKw}"
+                    out.println(line)
+                    Log.i(logTag, "STATE $line")
                 }
             }
             screenshot("03-live-end")

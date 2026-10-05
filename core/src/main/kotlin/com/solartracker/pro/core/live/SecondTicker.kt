@@ -16,7 +16,11 @@ import java.time.Instant
  * - The wait is recomputed every tick as "time left until the next wall-clock second boundary
  *   + [guardMillis]", so errors never accumulate (no drift as with a fixed `delay(1000)`).
  * - A tick is emitted only when the wall-clock second changes, so an early wake-up never emits
- *   the same second twice, and a late one still emits the current second.
+ *   the same second twice.
+ * - If a wake-up is late by a few seconds (e.g. the CPU was busy), the missed seconds are emitted
+ *   immediately, in order, each with the exact instant of its second boundary, so no second is
+ *   lost. Bigger jumps (device sleep, the user changing the clock, going backwards) are not
+ *   back-filled: the ticker continues from the current time.
  *
  * The flow is cold: it runs only while collected and stops as soon as the collector is cancelled.
  */
@@ -32,8 +36,13 @@ class SecondTicker(
         var lastSecond = Long.MIN_VALUE
         while (true) {
             val now = wallClock()
-            if (now.epochSecond != lastSecond) {
-                lastSecond = now.epochSecond
+            val second = now.epochSecond
+            if (second != lastSecond) {
+                val missed = second - lastSecond - 1
+                if (lastSecond != Long.MIN_VALUE && missed in 1..MAX_BACKFILL_SECONDS) {
+                    for (s in lastSecond + 1 until second) emit(Instant.ofEpochSecond(s))
+                }
+                lastSecond = second
                 emit(now)
             }
             delay(millisToNextSecond(wallClock()) + guardMillis)
@@ -43,6 +52,9 @@ class SecondTicker(
     companion object {
         /** Small margin after the boundary, so the wake-up is safely inside the new second. */
         const val DEFAULT_GUARD_MILLIS = 5L
+
+        /** Longest delay whose missed seconds are back-filled. */
+        const val MAX_BACKFILL_SECONDS = 5L
 
         /** Milliseconds from [instant] to the next full wall-clock second (1..1000). */
         fun millisToNextSecond(instant: Instant): Long = 1000L - instant.nano / 1_000_000
