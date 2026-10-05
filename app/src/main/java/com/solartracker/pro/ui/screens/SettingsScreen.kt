@@ -12,6 +12,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.ImeAction
+import com.solartracker.pro.core.shading.GeocodeResult
+import com.solartracker.pro.energy.ShadingRepository
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.MyLocation
@@ -220,7 +228,11 @@ private fun LocationSection(settings: AppSettings, gpsStatus: GpsStatus, actions
             else -> Unit
         }
 
-        Text("Lub wpisz ręcznie:", style = MaterialTheme.typography.bodyMedium)
+        CitySearch(onPick = { r ->
+            actions.setManualLocation(r.point.lat, r.point.lon, r.name.substringBefore(',').take(60), r.elevationM ?: 0.0)
+        })
+
+        Text("Lub wpisz współrzędne ręcznie:", style = MaterialTheme.typography.bodyMedium)
         OutlinedTextField(
             value = name,
             onValueChange = { name = it.take(60) },
@@ -329,4 +341,65 @@ private fun WeatherSection(enabled: Boolean, weather: WeatherState, actions: Set
             )
         }
     }
+}
+
+/** Search a city, address or postcode (OpenStreetMap / Open-Meteo) and use its coordinates. */
+@Composable
+private fun CitySearch(onPick: (GeocodeResult) -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val repo = remember { ShadingRepository(context) }
+    var query by rememberSaveable { mutableStateOf("") }
+    var results by remember { mutableStateOf(emptyList<GeocodeResult>()) }
+    var searching by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var picked by remember { mutableStateOf<String?>(null) }
+    fun search() {
+        if (query.trim().length < 2 || searching) return
+        searching = true
+        error = null
+        picked = null
+        scope.launch {
+            results = runCatching { repo.search(query) }.getOrElse {
+                error = "Nie udało się wyszukać (${it.message ?: "brak internetu"})"
+                emptyList()
+            }
+            if (results.isEmpty() && error == null) error = "Nie znaleziono: ${query.trim()}"
+            searching = false
+        }
+    }
+    Text("Wpisz miasto, adres lub kod pocztowy:", style = MaterialTheme.typography.bodyMedium)
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        OutlinedTextField(
+            value = query,
+            onValueChange = { query = it.take(100) },
+            label = { Text("np. Kraków") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { search() }),
+            modifier = Modifier.weight(1f),
+        )
+        Spacer(Modifier.size(8.dp))
+        FilledTonalButton(onClick = { search() }, enabled = !searching && query.trim().length >= 2) {
+            Text(if (searching) "…" else "Szukaj")
+        }
+    }
+    error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+    results.forEach { r ->
+        TextButton(onClick = {
+            onPick(r)
+            picked = r.name
+            results = emptyList()
+        }) {
+            Column(Modifier.fillMaxWidth()) {
+                Text(r.name, style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    "${Format.coordinates(r.point.lat, r.point.lon)}" + (r.elevationM?.let { " · ${it.toInt()} m n.p.m." } ?: "") + " · ${r.accuracy.label}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+    picked?.let { Text("Zapisano: $it", style = MaterialTheme.typography.bodySmall) }
 }

@@ -5,6 +5,9 @@ Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie 
 
 ## [Unreleased]
 
+### Added
+- Settings → Lokalizacja: search a city, address or postcode and pick the result (coordinates and elevation filled in automatically)
+
 ## [v0.6.0] - 2026-10-05
 
 ### Added
