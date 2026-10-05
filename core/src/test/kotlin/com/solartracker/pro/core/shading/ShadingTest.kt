@@ -262,3 +262,20 @@ class ShadingTest {
         assertEquals(0, ZoneOffset.UTC.totalSeconds)
     }
 }
+
+class ShadowFootprintTest {
+    @Test
+    fun shadowPointsAwayFromSunWithCorrectLength() {
+        val frame = LocalFrame(LatLon(52.0, 21.0))
+        val pole = Obstacle("p", ObstacleType.POLE, ObstacleShape.Point(frame.toLatLon(Local(0.0, 10.0)), 0.2), HeightValue(10.0, HeightSource.USER_CONFIRMED), source = "t")
+        val g = ObstacleGeometryService(frame, 100.0, 1.0).geometry(pole)
+        val shadow = ShadowFootprint.of(g, sunAzimuthDeg = 180.0, sunElevationDeg = 45.0)!!
+        // Sun in the south at 45° → 10 m shadow towards north.
+        assertEquals(20.2, shadow.maxOf { it.north }, 0.05)
+        assertEquals(9.8, shadow.minOf { it.north }, 0.05)
+        assertNull(ShadowFootprint.of(g, 180.0, -1.0))
+        val unknown = ObstacleGeometryService(frame, 100.0, 1.0).geometry(pole.copy(height = HeightValue.UNKNOWN))
+        assertNull(ShadowFootprint.of(unknown, 180.0, 45.0))
+        assertEquals(ShadowFootprint.MAX_LENGTH_M, ShadowFootprint.of(g, 180.0, 0.6)!!.maxOf { it.north } - 10.2, 0.5)
+    }
+}

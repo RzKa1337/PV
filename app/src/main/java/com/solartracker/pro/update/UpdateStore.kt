@@ -13,6 +13,7 @@ import com.solartracker.pro.core.update.CheckInterval
 import com.solartracker.pro.core.update.UpdateChannel
 import com.solartracker.pro.core.update.UpdateConfig
 import com.solartracker.pro.core.update.UpdateState
+import com.solartracker.pro.energy.SecretStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
@@ -35,6 +36,12 @@ class UpdateStore(private val dataStore: DataStore<Preferences>) {
 
     suspend fun snapshot(): UpdateSnapshot = data.first()
 
+    /** Re-saves a token stored in plaintext by v0.5.0 in encrypted form. */
+    suspend fun migrateToken() {
+        val legacy = dataStore.data.first()[Keys.TOKEN] ?: return
+        if (legacy.isNotBlank()) setConfig(snapshot().config) else dataStore.edit { it.remove(Keys.TOKEN) }
+    }
+
     suspend fun setConfig(config: UpdateConfig) {
         dataStore.edit { p ->
             p[Keys.ENABLED] = config.enabled
@@ -45,7 +52,9 @@ class UpdateStore(private val dataStore: DataStore<Preferences>) {
             p[Keys.AUTO_DOWNLOAD] = config.autoDownload
             p[Keys.AUTO_INSTALL] = config.autoInstall
             p[Keys.WIFI_ONLY] = config.wifiOnly
-            if (config.token.isBlank()) p.remove(Keys.TOKEN) else p[Keys.TOKEN] = config.token.trim()
+            // The token is stored only encrypted (Android Keystore); a legacy plaintext entry is removed.
+            p.remove(Keys.TOKEN)
+            if (config.token.isBlank()) p.remove(Keys.TOKEN_ENC) else p[Keys.TOKEN_ENC] = SecretStore.encrypt(config.token.trim())
         }
     }
 
@@ -71,7 +80,7 @@ class UpdateStore(private val dataStore: DataStore<Preferences>) {
             autoDownload = this[Keys.AUTO_DOWNLOAD] ?: d.autoDownload,
             autoInstall = this[Keys.AUTO_INSTALL] ?: d.autoInstall,
             wifiOnly = this[Keys.WIFI_ONLY] ?: d.wifiOnly,
-            token = this[Keys.TOKEN].orEmpty(),
+            token = this[Keys.TOKEN_ENC]?.let(SecretStore::decrypt) ?: this[Keys.TOKEN].orEmpty(),
         )
         return if (stored.validate().isEmpty()) stored else d.copy(token = stored.token.filterNot { it.isWhitespace() })
     }
@@ -95,7 +104,9 @@ class UpdateStore(private val dataStore: DataStore<Preferences>) {
         val AUTO_DOWNLOAD = booleanPreferencesKey("auto_download")
         val AUTO_INSTALL = booleanPreferencesKey("auto_install")
         val WIFI_ONLY = booleanPreferencesKey("wifi_only")
+        /** Legacy plaintext token (v0.5.0), migrated to [TOKEN_ENC]. */
         val TOKEN = stringPreferencesKey("token")
+        val TOKEN_ENC = stringPreferencesKey("token_enc")
         val LAST_CHECK = longPreferencesKey("last_check")
         val SNOOZED_UNTIL = longPreferencesKey("snoozed_until")
         val SNOOZED_VERSION = stringPreferencesKey("snoozed_version")

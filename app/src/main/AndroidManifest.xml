@@ -7,6 +7,12 @@
     <!-- Self-update: install verified APKs from GitHub releases and notify about them. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Map tiles cache state (osmdroid) and local inverter bridges. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <uses-feature
+        android:name="android.hardware.usb.host"
+        android:required="false" />
 
     <uses-feature
         android:name="android.hardware.location.gps"

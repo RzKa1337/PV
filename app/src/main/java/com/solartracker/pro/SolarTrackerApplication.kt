@@ -45,6 +45,7 @@ class SolarTrackerApplication : Application() {
             override fun onActivityDestroyed(activity: Activity) = Unit
         })
 
+        appScope.launch { runCatching { updateManager.store.migrateToken() } }
         appScope.launch { UpdateWorker.schedule(this@SolarTrackerApplication, updateManager.store.snapshot().config) }
     }
 }

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.BatteryChargingFull
+import androidx.compose.material.icons.outlined.Hub
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.Tune
@@ -42,6 +43,7 @@ import com.solartracker.pro.ui.screens.MonthlyScreen
 import com.solartracker.pro.ui.screens.SettingsActions
 import com.solartracker.pro.ui.screens.SettingsScreen
 import com.solartracker.pro.ui.screens.UpdateSection
+import com.solartracker.pro.ui.energy.EnergyCenterScreen
 
 private enum class Tab(val label: String, val icon: ImageVector) {
     DASHBOARD("Pulpit", Icons.Outlined.WbSunny),
@@ -49,6 +51,7 @@ private enum class Tab(val label: String, val icon: ImageVector) {
     ANGLES("Kąty", Icons.Outlined.Tune),
     MONTHLY("Miesiące", Icons.Outlined.BarChart),
     ENERGY("Energia", Icons.Outlined.BatteryChargingFull),
+    CENTER("Centrum", Icons.Outlined.Hub),
     SETTINGS("Ustawienia", Icons.Outlined.Settings),
 }
 
@@ -136,6 +139,10 @@ fun SolarTrackerApp(viewModel: MainViewModel, openSettingsRequest: Int = 0) {
                 val costs by viewModel.costs.collectAsStateWithLifecycle()
                 val period by viewModel.energyPeriod.collectAsStateWithLifecycle()
                 EnergyScreen(state, costs, period, viewModel::setEnergyPeriod, contentModifier)
+            }
+            Tab.CENTER -> {
+                val weather by viewModel.weather.collectAsStateWithLifecycle()
+                EnergyCenterScreen(weather, contentModifier)
             }
             Tab.SETTINGS -> {
                 val settings by viewModel.settings.collectAsStateWithLifecycle()
