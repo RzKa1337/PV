@@ -41,6 +41,9 @@ class WeatherAwareIrradianceModel(
         }
     }
 
+    /** Forecast hour covering [instant] (wind, snow, humidity…), or null outside the forecast. */
+    fun hourAt(instant: Instant): HourlyWeather? = forecast?.at(instant)
+
     fun sourceAt(instant: Instant): WeatherSource = when {
         forecast?.at(instant)?.hasIrradiance == true -> WeatherSource.FORECAST
         climate != null -> WeatherSource.CLIMATE

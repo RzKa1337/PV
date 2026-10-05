@@ -16,6 +16,14 @@ data class HourlyWeather(
     val dhi: Double?,
     val temperatureC: Double?,
     val cloudCoverPercent: Double?,
+    /** Wind speed at 10 m [m/s]. */
+    val windSpeedMs: Double? = null,
+    val relativeHumidityPercent: Double? = null,
+    /** Precipitation in the hour [mm]. */
+    val precipitationMm: Double? = null,
+    /** Snow depth on the ground [m]. */
+    val snowDepthM: Double? = null,
+    val visibilityM: Double? = null,
 ) {
     val startTime: Instant get() = endTime.minus(Duration.ofHours(1))
     val hasIrradiance: Boolean get() = dni != null && dhi != null

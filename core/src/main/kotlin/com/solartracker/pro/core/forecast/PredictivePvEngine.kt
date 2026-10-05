@@ -6,6 +6,7 @@ import com.solartracker.pro.core.quality.DataKind
 import com.solartracker.pro.core.shading.ShadingAnalysisEngine
 import com.solartracker.pro.core.solar.GeoLocation
 import com.solartracker.pro.core.weather.WeatherAwareIrradianceModel
+import com.solartracker.pro.core.weather.WeatherEffects
 import com.solartracker.pro.core.weather.WeatherSource
 import java.time.Duration
 import java.time.Instant
@@ -51,7 +52,10 @@ class PredictivePvEngine(
      */
     fun at(time: Instant, now: Instant, nowcastRatio: Double? = null): PvForecastPoint {
         val estimate = estimator.pointEstimate(system, location, time)
-        val calibrated = estimate.powerKw * calibrationFactor
+        val hour = weather.hourAt(time)
+        val snow = WeatherEffects.snowCovered(hour, system.tiltDeg)
+        val wind = WeatherEffects.windFactor(estimate.poa, estimate.irradiance.ambientTemperatureC, hour?.windSpeedMs)
+        val calibrated = if (snow) 0.0 else estimate.powerKw * calibrationFactor * wind
         val shadeFactor = shading?.snapshot(system, time, estimate)?.powerFactor ?: 1.0
         val horizonMin = Duration.between(now, time).toMinutes().coerceAtLeast(0)
         val nowcastWeight = if (nowcastRatio == null) 0.0 else exp(-horizonMin / 60.0)
@@ -83,7 +87,9 @@ class PredictivePvEngine(
                 WeatherSource.FORECAST -> "prognoza pogody"
                 WeatherSource.CLIMATE -> "średnie klimatyczne (brak prognozy)"
                 WeatherSource.CLEAR_SKY -> "bezchmurne niebo (górna granica)"
-            } + (if (nowcastWeight > 0.05) " + bieżący pomiar" else ""),
+            } + (if (nowcastWeight > 0.05) " + bieżący pomiar" else "") +
+                (if (snow) " · śnieg na panelach (prognoza)" else "") +
+                (WeatherEffects.describe(hour)?.takeIf { !snow }?.let { " · $it" } ?: ""),
             clipped = raw > limit,
         )
     }

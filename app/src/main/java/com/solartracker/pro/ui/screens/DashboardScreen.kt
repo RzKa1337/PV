@@ -285,6 +285,18 @@ private fun WeatherCard(w: WeatherNow, onRefresh: () -> Unit) {
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                 )
+                w.hour?.takeIf { w.source == WeatherSource.FORECAST }?.let { h ->
+                    val details = listOfNotNull(
+                        h.windSpeedMs?.let { "wiatr ${Format.decimal(it, 1)} m/s" },
+                        h.relativeHumidityPercent?.let { "wilgotność ${Format.percent(it)}" },
+                        h.precipitationMm?.takeIf { it > 0 }?.let { "opady ${Format.decimal(it, 1)} mm" },
+                        h.snowDepthM?.takeIf { it > 0 }?.let { "śnieg ${Format.decimal(it * 100, 0)} cm" },
+                        h.visibilityM?.takeIf { it < 5000 }?.let { "widoczność ${Format.decimal(it / 1000, 1)} km" },
+                    )
+                    if (details.isNotEmpty()) Text(details.joinToString(" · "), style = MaterialTheme.typography.bodySmall)
+                }
+                if (w.snowOnPanels) Text("Prawdopodobnie śnieg na panelach – produkcja może być bliska zera (szacunek pulpitu tego nie uwzględnia).",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
             }
             if (st.loading) {
                 CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)

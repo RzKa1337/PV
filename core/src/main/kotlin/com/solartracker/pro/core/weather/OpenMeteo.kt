@@ -26,12 +26,13 @@ object OpenMeteo {
     const val ATTRIBUTION = "Dane pogodowe: Open-Meteo.com (CC BY 4.0)"
 
     private const val HOURLY_VARIABLES =
-        "temperature_2m,cloud_cover,shortwave_radiation,direct_normal_irradiance,diffuse_radiation"
+        "temperature_2m,cloud_cover,shortwave_radiation,direct_normal_irradiance,diffuse_radiation," +
+            "wind_speed_10m,relative_humidity_2m,precipitation,snow_depth,visibility"
 
     fun forecastUrl(location: GeoLocation, forecastDays: Int = 16, pastDays: Int = 2): String =
         "https://api.open-meteo.com/v1/forecast?latitude=${coord(location.latitude)}" +
             "&longitude=${coord(location.longitude)}&hourly=$HOURLY_VARIABLES" +
-            "&forecast_days=$forecastDays&past_days=$pastDays&timezone=GMT&timeformat=unixtime"
+            "&forecast_days=$forecastDays&past_days=$pastDays&wind_speed_unit=ms&timezone=GMT&timeformat=unixtime"
 
     /** Daily irradiation and temperature for whole calendar years [firstYear]..[lastYear]. */
     fun climateUrl(location: GeoLocation, firstYear: Int, lastYear: Int): String =
@@ -50,6 +51,11 @@ object OpenMeteo {
         val dhi = hourly.doubles("diffuse_radiation", time.size)
         val temp = hourly.doubles("temperature_2m", time.size)
         val cloud = hourly.doubles("cloud_cover", time.size)
+        val wind = hourly.doubles("wind_speed_10m", time.size)
+        val humidity = hourly.doubles("relative_humidity_2m", time.size)
+        val precipitation = hourly.doubles("precipitation", time.size)
+        val snow = hourly.doubles("snow_depth", time.size)
+        val visibility = hourly.doubles("visibility", time.size)
         val hours = time.mapIndexedNotNull { i, t ->
             t ?: return@mapIndexedNotNull null
             HourlyWeather(
@@ -59,6 +65,11 @@ object OpenMeteo {
                 dhi = dhi[i]?.coerceAtLeast(0.0),
                 temperatureC = temp[i],
                 cloudCoverPercent = cloud[i]?.coerceIn(0.0, 100.0),
+                windSpeedMs = wind[i]?.coerceAtLeast(0.0),
+                relativeHumidityPercent = humidity[i]?.coerceIn(0.0, 100.0),
+                precipitationMm = precipitation[i]?.coerceAtLeast(0.0),
+                snowDepthM = snow[i]?.coerceAtLeast(0.0),
+                visibilityM = visibility[i]?.coerceAtLeast(0.0),
             )
         }
         require(hours.isNotEmpty()) { "Empty forecast" }

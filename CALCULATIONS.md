@@ -15,6 +15,12 @@ Order: POA (+ bifacial rear: P·g·(GHI·albedo + 0.5·DHI)/1000) → temperatur
 - Trackers: 1-axis N–S rotation tan R = tan(zenith)·sin(az_sun − 180°) limited to ±max; 2-axis follows the sun.
 - Performance ratio = AC / (P_peak·POA/1000).
 
+## Weather effects in forecasts (`WeatherEffects`)
+- Variables from Open-Meteo: wind at 10 m (m/s), relative humidity, precipitation, snow depth, visibility. A missing variable means no correction.
+- Wind: power × (1 + γ·(T_w − 25)) / (1 + γ·(T_1 − 25)), where T_w = T_amb + POA/(25 + 6.84·wind) and T_1 is the same at 1 m/s (≈ NOCT conditions); limited to 0.9–1.1.
+- Snow: forecast power 0 when snow depth ≥ 2 cm, air ≤ +1 °C and tilt < 60°.
+- Precipitation, humidity and visibility are shown and explained (fog, rain) but do not change the power: their effect is already in the forecast irradiance.
+
 ## Forecast accuracy
 MAE = mean|f−a|, RMSE = √mean(f−a)², MAPE = mean|f−a|/a over a > threshold, bias = mean(f−a).
 
