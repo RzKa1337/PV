@@ -5,6 +5,20 @@ Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie 
 
 ## [Unreleased]
 
+## [v0.5.0] - 2026-10-05
+
+### Added
+- Automatic updates from GitHub releases (Settings → Aktualizacje): configurable repository, stable/beta channel, check interval (6 h – weekly or manual), auto-download, Wi-Fi only, optional auto-install (Android 12+), optional read-only token for private repositories (stored only on the phone, excluded from backups)
+- Downloads resume after interruptions (HTTP Range), show progress and retry with exponential back-off; can be cancelled, snoozed (24 h) or skipped
+- Verification before installation: SHA-256 from the release's `SHA256SUMS`, package name, newer versionCode, version matching the release and signing certificate identical to the installed app; unverified files are deleted
+- Installation through the system PackageInstaller (atomic), restart notification after the update
+- Settings backup before installing; restored automatically when the new version crash-loops or loses them; such versions are marked bad and not offered again
+- Persistent update log viewable in the app
+- CI: release APK signed with a key from GitHub Secrets (`docs/RELEASE_SIGNING.md`, one-time key generation workflow); releases publish `SolarTrackerPRO-<tag>-universal.apk`, `SHA256SUMS` and the certificate digest
+
+### Fixed
+- Live Solar emulator test no longer fails on a single late tick of a busy emulator (all seconds are still required)
+
 ## [v0.4.0] - 2026-10-05
 
 ### Added

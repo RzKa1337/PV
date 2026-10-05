@@ -72,6 +72,18 @@ Moduł `:core` zawiera:
 - Irradiancja na płaszczyźnie paneli: składowa bezpośrednia + izotropowe rozproszenie + odbicie od gruntu (albedo 0,2)
 - Moc: `kWp · POA / 1000 W/m² · PR`, PR = 0,80
 
+## Automatyczna aktualizacja
+
+Ustawienia → **Aktualizacje**: aplikacja sprawdza wydania GitHub (kanał stabilny/beta, wybrana częstotliwość),
+pobiera APK z wznowieniem i postępem, a przed instalacją weryfikuje sumę SHA-256 z pliku `SHA256SUMS` wydania,
+nazwę pakietu, wersję i **certyfikat podpisu zgodny z zainstalowaną aplikacją**. Niezweryfikowany plik jest usuwany.
+Przed instalacją robiona jest kopia ustawień; jeśli nowa wersja się zawiesza, ustawienia są przywracane, a wersja
+oznaczana jako wadliwa. Android nie pozwala aplikacji samodzielnie wrócić do starszej wersji – w takim przypadku
+powiadomienie prowadzi do listy wydań.
+
+Wymagania: stały klucz wydania w GitHub Secrets oraz (dla prywatnego repozytorium) token tylko do odczytu –
+zobacz [docs/RELEASE_SIGNING.md](docs/RELEASE_SIGNING.md).
+
 ## Budowanie
 
 Wymagania: JDK 17+, Android SDK (compileSdk 35).
