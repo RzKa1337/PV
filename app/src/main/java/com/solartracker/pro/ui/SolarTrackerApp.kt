@@ -17,6 +17,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -40,6 +41,7 @@ import com.solartracker.pro.ui.screens.LiveSolarScreen
 import com.solartracker.pro.ui.screens.MonthlyScreen
 import com.solartracker.pro.ui.screens.SettingsActions
 import com.solartracker.pro.ui.screens.SettingsScreen
+import com.solartracker.pro.ui.screens.UpdateSection
 
 private enum class Tab(val label: String, val icon: ImageVector) {
     DASHBOARD("Pulpit", Icons.Outlined.WbSunny),
@@ -52,8 +54,10 @@ private enum class Tab(val label: String, val icon: ImageVector) {
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-fun SolarTrackerApp(viewModel: MainViewModel) {
+fun SolarTrackerApp(viewModel: MainViewModel, openSettingsRequest: Int = 0) {
     var tab by rememberSaveable { mutableIntStateOf(Tab.DASHBOARD.ordinal) }
+    // A tap on an update notification opens the settings tab (where the update section is).
+    LaunchedEffect(openSettingsRequest) { if (openSettingsRequest > 0) tab = Tab.SETTINGS.ordinal }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
@@ -137,7 +141,7 @@ fun SolarTrackerApp(viewModel: MainViewModel) {
                 val settings by viewModel.settings.collectAsStateWithLifecycle()
                 val gpsStatus by viewModel.gpsStatus.collectAsStateWithLifecycle()
                 val weather by viewModel.weather.collectAsStateWithLifecycle()
-                SettingsScreen(settings, gpsStatus, weather, settingsActions, energyActions, contentModifier)
+                SettingsScreen(settings, gpsStatus, weather, settingsActions, energyActions, contentModifier) { UpdateSection() }
             }
         }
     }

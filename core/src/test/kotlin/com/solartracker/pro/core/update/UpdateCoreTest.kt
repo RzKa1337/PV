@@ -161,3 +161,34 @@ class UpdateCoreTest {
         assertEquals(Instant.parse("2026-10-05T10:00:03Z"), restored.entries().last().time)
     }
 }
+
+class ApkIdentityCheckTest {
+    private val installed = ApkIdentity("com.solartracker.pro", 5, "0.5.0", setOf("aa"))
+    private val good = ApkIdentity("com.solartracker.pro", 6, "0.6.0", setOf("aa"))
+    private val v060 = SemanticVersion(0, 6, 0)
+
+    @Test
+    fun acceptsSameAppSameKeyNewerVersion() {
+        org.junit.Assert.assertNull(ApkIdentityCheck.problem(installed, good, v060))
+    }
+
+    @Test
+    fun rejectsEverythingElse() {
+        val cases = mapOf(
+            null to "poprawnym APK",
+            good.copy(packageName = "evil.app") to "Inna aplikacja",
+            good.copy(signerSha256 = setOf("bb")) to "innym kluczem",
+            good.copy(signerSha256 = setOf("aa", "bb")) to "innym kluczem",
+            good.copy(signerSha256 = emptySet()) to "nie jest podpisane",
+            good.copy(versionCode = 5) to "nie jest nowsze",
+            good.copy(versionCode = 3) to "nie jest nowsze",
+            good.copy(versionName = "0.6.1") to "nie zgadza się",
+            good.copy(versionName = null) to "nie zgadza się",
+        )
+        cases.forEach { (apk, reason) ->
+            val problem = ApkIdentityCheck.problem(installed, apk, v060)
+            assertTrue("$apk → $problem", problem != null && problem.contains(reason))
+        }
+        assertTrue(ApkIdentityCheck.problem(installed.copy(signerSha256 = emptySet()), good, v060)!!.contains("zainstalowanej"))
+    }
+}

@@ -75,6 +75,7 @@ fun SettingsScreen(
     actions: SettingsActions,
     energyActions: EnergySettingsActions,
     modifier: Modifier = Modifier,
+    footer: @Composable () -> Unit = {},
 ) {
     if (settings == null) {
         Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
@@ -97,6 +98,7 @@ fun SettingsScreen(
         LocationSection(settings, gpsStatus, actions)
         WeatherSection(settings.weatherEnabled, weather, actions)
         ThemeSection(settings.themeMode, actions::setThemeMode)
+        footer()
     }
 }
 

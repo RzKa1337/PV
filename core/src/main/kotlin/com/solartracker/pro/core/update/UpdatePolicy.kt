@@ -24,6 +24,8 @@ data class UpdateConfig(
     val interval: CheckInterval = CheckInterval.DAILY,
     /** Download a found update in the background (installation always needs a user tap). */
     val autoDownload: Boolean = true,
+    /** Install a verified update in the background when Android allows it without a prompt (12+). */
+    val autoInstall: Boolean = false,
     val wifiOnly: Boolean = true,
     /** Optional read-only GitHub token, needed for private repositories. */
     val token: String = "",
