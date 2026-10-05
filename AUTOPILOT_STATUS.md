@@ -1,6 +1,6 @@
 # AUTOPILOT STATUS — Solar Tracker PRO
 
-Ostatnia aktualizacja: 2026-10-05 · gałąź `ccr-81f74041-r3omte` · ostatnie wydanie: v0.4.0
+Ostatnia aktualizacja: 2026-10-05 · gałąź `ccr-81f74041-r3omte` · ostatnie wydanie: v0.4.0 · kod v0.5.0 gotowy
 
 ## Audyt repozytorium (faza 0)
 
@@ -19,8 +19,8 @@ Repozytorium GitHub jest **prywatne**.
 | Live Solar (co 1 s) | ✅ zrobione | test 3 min na emulatorze w CI |
 | UI ekranów (pulpit, kąty, miesiące, energia, ustawienia, dark mode) | 🟡 częściowo | kompiluje się, lint, emulator; brak ręcznego testu na telefonie |
 | GPS | 🟡 częściowo | logika przetestowana; brak testu na telefonie |
-| Release APK podpisane stałym kluczem | ❌ brak | każde wydanie ma inny losowy klucz debug → aktualizacja „na wierzch” niemożliwa |
-| **Automatyczna aktualizacja z GitHuba** | ❌ brak | zadanie bieżące |
+| Release APK podpisane stałym kluczem | 🟡 CI gotowe | czeka na 4 sekrety w GitHub (docs/RELEASE_SIGNING.md) |
+| **Automatyczna aktualizacja z GitHuba** | 🟡 zaimplementowana, CI zielone | brak testu na telefonie; działa po dodaniu klucza wydania |
 | Falownik, śnieg, zacienienie, kamper, widget, wyszukiwanie miejscowości | ❌ brak | pomysły na później |
 
 ### Ograniczenia wpływające na auto-aktualizację
@@ -37,10 +37,10 @@ Repozytorium GitHub jest **prywatne**.
 
 | Faza | Zakres | Stan |
 |---|---|---|
-| 1 | `:core/update`: wersje SemVer, kanały, parser wydań GitHub, wybór artefaktu (ABI), SHA256SUMS, polityka sprawdzania/odroczeń, ponawianie, dziennik | ✅ 136/136 testów `:core` (w tym 22 nowe: logika + pobieranie przez lokalny serwer HTTP) |
-| 2 | CI: podpis wydań kluczem z Secrets, SHA256SUMS, generator klucza | ⏳ |
-| 3 | Android: klient GitHub, pobieranie z wznowieniem i postępem, weryfikacja (SHA-256 + certyfikat APK + pakiet + versionCode), instalacja PackageInstaller, WorkManager, UI, kopia ustawień, restart/powiadomienie | ⏳ |
-| 4 | Testy, build, emulator, wydanie | ⏳ |
+| 1 | `:core/update`: wersje SemVer, kanały, parser wydań GitHub, wybór artefaktu (ABI), SHA256SUMS, polityka sprawdzania/odroczeń, ponawianie, dziennik | ✅ 138/138 testów `:core` (w tym 22 nowe: logika + pobieranie przez lokalny serwer HTTP) |
+| 2 | CI: podpis wydań kluczem z Secrets, SHA256SUMS, generator klucza | ✅ CI zielone; ⚠️ brak sekretów klucza (krok właściciela) |
+| 3 | Android: klient GitHub, pobieranie z wznowieniem i postępem, weryfikacja (SHA-256 + certyfikat APK + pakiet + versionCode), instalacja PackageInstaller, WorkManager, UI, kopia ustawień, restart/powiadomienie | ✅ CI #28 zielone (unit + lint + emulator) |
+| 4 | Testy, build, emulator, wydanie | 🟡 testy/build/emulator ✅; wydanie v0.5.0 wstrzymane do dodania klucza |
 
 ## Dziennik faz
 
@@ -54,3 +54,15 @@ Repozytorium GitHub jest **prywatne**.
   `SolarTrackerPRO-<tag>-universal.apk` + `SHA256SUMS` + SHA-256 certyfikatu w opisie. Workflow
   `signing-key.yml` (jednorazowe wygenerowanie klucza), instrukcja `docs/RELEASE_SIGNING.md`.
   **Wymaga ręcznego kroku właściciela:** dodanie 4 sekretów.
+- **Faza 3 ✅** — pakiet `app/update`: `UpdateStore` (osobny DataStore, wyłączony z kopii zapasowej), `ApkInspector`
+  (pakiet, versionCode, certyfikaty), `ApkInstaller` + `InstallResultReceiver` (PackageInstaller, bez pytania na 12+
+  gdy system pozwala), `PackageReplacedReceiver` (powiadomienie o restarcie), `UpdateWorker` (WorkManager, Wi-Fi/sieć,
+  bateria), `UpdateRecovery` (kopia ustawień, okres próbny 15 s, 2 awarie → przywrócenie + wersja wadliwa),
+  `UpdateManager`, UI „Aktualizacje” w Ustawieniach, dziennik. Testy: `UpdateRecoveryTest` (6), instrumentalny
+  `UpdateVerificationInstrumentedTest` (3, emulator: tożsamość APK = zainstalowana aplikacja).
+- **Faza 4 🟡** — CI #28 zielone. Po drodze naprawione 3 niestabilne asercje testu Live (zbyt ostry próg opóźnienia
+  ticka, czas urządzenia mierzony po wolnych odczytach, weryfikacja na skonfladowanym StateFlow → nowy
+  niekonfladowany `liveComputed`). Przebieg wydania v0.4.0 (#21) był czerwony z pierwszego z tych powodów
+  (APK v0.4.0 został jednak opublikowany przez job `build`).
+  **Wydanie v0.5.0 wstrzymane**: bez stałego klucza każde wydanie ma inny podpis, więc auto-aktualizacja v0.5.0 → v0.6.0
+  i tak by nie zadziałała. Decyzja właściciela: dodać sekrety (zalecane) albo wydać teraz z kluczem tymczasowym.

@@ -95,10 +95,12 @@ Zaimplementowane, kompiluje się i przechodzi lint w CI — **czeka na ręczny t
 ## Automatyczna aktualizacja (v0.5.0)
 - [x] Rdzeń (`:core/update`): SemVer, kanały stable/beta, parser wydań GitHub, wybór APK wg ABI, SHA256SUMS, polityka sprawdzania/odroczeń/pominięć/złych wersji, ponawianie z back-off, dziennik — testy JVM
 - [x] Pobieranie z wznowieniem (Range), postępem, anulowaniem i weryfikacją SHA-256 (plik niezgodny usuwany); token tylko do hosta API — testy z lokalnym serwerem HTTP
-- [ ] CI: podpis wydań stałym kluczem z GitHub Secrets + SHA256SUMS w wydaniu (zrobione, czeka na zielone CI)
+- [x] CI: podpis wydań stałym kluczem z GitHub Secrets + SHA256SUMS w wydaniu (CI zielone; release APK budowany)
 - [ ] Właściciel: dodać sekrety klucza wydania (docs/RELEASE_SIGNING.md)
-- [ ] Android: weryfikacja certyfikatu/pakietu/versionCode, PackageInstaller, WorkManager, UI ustawień, kopia ustawień, restart/powiadomienie
-- [ ] Test na emulatorze i wydanie v0.5.0
+- [x] Android: weryfikacja certyfikatu/pakietu/versionCode, PackageInstaller, WorkManager, UI ustawień, kopia ustawień, restart/powiadomienie (CI + emulator: weryfikacja APK)
+- [ ] Ręczny test aktualizacji na telefonie (pobranie → instalacja → restart)
+- [x] Test na emulatorze (CI #28)
+- [ ] Wydanie v0.5.0 (po dodaniu sekretów klucza)
 
 ## Później (pomysły)
 - [ ] Integracja z falownikiem (rzeczywista moc PV obok modelu)
