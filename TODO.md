@@ -92,6 +92,13 @@ Zaimplementowane, kompiluje się i przechodzi lint w CI — **czeka na ręczny t
 - [x] Ekran Live Solar — test instrumentalny na emulatorze Android 11 w CI: 3 min, 184 kolejne sekundy bez przerw, zegar zgodny z urządzeniem, zatrzymanie w tle i wznowienie
 - [ ] Ekran Live Solar — ręczny test na telefonie (wygląd, kompas, animacja)
 
+## Automatyczna aktualizacja (v0.5.0)
+- [x] Rdzeń (`:core/update`): SemVer, kanały stable/beta, parser wydań GitHub, wybór APK wg ABI, SHA256SUMS, polityka sprawdzania/odroczeń/pominięć/złych wersji, ponawianie z back-off, dziennik — testy JVM
+- [x] Pobieranie z wznowieniem (Range), postępem, anulowaniem i weryfikacją SHA-256 (plik niezgodny usuwany); token tylko do hosta API — testy z lokalnym serwerem HTTP
+- [ ] CI: podpis wydań stałym kluczem z GitHub Secrets + SHA256SUMS w wydaniu
+- [ ] Android: weryfikacja certyfikatu/pakietu/versionCode, PackageInstaller, WorkManager, UI ustawień, kopia ustawień, restart/powiadomienie
+- [ ] Test na emulatorze i wydanie v0.5.0
+
 ## Później (pomysły)
 - [ ] Integracja z falownikiem (rzeczywista moc PV obok modelu)
 - [ ] Śnieg na panelach (np. z `snow_depth` w prognozie)
@@ -102,4 +109,3 @@ Zaimplementowane, kompiluje się i przechodzi lint w CI — **czeka na ręczny t
 - [ ] Wpisywanie rzeczywistej produkcji i porównanie z szacunkiem
 - [ ] Widget na ekran główny
 - [ ] Wyszukiwanie lokalizacji po nazwie miejscowości
-- [ ] Release APK podpisane kluczem (bez kluczy w repozytorium)
