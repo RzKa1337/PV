@@ -17,7 +17,6 @@ import com.solartracker.pro.ui.screens.LiveTags
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -99,11 +98,11 @@ class LiveSolarInstrumentedTest {
             assertTrue("Live screen did not appear", device.wait(Until.hasObject(By.res(LiveTags.CLOCK)), 20_000))
             waitFor("ticker running") { vm.liveActive.value }
 
-            // Record every state the Live screen renders (the StateFlow the UI collects).
+            // Record every computed live state (unconflated; the screen shows the newest of them).
             val states = java.util.concurrent.ConcurrentLinkedQueue<com.solartracker.pro.ui.LiveUiState>()
             val stateScope = CoroutineScope(Dispatchers.Default)
             stateScope.launch {
-                vm.live.filterNotNull().collect { s ->
+                vm.liveComputed.collect { s ->
                     if (states.lastOrNull()?.epochMillis?.div(1000) != s.epochMillis / 1000) states += s
                 }
             }

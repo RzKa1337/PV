@@ -47,6 +47,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.onCompletion
@@ -264,6 +267,14 @@ class MainViewModel(
     /** True while the 1-second ticker is running (screen visible, app in foreground, not paused). */
     val liveActive: StateFlow<Boolean> = _liveActive.asStateFlow()
 
+    private val _liveComputed = MutableSharedFlow<LiveUiState>(extraBufferCapacity = 64)
+
+    /**
+     * Every computed live state, without conflation (the [live] StateFlow keeps only the newest one, so a
+     * slow observer may skip a back-filled second). Used to verify that no second is lost.
+     */
+    val liveComputed: SharedFlow<LiveUiState> = _liveComputed.asSharedFlow()
+
     @Volatile
     private var liveDayCache: Pair<List<Any?>, SimulationResult?>? = null
 
@@ -285,7 +296,9 @@ class MainViewModel(
                     val latest = inputs.stateIn(this)
                     liveTicker(clock).collect { now ->
                         val (s, e) = latest.value
-                        send(buildLive(now, s, e))
+                        val state = buildLive(now, s, e)
+                        _liveComputed.tryEmit(state)
+                        send(state)
                     }
                 }
                     .onStart { _liveActive.value = true }
