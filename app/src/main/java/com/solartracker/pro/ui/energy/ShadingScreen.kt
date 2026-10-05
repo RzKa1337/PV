@@ -198,17 +198,16 @@ fun ShadingScreen(vm: EnergyCenterViewModel, onBack: () -> Unit, modifier: Modif
                 if (draft.isNotEmpty()) add(MapShape(draft.toList(), MapColors.DRAFT.first, MapColors.DRAFT.second, closed = draft.size >= 3))
             }
             Box(Modifier.fillMaxWidth().height(360.dp)) {
-                OsmMap(center = origin, marker = origin, shapes = shapes, modifier = Modifier.fillMaxSize(), onTap = { p ->
-                    when (drawMode) {
-                        DrawMode.POINT -> {
-                            editing = Obstacle("user-${UUID.randomUUID()}", ObstacleType.TREE, ObstacleShape.Point(p, ObstacleType.TREE.defaultRadiusM),
-                                com.solartracker.pro.core.shading.HeightValue.UNKNOWN, source = "Użytkownik", userDefined = true)
-                            drawMode = DrawMode.NONE
-                        }
-                        DrawMode.POLYGON -> draft += p
-                        DrawMode.NONE -> Unit
+                fun onMapTap(p: LatLon) {
+                    if (drawMode == DrawMode.POINT) {
+                        editing = Obstacle("user-${UUID.randomUUID()}", ObstacleType.TREE, ObstacleShape.Point(p, ObstacleType.TREE.defaultRadiusM),
+                            com.solartracker.pro.core.shading.HeightValue.UNKNOWN, source = "Użytkownik", userDefined = true)
+                        drawMode = DrawMode.NONE
+                    } else if (drawMode == DrawMode.POLYGON) {
+                        draft.add(p)
                     }
-                })
+                }
+                OsmMap(center = origin, marker = origin, shapes = shapes, modifier = Modifier.fillMaxSize(), onTap = ::onMapTap)
                 Text("N ↑", Modifier.align(Alignment.TopEnd).padding(8.dp), fontWeight = FontWeight.Bold)
             }
             Text("Niebieski – panele i ich azymut · zielony – wysokość potwierdzona · pomarańczowy – szacowana · czerwony – nieznana · szary – cień teraz · fioletowy – cień o wybranej godzinie · żółta linia – kierunek Słońca. Mapa © OpenStreetMap contributors.",
