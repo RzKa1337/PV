@@ -69,8 +69,16 @@ class EnergyCenterInstrumentedTest {
             screenshot("energy-center-live")
 
             // Advisor answers from the (simulated) telemetry and says it is a simulator.
-            val scrollable = device.findObject(By.scrollable(true))
-            val chip = scrollable.scrollUntil(Direction.DOWN, Until.findObject(By.text("Co teraz robi mój falownik?")))
+            // The screen has horizontal rows that are scrollable too – scroll the tallest (vertical) container.
+            val chipSelector = By.text("Co teraz robi mój falownik?")
+            var chip = device.findObject(chipSelector)
+            repeat(25) {
+                if (chip != null) return@repeat
+                val page = device.findObjects(By.scrollable(true)).maxByOrNull { it.visibleBounds.height() }
+                assertNotNull("vertical scroll container", page)
+                page!!.scroll(Direction.DOWN, 0.8f)
+                chip = device.wait(Until.findObject(chipSelector), 1_000)
+            }
             assertNotNull("advisor chip", chip)
             chip.click()
             val answer = device.wait(Until.findObject(By.textContains("Tryb:")), 10_000)
