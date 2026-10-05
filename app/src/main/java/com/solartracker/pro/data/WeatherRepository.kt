@@ -47,6 +47,14 @@ class WeatherRepository(
         WeatherResult(forecast, climate, errors.firstOrNull())
     }
 
+    /** Cached data only (no network) – for the home-screen widget. */
+    fun cachedOnly(location: GeoLocation): WeatherResult {
+        val forecast = readCache(FORECAST, location, FORECAST_MATCH_DEG)?.takeIf { it.age() < FORECAST_STALE_LIMIT }?.let(::parseForecastOrNull)
+        val climate = readCache(CLIMATE, location, CLIMATE_MATCH_DEG)?.let { runCatching { OpenMeteo.parseClimate(it.json) }.getOrNull() }
+            ?: MonthlyClimate.defaultFor(location)
+        return WeatherResult(forecast, climate, null)
+    }
+
     private fun loadForecast(location: GeoLocation, force: Boolean, errors: MutableList<String>): WeatherForecast? {
         val cached = readCache(FORECAST, location, FORECAST_MATCH_DEG)
         if (!force && cached != null && cached.age() < FORECAST_MAX_AGE) {

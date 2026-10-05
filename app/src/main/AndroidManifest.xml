@@ -39,6 +39,17 @@
         </activity>
 
         <receiver
+            android:name=".widget.SolarWidgetProvider"
+            android:exported="true"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/solar_widget_info" />
+        </receiver>
+        <receiver
             android:name=".update.InstallResultReceiver"
             android:exported="false" />
         <receiver

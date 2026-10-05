@@ -118,4 +118,4 @@ Zaimplementowane, kompiluje się i przechodzi lint w CI — **czeka na ręczny t
 - [ ] Wpływ temperatury na pojemność i moc ładowania baterii
 - [ ] Tryb pojazdu/kampera (gotowe ustawienia PV + bateria + zużycie)
 - [ ] Wpisywanie rzeczywistej produkcji i porównanie z szacunkiem
-- [ ] Widget na ekran główny
+- [x] Widget na ekran główny (v0.7.0) – build/lint + test rejestracji na emulatorze; ręczny test na telefonie do zrobienia

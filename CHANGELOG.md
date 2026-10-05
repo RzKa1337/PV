@@ -5,6 +5,9 @@ Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie 
 
 ## [Unreleased]
 
+### Added
+- Home-screen widget: model PV power now (estimate/forecast label), today's expected and remaining production, last inverter reading (shown as current only when < 15 min old), sunrise/sunset; cached weather only, refresh every 30 min, when leaving the app and with ⟳
+
 ## [v0.6.1] - 2026-10-05
 
 ### Added

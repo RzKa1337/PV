@@ -41,6 +41,10 @@ class HistoryDatabase(context: Context) : SQLiteOpenHelper(context.applicationCo
             buildList { while (c.moveToNext()) add(read(c)) }
         }
 
+    /** Newest history row, or null. */
+    fun latest(): HistorySample? =
+        readableDatabase.query(T_HISTORY, null, null, null, null, null, "start DESC", "1").use { c -> if (c.moveToFirst()) read(c) else null }
+
     fun addCalibration(s: CalibrationSample) {
         writableDatabase.insertWithOnConflict(T_CALIB, null, ContentValues().apply {
             put("time", s.time.toEpochMilli()); put("real_kw", s.realKw); put("model_kw", s.modelKw)

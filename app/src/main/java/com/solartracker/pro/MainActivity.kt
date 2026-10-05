@@ -17,6 +17,7 @@ import com.solartracker.pro.ui.MainViewModel
 import com.solartracker.pro.ui.SolarTrackerApp
 import com.solartracker.pro.ui.theme.SolarTrackerTheme
 import com.solartracker.pro.update.UpdateNotifications
+import com.solartracker.pro.widget.SolarWidgetProvider
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -43,6 +44,12 @@ class MainActivity : ComponentActivity() {
                 (application as SolarTrackerApplication).updateManager.markHealthy()
             }
         }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // Settings or new inverter data may have changed: refresh home-screen widgets.
+        SolarWidgetProvider.requestUpdate(this)
     }
 
     override fun onNewIntent(intent: Intent) {

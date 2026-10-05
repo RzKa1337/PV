@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Solar Tracker PRO</string>
+    <string name="widget_description">Szacowana moc PV, prognoza na dziś i ostatni pomiar z falownika</string>
+    <string name="widget_refresh">Odśwież</string>
 </resources>
