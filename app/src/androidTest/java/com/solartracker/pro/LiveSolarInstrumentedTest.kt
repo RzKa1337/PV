@@ -111,7 +111,7 @@ class LiveSolarInstrumentedTest {
             val liveTab = findLiveTab()
             if (liveTab == null) screenshot("00-live-tab-missing")
             assertNotNull("Live tab not found", liveTab)
-            liveTab.click()
+            liveTab!!.click()
             assertTrue("Live screen did not appear", device.wait(Until.hasObject(By.res(LiveTags.CLOCK)), 20_000))
             waitFor("ticker running") { vm.liveActive.value }
 
