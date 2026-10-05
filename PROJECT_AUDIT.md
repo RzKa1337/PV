@@ -62,3 +62,20 @@ Legenda: ✅ REAL (działa na prawdziwych danych / obliczeniach) · 🟡 częśc
 5. PV Designer + World PV map + Vehicle mode.
 6. Historia + eksport CSV/JSON/PDF + FeatureAccess/Subscription.
 7. UI (ekran Narzędzia, zdrowie, ekonomia, historia), dokumentacja (ARCHITECTURE, ROADMAP, API, CALCULATIONS, TESTING), CI.
+
+## Stan po rozbudowie (FINAL MASTER EXPANSION, wersja 0.8.0)
+
+| Moduł docelowy | Kod | Stan |
+|---|---|---|
+| PVSimulationEngine (łańcuch strat) | `core/pv/PvSimulationEngine` | ✅ testy (w tym scenariusze 1/2,09/5/10 kWp, kąty, trackery, pogoda, śnieg) |
+| Forecast accuracy, AutoCalibration 2.0 | `core/analytics/ForecastAccuracy`, `AutoCalibration` | ✅ testy; panel dokładności w UI — do zrobienia (wymaga zapisu prognoz) |
+| PVHealthEngine, PredictiveFaultEngine | `core/health/*`, ekran Centrum → Analizy | ✅ testy; ⚠️ wymaga historii z prawdziwego falownika |
+| BatteryEngine (chemia, starzenie, czasy) | `core/energy/BatteryChemistry` | ✅ testy; w UI pośrednio (EMS, ustawienia typu) |
+| EconomicsEngine | `core/economics`, Narzędzia → Ekonomia | ✅ |
+| EnergyOptimizationEngine (EMS) | `core/ems`, Centrum → Analizy | ✅ tylko zalecenia; odbiorniki elastyczne i agregat bez konfiguracji w UI (ROADMAP) |
+| EnergyForecast wieczór/noc/7 dni, nadwyżka/deficyt | `EnergyOptimizationEngine.periods/daily` | ✅ |
+| PV Designer, porównanie lokalizacji, tryb pojazdu | `core/design`, `core/vehicle`, zakładka Narzędzia | ✅ (czyste niebo = górna granica, oznaczone) |
+| Historia dzień/tydzień/miesiąc/rok/całość | `core/analytics/HistoryPeriods`, Centrum → Analizy | ✅ |
+| Eksport CSV/JSON/PDF | `core/export`, `app/energy/PdfReport` | ✅ zapis przez systemowy wybór pliku |
+| SubscriptionManager / FeatureAccessManager | `core/access` | ✅ warstwa gotowa; brak płatności (wszystko odblokowane, komunikat w UI) |
+| WeatherProvider (wiatr, wilgotność, opady, śnieg, mgła) | — | 🟡 łańcuch strat obsługuje wiatr i śnieg; pobieranie tych pól — ROADMAP |

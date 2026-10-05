@@ -5,6 +5,19 @@ Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie 
 
 ## [Unreleased]
 
+### Added
+- **PV loss chain** (`PvSimulationEngine`): POA (+bifacial rear), Faiman cell temperature with wind, snow cover, soiling, shading, mismatch, degradation, DC wiring, inverter efficiency/self-consumption, clipping, AC wiring; fixed, 1-axis and 2-axis trackers; performance ratio
+- Forecast accuracy (MAE, RMSE, MAPE, bias) and **AutoCalibration 2.0** (yield, temperature coefficient, soiling trend, forecast bias, clipping) with change history and rollback
+- **PV Health Score** 0–100 with deductions backed by evidence and an explicit "not assessed" list; **predictive warnings** (efficiency drop, PV voltage drift, inverter temperature, night load, recurring fault codes, link quality, string imbalance) labelled ANOMALY vs FAULT
+- **Battery chemistry** (LiFePO4, Li-ion, AGM, GEL, lead acid, custom): resting-voltage SOC (ESTIMATED, UNKNOWN under load), Peukert and cold capacity, charge temperature limits, cycle life vs DoD, ageing/SOH, time to full/minimum, capacity estimate from history
+- **Economics**: payback (simple and discounted), NPV, ROI, LCOE, storage cost, generator savings
+- **EMS** (recommendations only, no device control): battery-first dispatch with grid/off-grid/generator, surplus and deficit windows, flexible load scheduling, rest-of-day and 7-day balance
+- **Tools tab**: PV designer (string sizing from datasheet values), clear-sky yield and optimal tilt, location comparison, vehicle mode (energy, range, best parking heading)
+- **Energy Center → Analizy**: health, warnings, EMS decisions, history day/week/month/year/lifetime with self-consumption, autarky and data completeness
+- Export to CSV, JSON and PDF via the system file picker
+- FREE/PRO feature access layer (`FeatureAccessManager`) separate from UI; no billing in this build, all features unlocked and stated as such
+- Docs: ARCHITECTURE, CALCULATIONS, TESTING, ROADMAP, API
+
 ## [v0.7.0] - 2026-10-05
 
 ### Added

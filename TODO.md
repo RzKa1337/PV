@@ -113,9 +113,21 @@ Zaimplementowane, kompiluje się i przechodzi lint w CI — **czeka na ręczny t
 - [ ] **REAL MAP AND HEIGHT DATA VALIDATION REQUIRED** – porównanie czasu cienia z obserwacją na miejscu
 - [ ] Monitoring w tle (usługa pierwszoplanowa) – opcjonalnie
 
+## FINAL MASTER EXPANSION (v0.8.0)
+- [x] Łańcuch strat PV, trackery, bifacial, śnieg; dokładność prognoz; AutoCalibration 2.0 – testy
+- [x] Zdrowie instalacji, ostrzeżenia predykcyjne – testy
+- [x] Chemia baterii (LFP, Li-ion, AGM, GEL, kwasowy), starzenie, czasy; ekonomia – testy
+- [x] EMS (zalecenia), bilans wieczór/noc/7 dni – testy
+- [x] Projektant PV, porównanie lokalizacji, tryb pojazdu – testy
+- [x] Historia okresów, eksport CSV/JSON/PDF, FREE/PRO – testy
+- [x] UI: Narzędzia, Centrum → Analizy; test instrumentalny
+- [ ] Odbiorniki elastyczne i agregat w ustawieniach (EMS)
+- [ ] Dodatkowe pola pogody (wiatr, wilgotność, opady, śnieg, widoczność)
+- [ ] Panel dokładności prognoz (zapis prognoz)
+
 ## Później (pomysły)
-- [ ] Śnieg na panelach (np. z `snow_depth` w prognozie)
+- [ ] Śnieg na panelach z `snow_depth` w prognozie (model gotowy w łańcuchu strat)
 - [ ] Wpływ temperatury na pojemność i moc ładowania baterii
-- [ ] Tryb pojazdu/kampera (gotowe ustawienia PV + bateria + zużycie)
+- [x] Tryb pojazdu (v0.8.0, Narzędzia)
 - [ ] Wpisywanie rzeczywistej produkcji i porównanie z szacunkiem
 - [x] Widget na ekran główny (v0.7.0) – build/lint + test rejestracji na emulatorze; ręczny test na telefonie do zrobienia

@@ -81,6 +81,20 @@ przepływy energii, porównanie z modelem, kalibracja, prognozy (+5 min … jutr
 horyzontu, cień na każdym panelu, godziny początku i końca cienia oraz straty energii – z oceną pewności.
 Szczegóły: [ANENJI_INTEGRATION.md](ANENJI_INTEGRATION.md), [SHADING_ANALYSIS.md](SHADING_ANALYSIS.md).
 
+## Analizy, EMS i narzędzia (v0.8.0)
+
+**Centrum → Analizy**: ocena zdrowia instalacji 0–100 z listą potrąceń i dowodów (bez oceny, gdy danych jest za mało),
+ostrzeżenia predykcyjne (możliwa anomalia vs potwierdzony błąd), zalecenia EMS (okna nadwyżki/deficytu, minimum SOC,
+agregat – aplikacja niczego nie przełącza), bilans reszty dnia i 7 dni, historia dzień/tydzień/miesiąc/rok/całość
+(autokonsumpcja, autarkia, kompletność danych) oraz eksport CSV/JSON/PDF do wybranego pliku.
+
+Zakładka **Narzędzia**: projektant PV (dobór stringów z danych z kart katalogowych), ekonomia (zwrot, NPV, ROI, LCOE,
+koszt magazynowania), porównanie lokalizacji i optymalny kąt, tryb pojazdu (energia, zasięg, najlepszy kierunek parkowania).
+Wartości z modelu czystego nieba są oznaczone jako górna granica.
+
+Dokumentacja techniczna: [ARCHITECTURE.md](ARCHITECTURE.md), [CALCULATIONS.md](CALCULATIONS.md), [TESTING.md](TESTING.md),
+[API.md](API.md), [ROADMAP.md](ROADMAP.md).
+
 ## Automatyczna aktualizacja
 
 Ustawienia → **Aktualizacje**: aplikacja sprawdza wydania GitHub (kanał stabilny/beta, wybrana częstotliwość),

@@ -1,6 +1,6 @@
 # AUTOPILOT STATUS — Solar Tracker PRO
 
-Ostatnia aktualizacja: 2026-10-05 · gałąź `ccr-81f74041-r3omte` · ostatnie wydanie: v0.6.0
+Ostatnia aktualizacja: 2026-10-05 · gałąź `ccr-81f74041-r3omte` · ostatnie wydanie: v0.7.0 (w przygotowaniu: v0.8.0)
 
 ## Audyt repozytorium (faza 0)
 
@@ -91,3 +91,19 @@ RS232→TCP, bramkę Modbus TCP lub kabel RS232→USB (OTG). Szczegóły: `ANENJ
 | 6 | Dokumentacja, CHANGELOG, wydanie v0.6.0 | ✅ CI 37326391198 zielone (testy, lint, APK, emulator: Live + Centrum z symulatorem + Keystore + SQLite); wydanie v0.6.0 z SHA256SUMS, ten sam certyfikat co v0.5.0 |
 
 Wymaga walidacji w terenie: **REAL DEVICE VALIDATION REQUIRED** (Anenji), **REAL MAP AND HEIGHT DATA VALIDATION REQUIRED**.
+
+## Faza: FINAL MASTER EXPANSION (v0.8.0)
+
+| Etap | Zakres | Stan |
+|---|---|---|
+| 0 | Audyt (`PROJECT_AUDIT.md`) | ✅ |
+| 1 | Łańcuch strat PV, dokładność prognoz, AutoCalibration 2.0 | ✅ testy JVM |
+| 2 | PV Health Score, ostrzeżenia predykcyjne | ✅ testy JVM |
+| 3 | Chemia baterii, starzenie, czasy, ekonomia | ✅ testy JVM |
+| 4 | EMS (tylko decyzje), okna nadwyżki/deficytu, bilans 7 dni, agregat | ✅ testy JVM (w tym zachowanie energii) |
+| 5 | Projektant PV, uzysk roczny, porównanie lokalizacji, tryb pojazdu | ✅ testy JVM |
+| 6 | Historia okresów, eksport CSV/JSON/PDF, FREE/PRO | ✅ testy JVM |
+| 7 | UI: zakładka Narzędzia, Centrum → Analizy; test instrumentalny; dokumentacja | 🟡 czeka na CI (kompilacja Androida tylko w CI) |
+
+Testy `:core`: 232/232. Dokumentacja: `ARCHITECTURE.md`, `CALCULATIONS.md`, `TESTING.md`, `ROADMAP.md`, `API.md`.
+Wymaga walidacji w terenie: falownik Anenji (REAL DEVICE VALIDATION REQUIRED), dane mapowe/wysokości, zdrowie instalacji na prawdziwej historii.
