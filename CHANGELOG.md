@@ -5,6 +5,8 @@ Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie 
 
 ## [Unreleased]
 
+## [v0.8.0] - 2026-10-05
+
 ### Added
 - **PV loss chain** (`PvSimulationEngine`): POA (+bifacial rear), Faiman cell temperature with wind, snow cover, soiling, shading, mismatch, degradation, DC wiring, inverter efficiency/self-consumption, clipping, AC wiring; fixed, 1-axis and 2-axis trackers; performance ratio
 - Forecast accuracy (MAE, RMSE, MAPE, bias) and **AutoCalibration 2.0** (yield, temperature coefficient, soiling trend, forecast bias, clipping) with change history and rollback
@@ -17,6 +19,9 @@ Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie 
 - Export to CSV, JSON and PDF via the system file picker
 - FREE/PRO feature access layer (`FeatureAccessManager`) separate from UI; no billing in this build, all features unlocked and stated as such
 - Docs: ARCHITECTURE, CALCULATIONS, TESTING, ROADMAP, API
+
+### Changed
+- CI: GitHub Actions updated to Node 24 versions (checkout v6, setup-java v5, setup-gradle v5, upload-artifact v6)
 
 ## [v0.7.0] - 2026-10-05
 
