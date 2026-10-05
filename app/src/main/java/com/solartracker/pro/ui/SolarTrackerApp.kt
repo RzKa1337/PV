@@ -155,7 +155,7 @@ fun SolarTrackerApp(viewModel: MainViewModel, openSettingsRequest: Int = 0) {
             }
             Tab.TOOLS -> {
                 val settings by viewModel.settings.collectAsStateWithLifecycle()
-                ToolsScreen(settings, featureAccess, subscription, contentModifier)
+                settings?.let { ToolsScreen(it, featureAccess, subscription, contentModifier) }
             }
             Tab.SETTINGS -> {
                 val settings by viewModel.settings.collectAsStateWithLifecycle()

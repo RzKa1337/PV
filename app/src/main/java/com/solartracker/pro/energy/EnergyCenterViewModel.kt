@@ -409,7 +409,7 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
                 EmsInput(slots.take(36), s.activeBattery, soc, gridAvailable = s.prices.backupSource == BackupSource.GRID, zone = zone),
             )
             val ratedW = inv?.takeIf { it.enabled }?.ratedPowerW
-            val (health, reason, faults): Triple<HealthReport?, String?, List<FaultWarning>> = if (week.isEmpty() || ratedW == null) {
+            val assessment: Triple<HealthReport?, String?, List<FaultWarning>> = if (week.isEmpty() || ratedW == null) {
                 Triple(null, "Brak historii pomiarów z falownika — ocena zdrowia wymaga co najmniej 2 dni danych", emptyList())
             } else {
                 val weather = WeatherAwareIrradianceModel(s.location, _weather.value.first, _weather.value.second)
@@ -425,6 +425,7 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
                 ))
                 Triple(report, null, PredictiveFaultEngine.analyze(days, now))
             }
+            val (health, reason, faults) = assessment
             InsightsState(
                 health = health, healthReason = reason, faults = faults, ems = ems,
                 periods = EnergyOptimizationEngine.periods(slots.takeWhile { it.start.atZone(zone).toLocalDate() == now.atZone(zone).toLocalDate() }, zone),
