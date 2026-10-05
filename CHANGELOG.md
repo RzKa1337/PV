@@ -5,8 +5,20 @@ Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie 
 
 ## [Unreleased]
 
+## [v0.6.0] - 2026-10-05
+
+### Added
+- **Anenji 6.2 kW 48 V integration** (ANJ-6200W-48V, RS232): Modbus RTU with the community-documented SMG register map and the PI30 ASCII variant, over a TCP RS232 bridge, a Modbus TCP gateway or a USB-RS232 cable (OTG); simulator clearly labelled as test data. REAL DEVICE VALIDATION REQUIRED – see `ANENJI_INTEGRATION.md`
+- Brand-independent inverter architecture: `InverterProvider`, `InverterRepository`, `InverterConnectionManager` (polling, back-off, OFFLINE after failures, STALE/LAST KNOWN data never shown as live, duplicate/out-of-order rejection), `InverterDataMapper`, `InverterTelemetry`, read-only `InverterCommandService`
+- Data quality labels everywhere: MEASURED, CALCULATED, ESTIMATED, FORECAST, STALE, LAST KNOWN, N/A (with reason), UNKNOWN
+- **Energy Center** tab: connection status, LIVE telemetry, real energy flows (PV→load/battery/grid, battery→load, grid→load/battery), production vs model with likely causes, gradual model calibration (median, outlier rejection, confidence), short-term (+5 min … +6 h) and today/tomorrow forecasts with ranges, SOC prediction (1 h, 3 h, 21:00, midnight, 07:00, charging start/end, minimum SOC time), shading summary, grouped alerts with notifications, rule-based Solar Advisor answering only from data
+- Local telemetry history (SQLite): 30 s rows, 15 min summaries, calibration samples, automatic pruning; energy integrated from power without bridging link gaps
+- **Shading analysis** (`SHADING_ANALYSIS.md`): location by city/address/postcode or map tap with accuracy and confirmation; OpenStreetMap buildings/trees/chimneys/masts/walls (Overpass) with height source (map tag, storeys estimate, user measured/estimated, UNKNOWN – never invented); Copernicus DEM terrain horizon; ray-traced shade per panel and bypass group with string/MPPT model; shadow start/end, obstacle, panels, energy loss; 360° horizon chart, hourly chart, map layers with current and selected-time shadows, time slider, obstacle editor with history, monthly/yearly losses, confidence score and missing-data list; offline cache
+- Shading is included in the PV model, forecasts, model comparison and anomaly detection (PV underperformance, possible PV fault, expected shading, unexpected load, abnormal SOC, inverter offline, battery/inverter limits, inverter faults)
+
 ### Changed
 - Update check: HTTP 403/429 now shows GitHub's reason (e.g. token without Contents permission, with instructions) instead of a generic message
+- The updater's GitHub token is stored encrypted with an Android Keystore key (plaintext from v0.5.0 is migrated)
 
 ## [v0.5.0] - 2026-10-05
 

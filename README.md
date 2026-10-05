@@ -72,6 +72,15 @@ Moduł `:core` zawiera:
 - Irradiancja na płaszczyźnie paneli: składowa bezpośrednia + izotropowe rozproszenie + odbicie od gruntu (albedo 0,2)
 - Moc: `kWp · POA / 1000 W/m² · PR`, PR = 0,80
 
+## Centrum energii (Anenji 6.2 kW)
+
+Zakładka **Centrum**: odczyt falownika Anenji ANJ-6200W-48V przez RS232 (most TCP, bramka Modbus TCP lub kabel USB),
+dane LIVE z oznaczeniem jakości (POMIAR / OBLICZONE / SZACUNEK / PROGNOZA / NIEAKTUALNE / OSTATNIA ZNANA / N/A),
+przepływy energii, porównanie z modelem, kalibracja, prognozy (+5 min … jutro), prognoza SOC, alerty i Solar Advisor.
+**Analiza zacienienia**: lokalizacja z wyszukiwarki lub mapy, budynki i drzewa z OpenStreetMap, teren (DEM), profil
+horyzontu, cień na każdym panelu, godziny początku i końca cienia oraz straty energii – z oceną pewności.
+Szczegóły: [ANENJI_INTEGRATION.md](ANENJI_INTEGRATION.md), [SHADING_ANALYSIS.md](SHADING_ANALYSIS.md).
+
 ## Automatyczna aktualizacja
 
 Ustawienia → **Aktualizacje**: aplikacja sprawdza wydania GitHub (kanał stabilny/beta, wybrana częstotliwość),

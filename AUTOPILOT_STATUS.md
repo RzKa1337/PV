@@ -21,7 +21,10 @@ Repozytorium GitHub jest **prywatne**.
 | GPS | 🟡 częściowo | logika przetestowana; brak testu na telefonie |
 | Release APK podpisane stałym kluczem | ✅ zrobione | od v0.5.0; certyfikat SHA-256 `a58b2a09…299b` |
 | **Automatyczna aktualizacja z GitHuba** | 🟡 zaimplementowana, CI zielone | brak testu na telefonie; działa po dodaniu klucza wydania |
-| Falownik, śnieg, zacienienie, kamper, widget, wyszukiwanie miejscowości | ❌ brak | pomysły na później |
+| Falownik Anenji 6.2 kW (Modbus SMG/PI30, TCP/USB) | 🟡 zaimplementowany | REAL DEVICE VALIDATION REQUIRED |
+| Zacienienie (OSM, teren, horyzont, panele/stringi) | 🟡 zaimplementowane | REAL MAP AND HEIGHT DATA VALIDATION REQUIRED |
+| Prognozy PV/obciążenia/SOC, alerty, Solar Advisor | ✅ zrobione | testy JVM + emulator |
+| Śnieg, kamper, widget | ❌ brak | pomysły na później |
 
 ### Ograniczenia wpływające na auto-aktualizację
 
@@ -70,3 +73,21 @@ Repozytorium GitHub jest **prywatne**.
   `SolarTrackerPRO-v0.5.0-universal.apk` i `SHA256SUMS`. Emulator w tym przebiegu: „Live tab not found” (aplikacja nie
   pokazała się w 20 s na świeżo uruchomionym emulatorze; ten sam commit przeszedł w #29) → test czeka do 60 s i zamyka
   systemowe okna „nie odpowiada”. Następny krok: ręczny test aktualizacji na telefonie przy v0.5.1.
+
+## Faza: ANENJI 6.2 kW LIVE MONITORING & PREDICTIVE ENERGY (v0.6.0)
+
+Analiza komunikacji (źródła publiczne): Anenji ANJ-6200W-48V ma port RS232 (RJ45) – Modbus RTU 9600 8N1, mapa
+rejestrów rodziny „SMG” (udokumentowana przez społeczność, rejestry 100–109 i 201–234); niektóre warianty PI30.
+RS485 służy do BMS, wbudowane Wi-Fi (EyeBond) wysyła dane do chmury SmartESS. Aplikacja łączy się przez most
+RS232→TCP, bramkę Modbus TCP lub kabel RS232→USB (OTG). Szczegóły: `ANENJI_INTEGRATION.md`, `SHADING_ANALYSIS.md`.
+
+| Etap | Zakres | Stan |
+|---|---|---|
+| 1 | `core/inverter`, `core/quality`: provider, transporty, Modbus/PI30, connection manager, fake | ✅ testy |
+| 2 | `core/analytics`: przepływy, historia, porównanie z modelem, kalibracja, anomalie, alerty | ✅ testy |
+| 3 | `core/shading`: przeszkody, wysokości, teren, horyzont, cień panel/string, zdarzenia, straty, pewność, dostawcy | ✅ testy |
+| 4 | `core/forecast`: PV, obciążenie, SOC, EnergyForecastEngine, Solar Advisor | ✅ testy |
+| 5 | Android: Centrum energii, konfiguracja, mapa (osmdroid), ekran zacienienia, SQLite, USB, Keystore | ✅ build + lint; test emulatora z symulatorem |
+| 6 | Dokumentacja, CHANGELOG, wydanie v0.6.0 | ✅ / wydanie po zielonym CI |
+
+Wymaga walidacji w terenie: **REAL DEVICE VALIDATION REQUIRED** (Anenji), **REAL MAP AND HEIGHT DATA VALIDATION REQUIRED**.

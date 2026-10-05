@@ -102,13 +102,20 @@ Zaimplementowane, kompiluje się i przechodzi lint w CI — **czeka na ręczny t
 - [x] Test na emulatorze (CI #28)
 - [x] Wydanie v0.5.0 podpisane kluczem wydania (certyfikat SHA-256 a58b2a09…299b) + SHA256SUMS
 
+## Anenji 6.2 kW + zacienienie (v0.6.0)
+- [x] Architektura falownika (provider, repository, connection manager, mapper, telemetria, komendy tylko do odczytu) – testy JVM
+- [x] Anenji: Modbus SMG (RTU/TCP), PI30, transport TCP i USB, symulator – testy (CRC, ramki uszkodzone, timeout, wyjątki, socket TCP, offline, ponowne połączenie, duplikaty)
+- [x] Historia (SQLite), przepływy energii, porównanie z modelem, kalibracja, anomalie, alerty – testy
+- [x] Zacienienie: przeszkody, wysokości z oznaczeniem jakości, teren, horyzont 360°, cień panel/string/MPPT, zdarzenia, straty, pewność, dostawcy OSM/DEM/geokodowanie, cache – testy
+- [x] Prognozy PV/obciążenia/baterii, EnergyForecastEngine, Solar Advisor – testy
+- [x] Centrum energii, konfiguracja, mapa, ekran zacienienia, edytor przeszkód – build + lint + test na emulatorze (symulator)
+- [ ] **REAL DEVICE VALIDATION REQUIRED** – test z prawdziwym Anenji (mapa rejestrów, znaki mocy, tryby)
+- [ ] **REAL MAP AND HEIGHT DATA VALIDATION REQUIRED** – porównanie czasu cienia z obserwacją na miejscu
+- [ ] Monitoring w tle (usługa pierwszoplanowa) – opcjonalnie
+
 ## Później (pomysły)
-- [ ] Integracja z falownikiem (rzeczywista moc PV obok modelu)
 - [ ] Śnieg na panelach (np. z `snow_depth` w prognozie)
 - [ ] Wpływ temperatury na pojemność i moc ładowania baterii
-- [ ] Zacienienie (horyzont, drzewa, budynki)
 - [ ] Tryb pojazdu/kampera (gotowe ustawienia PV + bateria + zużycie)
-- [ ] Współczynnik korekty na podstawie rzeczywistych odczytów z falownika
 - [ ] Wpisywanie rzeczywistej produkcji i porównanie z szacunkiem
 - [ ] Widget na ekran główny
-- [ ] Wyszukiwanie lokalizacji po nazwie miejscowości
