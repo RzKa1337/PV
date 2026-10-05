@@ -61,6 +61,7 @@ fun BatteryType.label(): String = when (this) {
     BatteryType.LI_ION -> "Li-ion"
     BatteryType.AGM -> "AGM"
     BatteryType.GEL -> "GEL"
+    BatteryType.LEAD_ACID -> "Kwasowo-ołowiowy"
     BatteryType.OTHER -> "Inne"
 }
 

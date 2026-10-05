@@ -1,6 +1,6 @@
 package com.solartracker.pro.core.energy
 
-enum class BatteryType { LIFEPO4, LI_ION, AGM, GEL, OTHER }
+enum class BatteryType { LIFEPO4, LI_ION, AGM, GEL, LEAD_ACID, OTHER }
 
 enum class BatteryValidationError {
     CAPACITY_NOT_POSITIVE,
