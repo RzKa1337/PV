@@ -192,3 +192,29 @@ class ApkIdentityCheckTest {
         assertTrue(ApkIdentityCheck.problem(installed.copy(signerSha256 = emptySet()), good, v060)!!.contains("zainstalowanej"))
     }
 }
+
+class GitHubForbiddenMessageTest {
+    private val client = GitHubClient(HttpClient { _, _ -> error("unused") })
+    private fun response(code: Int, headers: Map<String, List<String>> = emptyMap()) =
+        HttpResponse(code, headers, java.io.ByteArrayInputStream(ByteArray(0)))
+
+    @Test
+    fun explainsMissingTokenPermission() {
+        val m = client.forbiddenMessage(response(403), """{"message":"Resource not accessible by personal access token"}""", UpdateConfig(token = "t"))
+        assertTrue(m, m.contains("Contents: Read-only") && m.contains("RzKa1337/PV"))
+    }
+
+    @Test
+    fun explainsRateLimit() {
+        val m = client.forbiddenMessage(response(403, mapOf("X-RateLimit-Remaining" to listOf("0"))), "{}", UpdateConfig())
+        assertTrue(m, m.contains("limit") && m.contains("dodaj token"))
+        assertTrue(client.forbiddenMessage(response(429), "", UpdateConfig(token = "t")).contains("limit"))
+    }
+
+    @Test
+    fun showsOtherGitHubMessages() {
+        val m = client.forbiddenMessage(response(403), """{"message":"Repository access blocked"}""", UpdateConfig(token = "t"))
+        assertEquals("GitHub odmówił dostępu (HTTP 403): Repository access blocked", m)
+        assertEquals("GitHub odmówił dostępu (HTTP 403)", client.forbiddenMessage(response(403), "<html>", UpdateConfig(token = "t")))
+    }
+}

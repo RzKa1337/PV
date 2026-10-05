@@ -5,6 +5,9 @@ Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie 
 
 ## [Unreleased]
 
+### Changed
+- Update check: HTTP 403/429 now shows GitHub's reason (e.g. token without Contents permission, with instructions) instead of a generic message
+
 ## [v0.5.0] - 2026-10-05
 
 ### Added

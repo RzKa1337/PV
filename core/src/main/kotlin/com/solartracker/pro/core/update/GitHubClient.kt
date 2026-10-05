@@ -33,13 +33,31 @@ class GitHubClient(
                     throw UpdateException("Nieprawidłowa odpowiedź GitHuba: ${e.message}", e)
                 }
                 401 -> throw UpdateException("Token GitHub jest nieprawidłowy lub wygasł (HTTP 401)")
-                403, 429 -> throw UpdateException("GitHub odmówił dostępu lub przekroczono limit zapytań (HTTP ${it.code})")
+                403, 429 -> throw UpdateException(forbiddenMessage(it, body, config))
                 404 -> throw UpdateException(
                     "Nie znaleziono repozytorium ${config.owner}/${config.repo}. " +
                         "Prywatne repozytorium wymaga tokena z dostępem do odczytu.",
                 )
                 else -> throw UpdateException("Błąd GitHuba (HTTP ${it.code})")
             }
+        }
+    }
+
+    /** Explains a 403/429 using GitHub's own message and rate-limit headers. */
+    internal fun forbiddenMessage(response: HttpResponse, body: String, config: UpdateConfig): String {
+        val githubMessage = runCatching {
+            (kotlinx.serialization.json.Json.parseToJsonElement(body) as? kotlinx.serialization.json.JsonObject)
+                ?.get("message")?.let { (it as? kotlinx.serialization.json.JsonPrimitive)?.content }
+        }.getOrNull()
+        val rateLimited = response.code == 429 || response.header("X-RateLimit-Remaining") == "0" ||
+            githubMessage?.contains("rate limit", ignoreCase = true) == true
+        return when {
+            rateLimited -> "Przekroczono limit zapytań GitHuba (HTTP ${response.code}) – spróbuj później" +
+                if (config.token.isBlank()) " albo dodaj token" else ""
+            githubMessage?.contains("personal access token", ignoreCase = true) == true ->
+                "Token nie ma uprawnienia do repozytorium ${config.owner}/${config.repo}: w ustawieniach tokena na GitHubie " +
+                    "dodaj Repository permissions → Contents: Read-only (HTTP 403: $githubMessage)"
+            else -> "GitHub odmówił dostępu (HTTP ${response.code})" + (githubMessage?.let { ": $it" } ?: "")
         }
     }
 
