@@ -267,7 +267,7 @@ class MainViewModel(
     /** True while the 1-second ticker is running (screen visible, app in foreground, not paused). */
     val liveActive: StateFlow<Boolean> = _liveActive.asStateFlow()
 
-    private val _liveComputed = MutableSharedFlow<LiveUiState>(extraBufferCapacity = 64)
+    private val _liveComputed = MutableSharedFlow<LiveUiState>(replay = 1, extraBufferCapacity = 64)
 
     /**
      * Every computed live state, without conflation (the [live] StateFlow keeps only the newest one, so a

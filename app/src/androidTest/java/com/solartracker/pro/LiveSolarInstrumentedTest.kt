@@ -216,7 +216,10 @@ class LiveSolarInstrumentedTest {
             Log.i(logTag, "UI lag (s) histogram: ${lags.groupingBy { it }.eachCount().toSortedMap()}")
             assertTrue("UI current in ${lags.count { it == 0L }} of ${lags.size} reads", lags.count { it == 0L } >= lags.size * 0.95)
             assertTrue("UI at most 3 s behind, max ${lags.maxOrNull()}", (lags.maxOrNull() ?: 0L) <= 2L)
-            samples.forEach { s -> assertTrue("UI clock ${s.clockText} comes from the live state", s.clockText in stateClocks) }
+            // Reads taken before the state recorder subscribed cannot be matched.
+            val firstState = stateList.firstOrNull()?.clockText?.let(LocalTime::parse)
+            samples.filter { firstState == null || !it.clock.isBefore(firstState) }
+                .forEach { s -> assertTrue("UI clock ${s.clockText} comes from the live state", s.clockText in stateClocks) }
             Log.i(logTag, "OK: ${stateList.size} consecutive seconds, az ${stateList.first().sun.azimuthDeg} → ${stateList.last().sun.azimuthDeg}")
 
             // Background → ticker stops; foreground → it resumes with the current time.
