@@ -1,0 +1,53 @@
+name: Generate release signing key
+
+# One-time helper for the repository owner. Generates a new release keystore and uploads it as a
+# short-lived private workflow artifact. The key is NOT stored in the repository.
+# After downloading it, add the four values as repository secrets (see docs/RELEASE_SIGNING.md)
+# and delete the workflow run so the artifact disappears.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type GENERATE to create a new key (do this only once – a new key cannot update apps signed with the old one)"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check confirmation
+        if: inputs.confirm != 'GENERATE'
+        run: |
+          echo "Not confirmed"
+          exit 1
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Generate keystore
+        run: |
+          umask 077
+          mkdir key
+          PASS=$(openssl rand -base64 32 | tr -d '/+=' | cut -c1-32)
+          echo "::add-mask::$PASS"
+          keytool -genkeypair -v -storetype PKCS12 -keystore key/release.jks -alias solartracker \
+            -keyalg RSA -keysize 4096 -validity 10000 -storepass "$PASS" -keypass "$PASS" \
+            -dname "CN=Solar Tracker PRO, O=${GITHUB_REPOSITORY_OWNER}" >/dev/null 2>&1
+          base64 -w0 key/release.jks > key/SIGNING_KEYSTORE_BASE64.txt
+          printf '%s' "$PASS" > key/SIGNING_KEYSTORE_PASSWORD.txt
+          printf '%s' "$PASS" > key/SIGNING_KEY_PASSWORD.txt
+          printf 'solartracker' > key/SIGNING_KEY_ALIAS.txt
+          keytool -list -v -keystore key/release.jks -storepass "$PASS" | grep -E 'SHA256:' | head -1
+
+      - name: Upload key (private artifact, 1 day)
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-signing-key-KEEP-SECRET
+          path: key/
+          retention-days: 1

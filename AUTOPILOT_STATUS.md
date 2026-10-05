@@ -49,3 +49,8 @@ Repozytorium GitHub jest **prywatne**.
   token nie trafia do innych hostów, brak przejścia HTTPS→HTTP), `GitHubClient` (czytelne błędy 401/403/404),
   `Downloader` (plik `.part`, Range, postęp, anulowanie, ponawianie 5xx/zerwań, bez ponawiania 4xx),
   `UpdateEngine` (sumy → APK → SHA-256; niezgodny plik usuwany, nigdy nie zwracany). Testy: `UpdateCoreTest`, `DownloadTest`.
+- **Faza 2 🟡** — `app/build.gradle.kts`: podpis `release` z env (`SIGNING_*`), bez sekretów fallback na debug;
+  CI buduje `assembleRelease`, wypisuje certyfikat (`apksigner`), przy wydaniu publikuje
+  `SolarTrackerPRO-<tag>-universal.apk` + `SHA256SUMS` + SHA-256 certyfikatu w opisie. Workflow
+  `signing-key.yml` (jednorazowe wygenerowanie klucza), instrukcja `docs/RELEASE_SIGNING.md`.
+  **Wymaga ręcznego kroku właściciela:** dodanie 4 sekretów.
