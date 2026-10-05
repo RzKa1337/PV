@@ -9,6 +9,7 @@ import androidx.test.uiautomator.Direction
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
 import com.solartracker.pro.core.analytics.CalibrationSample
+import com.solartracker.pro.core.analytics.ForecastHorizon
 import com.solartracker.pro.core.analytics.HistorySample
 import com.solartracker.pro.core.inverter.InverterConfig
 import com.solartracker.pro.core.inverter.InverterLink
@@ -122,6 +123,12 @@ class EnergyCenterInstrumentedTest {
         db.prune(now)
         assertEquals(0, db.history(now.minus(java.time.Duration.ofDays(60)), now.minus(java.time.Duration.ofDays(31))).size)
         assertEquals(1, db.calibration(now.minusSeconds(10)).size)
+        val hour = now.truncatedTo(java.time.temporal.ChronoUnit.HOURS).plusSeconds(3600)
+        db.putForecast(hour, ForecastHorizon.HOUR_AHEAD, 1.2, now)
+        db.putForecast(hour, ForecastHorizon.HOUR_AHEAD, 1.5, now.plusSeconds(1)) // later issue replaces
+        db.putForecast(hour, ForecastHorizon.DAY_AHEAD, 9.9, hour.plusSeconds(1)) // issued after the hour started → ignored
+        assertEquals(mapOf(hour to 1.5), db.forecasts(ForecastHorizon.HOUR_AHEAD, now, hour.plusSeconds(1)))
+        assertTrue(db.forecasts(ForecastHorizon.DAY_AHEAD, now, hour.plusSeconds(1)).isEmpty())
         db.close()
         context.deleteDatabase(HistoryDatabase.NAME)
     }

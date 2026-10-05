@@ -4,6 +4,9 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.solartracker.pro.BuildConfig
+import com.solartracker.pro.core.analytics.AccuracyReport
+import com.solartracker.pro.core.analytics.ForecastAccuracy
+import com.solartracker.pro.core.analytics.ForecastHorizon
 import com.solartracker.pro.core.analytics.HistoryPeriod
 import com.solartracker.pro.core.analytics.HistoryPeriods
 import com.solartracker.pro.core.analytics.PeriodTotals
@@ -103,6 +106,7 @@ import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 
 /** Live part of the Energy Center. */
 data class LiveState(
@@ -155,6 +159,8 @@ data class InsightsState(
     val periods: List<PeriodBalance> = emptyList(),
     val week: List<DayBalance> = emptyList(),
     val totals: Map<HistoryPeriod, List<PeriodTotals>> = emptyMap(),
+    /** Stored PV forecasts vs measured energy over the last 30 days. */
+    val accuracy: Map<ForecastHorizon, AccuracyReport> = emptyMap(),
 )
 
 class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
@@ -395,12 +401,31 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
             producedTodayKwh = producedToday,
             updatedAt = now,
         )
+        storeForecasts(pv, now, nowcast)
         recomputeInsights(s, pv, load, nowcast, soc, now)
+    }
+
+    /** Hour-ahead (next hour) and day-ahead (all of tomorrow) PV energy, kept for accuracy tracking. */
+    private suspend fun storeForecasts(pv: PredictivePvEngine, now: Instant, nowcast: Double?) = withContext(Dispatchers.IO) {
+        fun hourKwh(start: Instant, ratio: Double?) = (0 until 6).sumOf { pv.at(start.plusSeconds(300L + it * 600L), now, ratio).expectedKw } / 6.0
+        runCatching {
+            val next = now.truncatedTo(ChronoUnit.HOURS).plus(Duration.ofHours(1))
+            db.putForecast(next, ForecastHorizon.HOUR_AHEAD, hourKwh(next, nowcast), now)
+            val tomorrow = now.atZone(zone).toLocalDate().plusDays(1).atStartOfDay(zone).toInstant()
+            for (h in 0 until 24) {
+                val start = tomorrow.plus(Duration.ofHours(h.toLong()))
+                db.putForecast(start, ForecastHorizon.DAY_AHEAD, hourKwh(start, null), now)
+            }
+        }
     }
 
     private suspend fun recomputeInsights(s: AppSettings, pv: PredictivePvEngine, load: LoadForecaster, nowcast: Double?, soc: Double?, now: Instant) {
         val week = withContext(Dispatchers.IO) { runCatching { db.history(now.minus(Duration.ofDays(7)), now) }.getOrDefault(emptyList()) }
         val all = withContext(Dispatchers.IO) { runCatching { db.history(Instant.EPOCH, now, summary = true) }.getOrDefault(emptyList()) }
+        val monthAgo = now.minus(Duration.ofDays(30))
+        val stored = withContext(Dispatchers.IO) {
+            ForecastHorizon.entries.associateWith { h -> runCatching { db.forecasts(h, monthAgo, now.minus(Duration.ofHours(1))) }.getOrDefault(emptyMap()) }
+        }
         val telemetry = _live.value.telemetry
         val inv = inverterConfig.value
         val shading = _shading.value
@@ -443,6 +468,10 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
                 periods = EnergyOptimizationEngine.periods(slots.takeWhile { it.start.atZone(zone).toLocalDate() == now.atZone(zone).toLocalDate() }, zone),
                 week = EnergyOptimizationEngine.daily(slots, zone),
                 totals = HistoryPeriod.entries.associateWith { HistoryPeriods.totals(all, it, zone, now) },
+                accuracy = stored.mapValues { (_, f) ->
+                    // Night hours (0 vs 0) would flatter the score: compare only hours with production expected or measured.
+                    ForecastAccuracy.evaluate(ForecastAccuracy.pairHourly(f, all.filter { it.start >= monthAgo }).filter { it.forecast > 0.01 || it.actual > 0.01 })
+                },
             )
         }
     }

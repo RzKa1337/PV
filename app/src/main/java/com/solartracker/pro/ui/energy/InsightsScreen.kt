@@ -102,6 +102,23 @@ fun InsightsScreen(vm: EnergyCenterViewModel, onBack: () -> Unit, modifier: Modi
             }
         }
 
+        // FORECAST ACCURACY
+        SectionCard(Modifier.testTag("accuracy_card")) {
+            Text("DOKŁADNOŚĆ PROGNOZ (30 DNI)", fontWeight = FontWeight.Bold)
+            val reports = insights.accuracy.filterValues { it.count > 0 }
+            if (reports.isEmpty()) {
+                Text("Brak danych: potrzebne są zapisane prognozy i pełne godziny pomiarów z falownika.", style = MaterialTheme.typography.bodyMedium)
+                KindBadge(DataKind.UNAVAILABLE)
+            }
+            reports.forEach { (horizon, r) ->
+                Text("Prognoza ${horizon.label} · ${r.count} h", fontWeight = FontWeight.SemiBold)
+                Text(r.describe(), style = MaterialTheme.typography.bodyMedium)
+                Text("MAE ${f(r.mae, 2)} kWh · RMSE ${f(r.rmse, 2)} kWh" + (r.mapePercent?.let { " · MAPE ${f(it, 0)}%" } ?: "") +
+                    (r.biasPercent?.let { " · błąd systematyczny ${if (it >= 0) "+" else ""}${f(it)}%" } ?: ""), style = MaterialTheme.typography.bodySmall)
+            }
+            if (reports.isNotEmpty()) KindBadge(DataKind.CALCULATED)
+        }
+
         // EARLY WARNINGS
         SectionCard {
             Text("OSTRZEŻENIA PREDYKCYJNE", fontWeight = FontWeight.Bold)

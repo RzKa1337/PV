@@ -6,6 +6,7 @@ import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import com.solartracker.pro.core.analytics.CalibrationSample
+import com.solartracker.pro.core.analytics.ForecastHorizon
 import com.solartracker.pro.core.analytics.HistorySample
 import com.solartracker.pro.core.inverter.OperatingMode
 import java.time.Duration
@@ -27,9 +28,30 @@ class HistoryDatabase(context: Context) : SQLiteOpenHelper(context.applicationCo
             )
         }
         db.execSQL("CREATE TABLE $T_CALIB (time INTEGER PRIMARY KEY, real_kw REAL NOT NULL, model_kw REAL NOT NULL)")
+        createForecastTable(db)
     }
 
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        if (oldVersion < 2) createForecastTable(db)
+    }
+
+    private fun createForecastTable(db: SQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS $T_FORECAST (hour INTEGER NOT NULL, horizon TEXT NOT NULL, kwh REAL NOT NULL, issued INTEGER NOT NULL, PRIMARY KEY (hour, horizon))")
+    }
+
+    /** Stores a PV forecast for the hour starting at [hour]; a later issue (still before the hour) replaces it. */
+    fun putForecast(hour: Instant, horizon: ForecastHorizon, kwh: Double, issued: Instant) {
+        if (!issued.isBefore(hour) || !kwh.isFinite()) return
+        writableDatabase.insertWithOnConflict(T_FORECAST, null, ContentValues().apply {
+            put("hour", hour.toEpochMilli()); put("horizon", horizon.name); put("kwh", kwh); put("issued", issued.toEpochMilli())
+        }, SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    fun forecasts(horizon: ForecastHorizon, from: Instant, to: Instant): Map<Instant, Double> =
+        readableDatabase.query(T_FORECAST, arrayOf("hour", "kwh"), "horizon = ? AND hour >= ? AND hour < ?",
+            arrayOf(horizon.name, from.toEpochMilli().toString(), to.toEpochMilli().toString()), null, null, "hour").use { c ->
+            buildMap { while (c.moveToNext()) put(Instant.ofEpochMilli(c.getLong(0)), c.getDouble(1)) }
+        }
 
     fun insert(sample: HistorySample, summary: Boolean = false) {
         writableDatabase.insertWithOnConflict(if (summary) T_SUMMARY else T_HISTORY, null, values(sample), SQLiteDatabase.CONFLICT_REPLACE)
@@ -62,6 +84,7 @@ class HistoryDatabase(context: Context) : SQLiteOpenHelper(context.applicationCo
         db.delete(T_HISTORY, "start < ?", arrayOf(now.minus(Duration.ofDays(HISTORY_DAYS)).toEpochMilli().toString()))
         db.delete(T_SUMMARY, "start < ?", arrayOf(now.minus(Duration.ofDays(SUMMARY_DAYS)).toEpochMilli().toString()))
         db.delete(T_CALIB, "time < ?", arrayOf(now.minus(Duration.ofDays(60)).toEpochMilli().toString()))
+        db.delete(T_FORECAST, "hour < ?", arrayOf(now.minus(Duration.ofDays(SUMMARY_DAYS)).toEpochMilli().toString()))
     }
 
     private fun values(s: HistorySample) = ContentValues().apply {
@@ -93,11 +116,12 @@ class HistoryDatabase(context: Context) : SQLiteOpenHelper(context.applicationCo
 
     companion object {
         const val NAME = "telemetry.db"
-        const val VERSION = 1
+        const val VERSION = 2
         const val HISTORY_DAYS = 30L
         const val SUMMARY_DAYS = 730L
         private const val T_HISTORY = "history"
         private const val T_SUMMARY = "summary"
         private const val T_CALIB = "calibration"
+        private const val T_FORECAST = "forecast"
     }
 }

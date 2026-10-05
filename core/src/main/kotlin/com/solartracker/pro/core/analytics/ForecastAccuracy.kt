@@ -1,6 +1,7 @@
 package com.solartracker.pro.core.analytics
 
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 import kotlin.math.abs
 import kotlin.math.sqrt
 
@@ -42,4 +43,21 @@ object ForecastAccuracy {
         val accuracy = if (sumActual > 0) (100 - p.sumOf { abs(it.forecast - it.actual) } / sumActual * 100).coerceIn(0.0, 100.0) else null
         return AccuracyReport(p.size, mae, rmse, mape, bias, accuracy)
     }
+
+    /**
+     * Pairs stored hourly PV forecasts [kWh] (keyed by hour start) with measured energy from history rows.
+     * Hours whose recorded time covers less than [minCoverage] of the hour are skipped, so link gaps
+     * are never counted as zero production.
+     */
+    fun pairHourly(forecasts: Map<Instant, Double>, samples: List<HistorySample>, minCoverage: Double = 0.9): List<ForecastPair> {
+        val byHour = samples.groupBy { it.start.truncatedTo(ChronoUnit.HOURS) }
+        return forecasts.entries.sortedBy { it.key }.mapNotNull { (hour, forecast) ->
+            val rows = byHour[hour] ?: return@mapNotNull null
+            val covered = rows.sumOf { it.duration.seconds } / 3600.0
+            if (covered < minCoverage) null else ForecastPair(hour, forecast, rows.sumOf { it.pvEnergyKwh })
+        }
+    }
 }
+
+/** Which stored forecast is compared: issued shortly before the hour, or the previous day. */
+enum class ForecastHorizon(val label: String) { HOUR_AHEAD("na godzinę naprzód"), DAY_AHEAD("na dzień naprzód") }
