@@ -32,7 +32,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.solartracker.pro.core.analytics.HistoryPeriod
-import com.solartracker.pro.core.ems.RecommendationKind
 import com.solartracker.pro.core.ems.WindowKind
 import com.solartracker.pro.core.health.FaultLevel
 import com.solartracker.pro.core.quality.DataKind
@@ -128,7 +127,10 @@ fun InsightsScreen(vm: EnergyCenterViewModel, onBack: () -> Unit, modifier: Modi
                     Text("$label ${hmFmt.format(w.start)}–${hmFmt.format(w.end)}: ${f(w.energyKwh)} kWh (szczyt ${f(w.peakKw)} kW)", style = MaterialTheme.typography.bodySmall)
                 }
                 ems.minSocPercent?.let { Text("Najniższy SOC: ${f(it, 0)}% ok. ${ems.minSocAt?.let(hmFmt::format) ?: "—"}", style = MaterialTheme.typography.bodySmall) }
-                ems.recommendations.filter { it.kind == RecommendationKind.RUN }.forEach { Text("▶ ${it.load.name}: ${it.start?.let(hmFmt::format)}", style = MaterialTheme.typography.bodySmall) }
+                if (ems.recommendations.isEmpty()) Text("Dodaj odbiorniki (pralka, bojler…) w Konfiguracji, aby dostać godziny uruchomienia.", style = MaterialTheme.typography.bodySmall)
+                ems.generator?.let { g ->
+                    Text("Agregat: start ok. ${hmFmt.format(g.start)}, ${f(g.hours)} h, ${f(g.energyKwh)} kWh" + (g.fuelLiters?.let { " · ok. ${f(it)} l paliwa" } ?: ""), style = MaterialTheme.typography.bodySmall)
+                }
                 KindBadge(DataKind.FORECAST)
             }
             if (insights.periods.isNotEmpty()) {

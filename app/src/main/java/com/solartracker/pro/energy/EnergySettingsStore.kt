@@ -10,6 +10,10 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.solartracker.pro.core.ems.EmsCodec
+import com.solartracker.pro.core.ems.FlexibleLoad
+import com.solartracker.pro.core.ems.GeneratorConfig
+import com.solartracker.pro.core.ems.validate
 import com.solartracker.pro.core.inverter.InverterBrand
 import com.solartracker.pro.core.inverter.InverterConfig
 import com.solartracker.pro.core.inverter.InverterLink
@@ -98,6 +102,18 @@ class EnergySettingsStore(private val dataStore: DataStore<Preferences>) {
         if (s.validate().isEmpty()) s else d.copy(locationAccuracy = s.locationAccuracy, locationConfirmed = s.locationConfirmed)
     }
 
+    /** User-defined flexible loads and the generator for EMS recommendations. */
+    val flexibleLoads: Flow<List<FlexibleLoad>> = prefs.map { EmsCodec.decodeLoads(it[K.EMS_LOADS]) }
+    val generator: Flow<GeneratorConfig?> = prefs.map { EmsCodec.decodeGenerator(it[K.EMS_GENERATOR]) }
+
+    suspend fun setFlexibleLoads(loads: List<FlexibleLoad>) {
+        dataStore.edit { it[K.EMS_LOADS] = EmsCodec.encodeLoads(loads.filter { l -> l.validate().isEmpty() }.take(20)) }
+    }
+
+    suspend fun setGenerator(g: GeneratorConfig?) {
+        dataStore.edit { it[K.EMS_GENERATOR] = EmsCodec.encodeGenerator(g?.takeIf { c -> c.validate().isEmpty() }) }
+    }
+
     suspend fun inverterNow() = inverter.first()
     suspend fun siteNow() = site.first()
 
@@ -144,5 +160,7 @@ class EnergySettingsStore(private val dataStore: DataStore<Preferences>) {
         val RADIUS = intPreferencesKey("site_radius")
         val BAT_V = doublePreferencesKey("site_battery_v")
         val EXPORT = booleanPreferencesKey("site_export")
+        val EMS_LOADS = stringPreferencesKey("ems_loads")
+        val EMS_GENERATOR = stringPreferencesKey("ems_generator")
     }
 }

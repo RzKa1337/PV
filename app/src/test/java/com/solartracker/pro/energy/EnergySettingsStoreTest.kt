@@ -1,5 +1,7 @@
 package com.solartracker.pro.energy
 
+import com.solartracker.pro.core.ems.FlexibleLoad
+import com.solartracker.pro.core.ems.GeneratorConfig
 import com.solartracker.pro.core.inverter.InverterConfig
 import com.solartracker.pro.core.inverter.InverterLink
 import com.solartracker.pro.core.inverter.InverterProtocol
@@ -11,6 +13,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.LocalTime
 
 class EnergySettingsStoreTest {
 
@@ -55,5 +58,20 @@ class EnergySettingsStoreTest {
         assertTrue(SiteConfig(rows = 5, panelCount = 4).validate().any { it.contains("rzędów") })
         assertTrue(SiteConfig(strings = 9, panelCount = 4).validate().any { it.contains("stringów") })
         assertTrue(SiteConfig(obstacleRadiusM = 5000).validate().any { it.contains("Promień") })
+    }
+
+    @Test
+    fun emsLoadsAndGeneratorRoundTrip() = runTest {
+        val store = EnergySettingsStore(FakeDataStore())
+        assertTrue(store.flexibleLoads.first().isEmpty())
+        assertEquals(null, store.generator.first())
+        val loads = listOf(FlexibleLoad("1", "Pralka", 2.0, 2.0, LocalTime.of(8, 0), LocalTime.of(18, 0)), FlexibleLoad("2", "Zły", 0.0, 1.0))
+        store.setFlexibleLoads(loads)
+        assertEquals(loads.take(1), store.flexibleLoads.first())
+        val g = GeneratorConfig(3.0, 25.0, 80.0, 1.0, 0.4)
+        store.setGenerator(g)
+        assertEquals(g, store.generator.first())
+        store.setGenerator(null)
+        assertEquals(null, store.generator.first())
     }
 }

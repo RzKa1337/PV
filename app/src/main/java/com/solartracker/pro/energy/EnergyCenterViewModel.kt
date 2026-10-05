@@ -12,6 +12,8 @@ import com.solartracker.pro.core.ems.EmsInput
 import com.solartracker.pro.core.ems.EmsPlan
 import com.solartracker.pro.core.ems.EnergyOptimizationEngine
 import com.solartracker.pro.core.ems.EnergySlot
+import com.solartracker.pro.core.ems.FlexibleLoad
+import com.solartracker.pro.core.ems.GeneratorConfig
 import com.solartracker.pro.core.ems.PeriodBalance
 import com.solartracker.pro.core.energy.BackupSource
 import com.solartracker.pro.core.export.HistoryExport
@@ -90,6 +92,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -166,6 +169,8 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
     val settings: StateFlow<AppSettings?> = settingsRepo.settings.stateIn(viewModelScope, SharingStarted.Eagerly, null)
     val inverterConfig: StateFlow<InverterConfig?> = store.inverter.stateIn(viewModelScope, SharingStarted.Eagerly, null)
     val siteConfig: StateFlow<SiteConfig?> = store.site.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    val flexibleLoads: StateFlow<List<FlexibleLoad>> = store.flexibleLoads.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val generator: StateFlow<GeneratorConfig?> = store.generator.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     private val _mapData = MutableStateFlow<MapDataCache?>(null)
     val mapData: StateFlow<MapDataCache?> = _mapData.asStateFlow()
@@ -399,6 +404,9 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
         val telemetry = _live.value.telemetry
         val inv = inverterConfig.value
         val shading = _shading.value
+        // Read the store directly: right after a save the StateFlows may not have caught up yet.
+        val loads = store.flexibleLoads.first()
+        val gen = store.generator.first()
         _insights.value = withContext(Dispatchers.Default) {
             val slots = (0 until 24 * 7).map { i ->
                 val t = now.plus(Duration.ofHours(i.toLong()))
@@ -406,7 +414,11 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
                 EnergySlot(t, 1.0, p.expectedKw, load.at(t).kw, p.minKw, p.confidence)
             }
             val ems = EnergyOptimizationEngine.plan(
-                EmsInput(slots.take(36), s.activeBattery, soc, gridAvailable = s.prices.backupSource == BackupSource.GRID, zone = zone),
+                EmsInput(
+                    slots.take(36), s.activeBattery, soc, loads = loads,
+                    generator = gen.takeIf { s.prices.backupSource == BackupSource.GENERATOR },
+                    gridAvailable = s.prices.backupSource == BackupSource.GRID, zone = zone,
+                ),
             )
             val ratedW = inv?.takeIf { it.enabled }?.ratedPowerW
             val assessment: Triple<HealthReport?, String?, List<FaultWarning>> = if (week.isEmpty() || ratedW == null) {
@@ -462,6 +474,14 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
             if (rows.isEmpty()) add("Brak zapisanej historii z falownika.")
         }
         PdfReport.write("Solar Tracker PRO — raport", lines, out)
+    }
+
+    fun saveFlexibleLoads(loads: List<FlexibleLoad>) {
+        viewModelScope.launch { store.setFlexibleLoads(loads); recomputeForecast() }
+    }
+
+    fun saveGenerator(g: GeneratorConfig?) {
+        viewModelScope.launch { store.setGenerator(g); recomputeForecast() }
     }
 
     /** Export of recorded history (summary rows) as CSV or JSON text. */

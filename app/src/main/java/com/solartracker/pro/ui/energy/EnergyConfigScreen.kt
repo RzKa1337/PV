@@ -33,6 +33,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.solartracker.pro.core.ems.FlexibleLoad
+import com.solartracker.pro.core.ems.GeneratorConfig
+import com.solartracker.pro.core.ems.validate
 import com.solartracker.pro.core.inverter.InverterConfig
 import com.solartracker.pro.core.inverter.InverterLink
 import com.solartracker.pro.core.inverter.InverterProtocol
@@ -42,7 +45,9 @@ import com.solartracker.pro.energy.EnergyCenterViewModel
 import com.solartracker.pro.energy.SiteConfig
 import com.solartracker.pro.ui.components.ScreenTitle
 import com.solartracker.pro.ui.components.SectionCard
+import java.time.LocalTime
 import java.util.Locale
+import java.util.UUID
 
 @Composable
 fun EnergyConfigScreen(vm: EnergyCenterViewModel, onBack: () -> Unit, modifier: Modifier = Modifier) {
@@ -54,6 +59,7 @@ fun EnergyConfigScreen(vm: EnergyCenterViewModel, onBack: () -> Unit, modifier: 
         inverter?.let { InverterForm(it, vm::saveInverter) }
         site?.let { LocationSection(vm, it) }
         site?.let { SiteForm(it, vm::saveSite) }
+        EmsSection(vm)
     }
 }
 
@@ -216,5 +222,107 @@ private fun SiteForm(current: SiteConfig, onSave: (SiteConfig) -> List<String>) 
                 ),
             )
         }) { Text("Zapisz instalację") }
+    }
+}
+
+private fun String.time(): LocalTime? = trim().takeIf { it.isNotEmpty() }?.let { t ->
+    runCatching { LocalTime.parse(if (t.length == 4 && t[1] == ':') "0$t" else t) }.getOrNull()
+}
+
+/** Flexible loads and generator used by EMS recommendations (nothing is switched by the app). */
+@Composable
+private fun EmsSection(vm: EnergyCenterViewModel) {
+    val loads by vm.flexibleLoads.collectAsStateWithLifecycle()
+    val generator by vm.generator.collectAsStateWithLifecycle()
+    var name by remember { mutableStateOf("") }
+    var kw by remember { mutableStateOf("") }
+    var hours by remember { mutableStateOf("") }
+    var from by remember { mutableStateOf("") }
+    var to by remember { mutableStateOf("") }
+    var surplusOnly by remember { mutableStateOf(true) }
+    var errors by remember { mutableStateOf(emptyList<String>()) }
+    SectionCard {
+        Text("Odbiorniki elastyczne (EMS)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text("Urządzenia, które można uruchomić później (pralka, bojler, ładowanie auta). Aplikacja tylko podpowiada godzinę – niczego nie włącza.",
+            style = MaterialTheme.typography.bodySmall)
+        if (loads.isEmpty()) Text("Brak odbiorników.", style = MaterialTheme.typography.bodyMedium)
+        loads.forEach { l ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(l.name, fontWeight = FontWeight.SemiBold)
+                    Text(String.format(Locale.ROOT, "%.2f kW × %.2f h", l.powerKw, l.hours) +
+                        (if (l.earliest != null || l.latest != null) " · ${l.earliest ?: "—"}–${l.latest ?: "—"}" else "") +
+                        (if (l.surplusOnly) " · tylko z nadwyżki" else ""), style = MaterialTheme.typography.bodySmall)
+                }
+                TextButton(onClick = { vm.saveFlexibleLoads(loads.filterNot { it.id == l.id }) }) { Text("Usuń") }
+            }
+        }
+        OutlinedTextField(name, { name = it.take(40) }, label = { Text("Nazwa") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            NumberField("Moc [kW]", kw, { kw = it }, Modifier.weight(1f))
+            NumberField("Czas pracy [h]", hours, { hours = it }, Modifier.weight(1f))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(from, { from = it.take(5) }, label = { Text("Od (GG:MM)") }, singleLine = true, modifier = Modifier.weight(1f))
+            OutlinedTextField(to, { to = it.take(5) }, label = { Text("Do (GG:MM)") }, singleLine = true, modifier = Modifier.weight(1f))
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Tylko z nadwyżki PV", Modifier.weight(1f))
+            Switch(checked = surplusOnly, onCheckedChange = { surplusOnly = it })
+        }
+        errors.forEach { Text(it, color = MaterialTheme.colorScheme.error) }
+        OutlinedButton(onClick = {
+            val f = from.time(); val t = to.time()
+            val timeErrors = buildList {
+                if (from.isNotBlank() && f == null) add("Niepoprawna godzina „od”")
+                if (to.isNotBlank() && t == null) add("Niepoprawna godzina „do”")
+            }
+            val load = FlexibleLoad(UUID.randomUUID().toString(), name.trim(), kw.num() ?: -1.0, hours.num() ?: -1.0, f, t, 0, surplusOnly)
+            errors = timeErrors + load.validate() + (if (loads.size >= 20) listOf("Maksymalnie 20 odbiorników") else emptyList())
+            if (errors.isEmpty()) {
+                vm.saveFlexibleLoads(loads + load)
+                name = ""; kw = ""; hours = ""; from = ""; to = ""
+            }
+        }) { Text("Dodaj odbiornik") }
+    }
+    GeneratorForm(generator, vm::saveGenerator)
+}
+
+@Composable
+private fun GeneratorForm(current: GeneratorConfig?, onSave: (GeneratorConfig?) -> Unit) {
+    var enabled by remember(current) { mutableStateOf(current != null) }
+    var kw by remember(current) { mutableStateOf(current?.ratedKw?.toString() ?: "") }
+    var start by remember(current) { mutableStateOf((current?.startSocPercent ?: 25.0).toInt().toString()) }
+    var stop by remember(current) { mutableStateOf((current?.stopSocPercent ?: 80.0).toInt().toString()) }
+    var minRun by remember(current) { mutableStateOf((current?.minRunHours ?: 1.0).toString()) }
+    var fuel by remember(current) { mutableStateOf(current?.litersPerKwh?.toString() ?: "") }
+    var errors by remember(current) { mutableStateOf(emptyList<String>()) }
+    var saved by remember(current) { mutableStateOf(false) }
+    SectionCard {
+        Text("Agregat", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Mam agregat", Modifier.weight(1f))
+            Switch(checked = enabled, onCheckedChange = { enabled = it })
+        }
+        Text("Używany w zaleceniach, gdy w Ustawieniach → Ceny źródłem rezerwowym jest agregat.", style = MaterialTheme.typography.bodySmall)
+        if (enabled) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                NumberField("Moc [kW]", kw, { kw = it }, Modifier.weight(1f))
+                NumberField("Min. praca [h]", minRun, { minRun = it }, Modifier.weight(1f))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                NumberField("Start przy SOC [%]", start, { start = it }, Modifier.weight(1f))
+                NumberField("Stop przy SOC [%]", stop, { stop = it }, Modifier.weight(1f))
+            }
+            NumberField("Zużycie paliwa [l/kWh] (opcj.)", fuel, { fuel = it }, Modifier.fillMaxWidth())
+        }
+        errors.forEach { Text(it, color = MaterialTheme.colorScheme.error) }
+        if (saved) Text("Zapisano", color = MaterialTheme.colorScheme.primary)
+        Button(onClick = {
+            if (!enabled) { onSave(null); saved = true; errors = emptyList(); return@Button }
+            val g = GeneratorConfig(kw.num() ?: -1.0, start.num() ?: -1.0, stop.num() ?: -1.0, minRun.num() ?: -1.0, fuel.num())
+            errors = g.validate()
+            if (errors.isEmpty()) { onSave(g); saved = true }
+        }) { Text("Zapisz agregat") }
     }
 }
