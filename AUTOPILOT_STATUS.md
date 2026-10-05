@@ -1,6 +1,6 @@
 # AUTOPILOT STATUS — Solar Tracker PRO
 
-Ostatnia aktualizacja: 2026-10-05 · gałąź `ccr-81f74041-r3omte` · ostatnie wydanie: v0.4.0 · kod v0.5.0 gotowy
+Ostatnia aktualizacja: 2026-10-05 · gałąź `ccr-81f74041-r3omte` · ostatnie wydanie: v0.5.0
 
 ## Audyt repozytorium (faza 0)
 
@@ -19,7 +19,7 @@ Repozytorium GitHub jest **prywatne**.
 | Live Solar (co 1 s) | ✅ zrobione | test 3 min na emulatorze w CI |
 | UI ekranów (pulpit, kąty, miesiące, energia, ustawienia, dark mode) | 🟡 częściowo | kompiluje się, lint, emulator; brak ręcznego testu na telefonie |
 | GPS | 🟡 częściowo | logika przetestowana; brak testu na telefonie |
-| Release APK podpisane stałym kluczem | 🟡 CI gotowe | czeka na 4 sekrety w GitHub (docs/RELEASE_SIGNING.md) |
+| Release APK podpisane stałym kluczem | ✅ zrobione | od v0.5.0; certyfikat SHA-256 `a58b2a09…299b` |
 | **Automatyczna aktualizacja z GitHuba** | 🟡 zaimplementowana, CI zielone | brak testu na telefonie; działa po dodaniu klucza wydania |
 | Falownik, śnieg, zacienienie, kamper, widget, wyszukiwanie miejscowości | ❌ brak | pomysły na później |
 
@@ -38,9 +38,9 @@ Repozytorium GitHub jest **prywatne**.
 | Faza | Zakres | Stan |
 |---|---|---|
 | 1 | `:core/update`: wersje SemVer, kanały, parser wydań GitHub, wybór artefaktu (ABI), SHA256SUMS, polityka sprawdzania/odroczeń, ponawianie, dziennik | ✅ 138/138 testów `:core` (w tym 22 nowe: logika + pobieranie przez lokalny serwer HTTP) |
-| 2 | CI: podpis wydań kluczem z Secrets, SHA256SUMS, generator klucza | ✅ CI zielone; ⚠️ brak sekretów klucza (krok właściciela) |
+| 2 | CI: podpis wydań kluczem z Secrets, SHA256SUMS, generator klucza | ✅ sekrety dodane, v0.5.0 podpisane kluczem wydania |
 | 3 | Android: klient GitHub, pobieranie z wznowieniem i postępem, weryfikacja (SHA-256 + certyfikat APK + pakiet + versionCode), instalacja PackageInstaller, WorkManager, UI, kopia ustawień, restart/powiadomienie | ✅ CI #28 zielone (unit + lint + emulator) |
-| 4 | Testy, build, emulator, wydanie | 🟡 testy/build/emulator ✅; wydanie v0.5.0 wstrzymane do dodania klucza |
+| 4 | Testy, build, emulator, wydanie | ✅ wydanie v0.5.0 (klucz wydania, SHA256SUMS) |
 
 ## Dziennik faz
 
@@ -66,3 +66,7 @@ Repozytorium GitHub jest **prywatne**.
   (APK v0.4.0 został jednak opublikowany przez job `build`).
   **Wydanie v0.5.0 wstrzymane**: bez stałego klucza każde wydanie ma inny podpis, więc auto-aktualizacja v0.5.0 → v0.6.0
   i tak by nie zadziałała. Decyzja właściciela: dodać sekrety (zalecane) albo wydać teraz z kluczem tymczasowym.
+- **Wydanie v0.5.0 ✅** — przebieg #30: build, testy, lint, APK release podpisany kluczem z Secrets, wydanie z
+  `SolarTrackerPRO-v0.5.0-universal.apk` i `SHA256SUMS`. Emulator w tym przebiegu: „Live tab not found” (aplikacja nie
+  pokazała się w 20 s na świeżo uruchomionym emulatorze; ten sam commit przeszedł w #29) → test czeka do 60 s i zamyka
+  systemowe okna „nie odpowiada”. Następny krok: ręczny test aktualizacji na telefonie przy v0.5.1.

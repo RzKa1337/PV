@@ -96,11 +96,11 @@ Zaimplementowane, kompiluje się i przechodzi lint w CI — **czeka na ręczny t
 - [x] Rdzeń (`:core/update`): SemVer, kanały stable/beta, parser wydań GitHub, wybór APK wg ABI, SHA256SUMS, polityka sprawdzania/odroczeń/pominięć/złych wersji, ponawianie z back-off, dziennik — testy JVM
 - [x] Pobieranie z wznowieniem (Range), postępem, anulowaniem i weryfikacją SHA-256 (plik niezgodny usuwany); token tylko do hosta API — testy z lokalnym serwerem HTTP
 - [x] CI: podpis wydań stałym kluczem z GitHub Secrets + SHA256SUMS w wydaniu (CI zielone; release APK budowany)
-- [ ] Właściciel: dodać sekrety klucza wydania (docs/RELEASE_SIGNING.md)
+- [x] Właściciel: dodać sekrety klucza wydania (docs/RELEASE_SIGNING.md)
 - [x] Android: weryfikacja certyfikatu/pakietu/versionCode, PackageInstaller, WorkManager, UI ustawień, kopia ustawień, restart/powiadomienie (CI + emulator: weryfikacja APK)
 - [ ] Ręczny test aktualizacji na telefonie (pobranie → instalacja → restart)
 - [x] Test na emulatorze (CI #28)
-- [ ] Wydanie v0.5.0 (po dodaniu sekretów klucza)
+- [x] Wydanie v0.5.0 podpisane kluczem wydania (certyfikat SHA-256 a58b2a09…299b) + SHA256SUMS
 
 ## Później (pomysły)
 - [ ] Integracja z falownikiem (rzeczywista moc PV obok modelu)
