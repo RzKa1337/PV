@@ -63,7 +63,9 @@ class LiveSolarInstrumentedTest {
         val elevation: Double,
         val power: String,
         val soc: String,
+        /** Device time right before and right after reading the displayed clock. */
         val wall: LocalTime,
+        val wallAfter: LocalTime,
     )
 
     private fun text(tag: String): String? = runCatching { device.findObject(By.res(tag))?.text }.getOrNull()
@@ -114,7 +116,9 @@ class LiveSolarInstrumentedTest {
             val end = SystemClock.elapsedRealtime() + seconds * 1000
             device.setCompressedLayoutHeirarchy(true)
             while (SystemClock.elapsedRealtime() < end) {
+                val before = LocalTime.now()
                 val clockText = text(LiveTags.CLOCK)
+                val after = LocalTime.now()
                 if (clockText != null && clockText.length == 8 && samples.lastOrNull()?.clockText != clockText) {
                     val az = number(text(LiveTags.AZIMUTH))
                     val el = number(text(LiveTags.ELEVATION))
@@ -126,7 +130,8 @@ class LiveSolarInstrumentedTest {
                             elevation = el,
                             power = text(LiveTags.POWER) ?: "",
                             soc = text(LiveTags.SOC) ?: "",
-                            wall = LocalTime.now(),
+                            wall = before,
+                            wallAfter = after,
                         )
                         samples += s
                         val line = "${s.wall},$clockText,${s.azimuth},${s.elevation},\"${s.power}\",\"${s.soc}\""
@@ -184,8 +189,12 @@ class LiveSolarInstrumentedTest {
                 assertTrue("UI step ${samples[i - 1].clock} → ${samples[i].clock}", step.seconds in 1..3)
             }
             samples.forEach { s ->
-                val diff = abs(Duration.between(s.clock, s.wall).seconds)
-                assertTrue("clock ${s.clock} vs device ${s.wall}", diff <= 1 || diff >= 86_399)
+                // The displayed second must lie between the device time before (minus 1 s for a render
+                // in flight) and after the read; independent of how slow UiAutomator is.
+                val fromStart = Duration.between(s.wall.withNano(0).minusSeconds(1), s.clock).seconds
+                val window = Duration.between(s.wall.withNano(0).minusSeconds(1), s.wallAfter).seconds
+                val ok = (fromStart in 0..window) || s.wallAfter < s.wall // midnight wrap
+                assertTrue("clock ${s.clock} vs device ${s.wall}..${s.wallAfter}", ok)
                 assertTrue("UI clock ${s.clockText} comes from the live state", s.clockText in stateClocks)
             }
             Log.i(logTag, "OK: ${stateList.size} consecutive seconds, az ${stateList.first().sun.azimuthDeg} → ${stateList.last().sun.azimuthDeg}")
