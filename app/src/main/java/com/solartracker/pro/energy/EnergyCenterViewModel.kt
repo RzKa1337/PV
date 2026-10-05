@@ -3,6 +3,25 @@ package com.solartracker.pro.energy
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.solartracker.pro.BuildConfig
+import com.solartracker.pro.core.analytics.HistoryPeriod
+import com.solartracker.pro.core.analytics.HistoryPeriods
+import com.solartracker.pro.core.analytics.PeriodTotals
+import com.solartracker.pro.core.ems.DayBalance
+import com.solartracker.pro.core.ems.EmsInput
+import com.solartracker.pro.core.ems.EmsPlan
+import com.solartracker.pro.core.ems.EnergyOptimizationEngine
+import com.solartracker.pro.core.ems.EnergySlot
+import com.solartracker.pro.core.ems.PeriodBalance
+import com.solartracker.pro.core.energy.BackupSource
+import com.solartracker.pro.core.export.HistoryExport
+import com.solartracker.pro.core.health.DayStatsBuilder
+import com.solartracker.pro.core.health.ExpectedPower
+import com.solartracker.pro.core.health.FaultWarning
+import com.solartracker.pro.core.health.HealthInput
+import com.solartracker.pro.core.health.HealthReport
+import com.solartracker.pro.core.health.PredictiveFaultEngine
+import com.solartracker.pro.core.health.PvHealthEngine
 import com.solartracker.pro.core.analytics.Alert
 import com.solartracker.pro.core.analytics.AlertManager
 import com.solartracker.pro.core.analytics.AnomalyDetector
@@ -124,6 +143,17 @@ data class ShadingState(
     val computing: Boolean = false,
 )
 
+/** Derived insights: health, early warnings, EMS decisions, multi-day balance, history totals. */
+data class InsightsState(
+    val health: HealthReport? = null,
+    val healthReason: String? = null,
+    val faults: List<FaultWarning> = emptyList(),
+    val ems: EmsPlan? = null,
+    val periods: List<PeriodBalance> = emptyList(),
+    val week: List<DayBalance> = emptyList(),
+    val totals: Map<HistoryPeriod, List<PeriodTotals>> = emptyMap(),
+)
+
 class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
     private val context = app.applicationContext
     private val zone: ZoneId get() = ZoneId.systemDefault()
@@ -158,6 +188,8 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
     val message: StateFlow<String?> = _message.asStateFlow()
     private val _search = MutableStateFlow<List<GeocodeResult>>(emptyList())
     val searchResults: StateFlow<List<GeocodeResult>> = _search.asStateFlow()
+    private val _insights = MutableStateFlow(InsightsState())
+    val insights: StateFlow<InsightsState> = _insights.asStateFlow()
     private val _busy = MutableStateFlow(false)
     val busy: StateFlow<Boolean> = _busy.asStateFlow()
 
@@ -358,6 +390,85 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
             producedTodayKwh = producedToday,
             updatedAt = now,
         )
+        recomputeInsights(s, pv, load, nowcast, soc, now)
+    }
+
+    private suspend fun recomputeInsights(s: AppSettings, pv: PredictivePvEngine, load: LoadForecaster, nowcast: Double?, soc: Double?, now: Instant) {
+        val week = withContext(Dispatchers.IO) { runCatching { db.history(now.minus(Duration.ofDays(7)), now) }.getOrDefault(emptyList()) }
+        val all = withContext(Dispatchers.IO) { runCatching { db.history(Instant.EPOCH, now, summary = true) }.getOrDefault(emptyList()) }
+        val telemetry = _live.value.telemetry
+        val inv = inverterConfig.value
+        val shading = _shading.value
+        _insights.value = withContext(Dispatchers.Default) {
+            val slots = (0 until 24 * 7).map { i ->
+                val t = now.plus(Duration.ofHours(i.toLong()))
+                val p = pv.at(t, now, nowcast)
+                EnergySlot(t, 1.0, p.expectedKw, load.at(t).kw, p.minKw, p.confidence)
+            }
+            val ems = EnergyOptimizationEngine.plan(
+                EmsInput(slots.take(36), s.activeBattery, soc, gridAvailable = s.prices.backupSource == BackupSource.GRID, zone = zone),
+            )
+            val ratedW = inv?.takeIf { it.enabled }?.ratedPowerW
+            val (health, reason, faults): Triple<HealthReport?, String?, List<FaultWarning>> = if (week.isEmpty() || ratedW == null) {
+                Triple(null, "Brak historii pomiarów z falownika — ocena zdrowia wymaga co najmniej 2 dni danych", emptyList())
+            } else {
+                val weather = WeatherAwareIrradianceModel(s.location, _weather.value.first, _weather.value.second)
+                val estimator = PvEstimator(weather)
+                val expected = ExpectedPower { t ->
+                    val e = estimator.pointEstimate(s.system, s.location, t)
+                    e.powerKw * 1000 * (shading.engine?.snapshot(s.system, t, e)?.powerFactor ?: 1.0)
+                }
+                val days = DayStatsBuilder.build(week, zone, expected, s.system.peakPowerKw * 1000, ratedW)
+                val report = PvHealthEngine.assess(HealthInput(
+                    days, null, shading.confidence?.score, null, null,
+                    telemetry?.inverter?.faults?.size ?: 0, telemetry?.inverter?.warnings?.size ?: 0, null,
+                ))
+                Triple(report, null, PredictiveFaultEngine.analyze(days, now))
+            }
+            InsightsState(
+                health = health, healthReason = reason, faults = faults, ems = ems,
+                periods = EnergyOptimizationEngine.periods(slots.takeWhile { it.start.atZone(zone).toLocalDate() == now.atZone(zone).toLocalDate() }, zone),
+                week = EnergyOptimizationEngine.daily(slots, zone),
+                totals = HistoryPeriod.entries.associateWith { HistoryPeriods.totals(all, it, zone, now) },
+            )
+        }
+    }
+
+    /** PDF report: health, EMS decisions, monthly and daily totals from recorded history. */
+    suspend fun exportPdf(out: java.io.OutputStream) = withContext(Dispatchers.IO) {
+        val now = Instant.now()
+        val rows = db.history(Instant.EPOCH, now, summary = true)
+        val i = _insights.value
+        val lines = buildList {
+            add("Wygenerowano: ${now.atZone(zone).toLocalDateTime().withNano(0)} · wersja ${BuildConfig.VERSION_NAME}")
+            add(settings.value?.let { "Instalacja: ${it.system.peakPowerKw} kWp, ${it.system.tiltDeg}°, azymut ${it.system.azimuthDeg}°, ${it.locationName}" } ?: "")
+            add("")
+            add("ZDROWIE: " + (i.health?.explanation() ?: i.healthReason ?: "brak danych"))
+            i.faults.forEach { add("OSTRZEŻENIE [${it.level.label}] ${it.title}: ${it.reason}") }
+            add("")
+            add("EMS (prognoza, tylko zalecenia):")
+            i.ems?.decisions?.forEach { add("  • $it") }
+            add("")
+            add("MIESIĄCE (pomiary)          PV kWh   zużycie kWh   import   eksport")
+            HistoryPeriods.totals(rows, HistoryPeriod.MONTH, zone, now).forEach {
+                add(String.format(java.util.Locale.ROOT, "%-24s %9.2f %13.2f %8.2f %9.2f", it.periodStart, it.pvKwh, it.loadKwh, it.gridImportKwh, it.gridExportKwh))
+            }
+            add("")
+            add("DNI (pomiary)               PV kWh   zużycie kWh   kompletność")
+            HistoryPeriods.totals(rows, HistoryPeriod.DAY, zone, now).takeLast(62).forEach {
+                add(String.format(java.util.Locale.ROOT, "%-24s %9.2f %13.2f %12.0f%%", it.periodStart, it.pvKwh, it.loadKwh, it.coverage * 100))
+            }
+            if (rows.isEmpty()) add("Brak zapisanej historii z falownika.")
+        }
+        PdfReport.write("Solar Tracker PRO — raport", lines, out)
+    }
+
+    /** Export of recorded history (summary rows) as CSV or JSON text. */
+    suspend fun exportHistory(json: Boolean): String = withContext(Dispatchers.IO) {
+        val now = Instant.now()
+        val rows = db.history(Instant.EPOCH, now, summary = true)
+        val totals = HistoryPeriods.totals(rows, HistoryPeriod.DAY, zone, now)
+        if (json) HistoryExport.json(rows, totals, now, BuildConfig.VERSION_NAME) else HistoryExport.samplesCsv(rows)
     }
 
     private suspend fun rebuildShading(s: AppSettings, site: SiteConfig, map: MapDataCache) {

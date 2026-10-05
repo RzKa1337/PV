@@ -7,7 +7,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.BatteryChargingFull
+import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.Hub
+import com.solartracker.pro.core.access.FeatureAccessManager
+import com.solartracker.pro.core.access.SubscriptionState
+import com.solartracker.pro.ui.tools.ToolsScreen
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.Tune
@@ -52,6 +56,7 @@ private enum class Tab(val label: String, val icon: ImageVector) {
     MONTHLY("Miesiące", Icons.Outlined.BarChart),
     ENERGY("Energia", Icons.Outlined.BatteryChargingFull),
     CENTER("Centrum", Icons.Outlined.Hub),
+    TOOLS("Narzędzia", Icons.Outlined.Build),
     SETTINGS("Ustawienia", Icons.Outlined.Settings),
 }
 
@@ -93,6 +98,10 @@ fun SolarTrackerApp(viewModel: MainViewModel, openSettingsRequest: Int = 0) {
             override suspend fun savePrices(prices: EnergyPrices) = viewModel.savePrices(prices)
         }
     }
+
+    // No store billing in this build: the subscription state is fixed and shown to the user as such.
+    val subscription = SubscriptionState.DEFAULT
+    val featureAccess = remember { FeatureAccessManager { subscription } }
 
     Scaffold(
         // Expose test tags as resource ids so UI tests (UiAutomator) can read the live values.
@@ -143,6 +152,10 @@ fun SolarTrackerApp(viewModel: MainViewModel, openSettingsRequest: Int = 0) {
             Tab.CENTER -> {
                 val weather by viewModel.weather.collectAsStateWithLifecycle()
                 EnergyCenterScreen(weather, contentModifier)
+            }
+            Tab.TOOLS -> {
+                val settings by viewModel.settings.collectAsStateWithLifecycle()
+                ToolsScreen(settings, featureAccess, subscription, contentModifier)
             }
             Tab.SETTINGS -> {
                 val settings by viewModel.settings.collectAsStateWithLifecycle()

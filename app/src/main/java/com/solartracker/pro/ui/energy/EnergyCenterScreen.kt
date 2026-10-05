@@ -24,6 +24,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -75,12 +76,13 @@ fun EnergyCenterScreen(weather: WeatherState, modifier: Modifier = Modifier, vm:
     when (page) {
         "shading" -> ShadingScreen(vm, onBack = { page = "main" }, modifier = modifier)
         "config" -> EnergyConfigScreen(vm, onBack = { page = "main" }, modifier = modifier)
-        else -> EnergyCenterMain(vm, onShading = { page = "shading" }, onConfig = { page = "config" }, modifier = modifier)
+        "insights" -> InsightsScreen(vm, onBack = { page = "main" }, modifier = modifier)
+        else -> EnergyCenterMain(vm, onShading = { page = "shading" }, onConfig = { page = "config" }, onInsights = { page = "insights" }, modifier = modifier)
     }
 }
 
 @Composable
-private fun EnergyCenterMain(vm: EnergyCenterViewModel, onShading: () -> Unit, onConfig: () -> Unit, modifier: Modifier) {
+private fun EnergyCenterMain(vm: EnergyCenterViewModel, onShading: () -> Unit, onConfig: () -> Unit, onInsights: () -> Unit, modifier: Modifier) {
     val live by vm.live.collectAsStateWithLifecycle()
     val model by vm.model.collectAsStateWithLifecycle()
     val forecast by vm.forecast.collectAsStateWithLifecycle()
@@ -131,6 +133,7 @@ private fun EnergyCenterMain(vm: EnergyCenterViewModel, onShading: () -> Unit, o
                 if (enabled) FilledTonalButton(onClick = vm::refreshNow) { Text("Odśwież") }
                 OutlinedButton(onClick = onConfig) { Text("Konfiguracja") }
             }
+            OutlinedButton(onClick = onInsights, modifier = Modifier.fillMaxWidth().testTag("open_insights")) { Text("Analizy: zdrowie, EMS, historia, eksport") }
         }
 
         LiveSection(vm)
