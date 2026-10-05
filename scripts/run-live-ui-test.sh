@@ -8,6 +8,7 @@ SECONDS_TO_WATCH="${LIVE_SECONDS:-180}"
   -Pandroid.testInstrumentationRunnerArguments.liveSeconds="$SECONDS_TO_WATCH"
 status=$?
 mkdir -p live-test-output
-adb pull /sdcard/Android/data/com.solartracker.pro/files/live-test live-test-output/ || true
+adb exec-out run-as com.solartracker.pro tar -cf - -C files live-test > live-test-output/live-test.tar || true
+tar -xf live-test-output/live-test.tar -C live-test-output/ || true
 adb logcat -d -s LiveSolarTest:I > live-test-output/logcat.txt || true
 exit $status

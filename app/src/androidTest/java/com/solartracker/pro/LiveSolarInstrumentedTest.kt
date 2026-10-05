@@ -14,6 +14,11 @@ import androidx.test.uiautomator.Until
 import com.solartracker.pro.core.energy.BatteryStorage
 import com.solartracker.pro.ui.MainViewModel
 import com.solartracker.pro.ui.screens.LiveTags
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -47,7 +52,8 @@ class LiveSolarInstrumentedTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val device = UiDevice.getInstance(instrumentation)
     private val outDir: File by lazy {
-        File(instrumentation.targetContext.getExternalFilesDir(null), "live-test").apply { mkdirs() }
+        // Internal app storage: pulled by CI with `adb exec-out run-as` (works on debuggable builds).
+        File(instrumentation.targetContext.filesDir, "live-test").apply { mkdirs() }
     }
 
     private data class Sample(
@@ -91,6 +97,15 @@ class LiveSolarInstrumentedTest {
             assertTrue("Live screen did not appear", device.wait(Until.hasObject(By.res(LiveTags.CLOCK)), 20_000))
             waitFor("ticker running") { vm.liveActive.value }
 
+            // Record every state the Live screen renders (the StateFlow the UI collects).
+            val states = java.util.concurrent.ConcurrentLinkedQueue<com.solartracker.pro.ui.LiveUiState>()
+            val stateScope = CoroutineScope(Dispatchers.Default)
+            stateScope.launch {
+                vm.live.filterNotNull().collect { s ->
+                    if (states.lastOrNull()?.epochMillis?.div(1000) != s.epochMillis / 1000) states += s
+                }
+            }
+
             val seconds = InstrumentationRegistry.getArguments().getString("liveSeconds")?.toLongOrNull() ?: 180L
             val samples = mutableListOf<Sample>()
             val csv = File(outDir, "live-samples.csv").printWriter()
@@ -123,6 +138,14 @@ class LiveSolarInstrumentedTest {
                 Thread.sleep(100)
             }
             csv.close()
+            stateScope.cancel() // stop our extra subscriber before the background check
+            val stateList = states.toList()
+            File(outDir, "live-states.csv").printWriter().use { out ->
+                out.println("epochMillis,clock,azimuth,elevation,poa,pvKw,socPercent,batteryKw")
+                stateList.forEach {
+                    out.println("${it.epochMillis},${it.clockText},${it.sun.azimuthDeg},${it.sun.elevationDeg},${it.pv.poa},${it.pv.modeledPowerKw},${it.energy.socPercent},${it.energy.batteryKw}")
+                }
+            }
             screenshot("03-live-end")
             runCatching {
                 repeat(4) { device.findObject(By.scrollable(true))?.scroll(Direction.DOWN, 1f) }
@@ -131,26 +154,34 @@ class LiveSolarInstrumentedTest {
                 repeat(4) { device.findObject(By.scrollable(true))?.scroll(Direction.UP, 1f) }
             }
 
-            Log.i(logTag, "observed ${samples.size} seconds in $seconds s")
-            // Every displayed second appears, in order (no skipped or repeated seconds).
-            assertTrue("observed ${samples.size} seconds in $seconds s", samples.size >= seconds - 3)
+            Log.i(logTag, "app states: ${stateList.size}, UI observed: ${samples.size} seconds in $seconds s")
+            // 1) The state stream that drives the UI produced every second exactly once, in order.
+            assertTrue("states ${stateList.size} in $seconds s", stateList.size >= seconds - 2)
+            for (i in 1 until stateList.size) {
+                val step = stateList[i].epochMillis / 1000 - stateList[i - 1].epochMillis / 1000
+                assertEquals("state step at ${stateList[i - 1].clockText} → ${stateList[i].clockText}", 1L, step)
+                // Each tick is computed right after the system second boundary.
+                assertTrue("tick ${stateList[i].clockText} at +${stateList[i].epochMillis % 1000} ms", stateList[i].epochMillis % 1000 < 500)
+                // The sun moves smoothly (full precision).
+                assertTrue(abs(stateList[i].sun.elevationDeg - stateList[i - 1].sun.elevationDeg) < 0.01)
+                val dAz = abs(stateList[i].sun.azimuthDeg - stateList[i - 1].sun.azimuthDeg)
+                assertTrue("azimuth step $dAz", dAz < 0.05 || dAz > 359.9)
+            }
+            assertTrue("azimuth must change", stateList.first().sun.azimuthDeg != stateList.last().sun.azimuthDeg)
+            // 2) The screen shows those values: displayed second never repeats or goes back, follows the
+            //    device clock, and almost every second is observed despite UiAutomator's slow reads.
+            assertTrue("UI observed ${samples.size} of $seconds seconds", samples.size >= seconds * 0.8)
+            val stateClocks = stateList.map { it.clockText }.toSet()
             for (i in 1 until samples.size) {
                 val step = Duration.between(samples[i - 1].clock, samples[i].clock).let { if (it.isNegative) it.plusDays(1) else it }
-                assertEquals("step between ${samples[i - 1].clock} and ${samples[i].clock}", 1L, step.seconds)
+                assertTrue("UI step ${samples[i - 1].clock} → ${samples[i].clock}", step.seconds in 1..3)
             }
-            // The displayed clock follows the device clock.
             samples.forEach { s ->
                 val diff = abs(Duration.between(s.clock, s.wall).seconds)
                 assertTrue("clock ${s.clock} vs device ${s.wall}", diff <= 1 || diff >= 86_399)
+                assertTrue("UI clock ${s.clockText} comes from the live state", s.clockText in stateClocks)
             }
-            // The sun moves smoothly: small steps, and the position changes over the run.
-            for (i in 1 until samples.size) {
-                val dAz = abs(samples[i].azimuth - samples[i - 1].azimuth)
-                assertTrue("azimuth step $dAz", dAz < 0.1 || dAz > 359.0)
-                assertTrue("elevation step", abs(samples[i].elevation - samples[i - 1].elevation) < 0.1)
-            }
-            assertTrue("azimuth must change", samples.first().azimuth != samples.last().azimuth)
-            Log.i(logTag, "OK: ${samples.size} consecutive seconds, az ${samples.first().azimuth} → ${samples.last().azimuth}")
+            Log.i(logTag, "OK: ${stateList.size} consecutive seconds, az ${stateList.first().sun.azimuthDeg} → ${stateList.last().sun.azimuthDeg}")
 
             // Background → ticker stops; foreground → it resumes with the current time.
             scenario.moveToState(Lifecycle.State.CREATED)
