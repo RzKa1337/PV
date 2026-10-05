@@ -89,7 +89,8 @@ Zaimplementowane, kompiluje się i przechodzi lint w CI — **czeka na ręczny t
 ### Aplikacja (`:app`)
 - [x] ViewModel: ticker tylko przy aktywnym ekranie (WhileSubscribed + lifecycle), pauza — testy jednostkowe
 - [x] Wysokość n.p.m. z GPS lub ręcznie
-- [ ] Ekran Live Solar (zegar, AZ/EL, moc, kompas, droga Słońca, LIVE, energia, animacja) — test instrumentalny na emulatorze w CI; czeka na test na telefonie
+- [x] Ekran Live Solar — test instrumentalny na emulatorze Android 11 w CI: 3 min, 184 kolejne sekundy bez przerw, zegar zgodny z urządzeniem, zatrzymanie w tle i wznowienie
+- [ ] Ekran Live Solar — ręczny test na telefonie (wygląd, kompas, animacja)
 
 ## Później (pomysły)
 - [ ] Integracja z falownikiem (rzeczywista moc PV obok modelu)
