@@ -163,14 +163,18 @@ class LiveSolarInstrumentedTest {
             for (i in 1 until stateList.size) {
                 val step = stateList[i].epochMillis / 1000 - stateList[i - 1].epochMillis / 1000
                 assertEquals("state step at ${stateList[i - 1].clockText} → ${stateList[i].clockText}", 1L, step)
-                // Each tick is computed right after the system second boundary.
-                assertTrue("tick ${stateList[i].clockText} at +${stateList[i].epochMillis % 1000} ms", stateList[i].epochMillis % 1000 < 500)
+                // A late wake-up on a busy emulator is tolerated (see the latency check below); a tick
+                // slipping into the next second would break the 1-second step checked above.
                 // The sun moves smoothly (full precision).
                 assertTrue(abs(stateList[i].sun.elevationDeg - stateList[i - 1].sun.elevationDeg) < 0.01)
                 val dAz = abs(stateList[i].sun.azimuthDeg - stateList[i - 1].sun.azimuthDeg)
                 assertTrue("azimuth step $dAz", dAz < 0.05 || dAz > 359.9)
             }
             assertTrue("azimuth must change", stateList.first().sun.azimuthDeg != stateList.last().sun.azimuthDeg)
+            // Ticks are computed right after the system second boundary: the vast majority within 200 ms.
+            val late = stateList.drop(1).map { it.epochMillis % 1000 }.filter { it >= 200 }
+            Log.i(logTag, "ticks ≥200 ms after the boundary: ${late.size} of ${stateList.size - 1} $late")
+            assertTrue("late ticks: $late", late.size <= (stateList.size - 1) / 20)
             // 2) The screen shows those values: displayed second never repeats or goes back, follows the
             //    device clock, and almost every second is observed despite UiAutomator's slow reads.
             assertTrue("UI observed ${samples.size} of $seconds seconds", samples.size >= seconds * 0.8)
