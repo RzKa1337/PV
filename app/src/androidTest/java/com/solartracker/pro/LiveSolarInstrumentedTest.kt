@@ -85,6 +85,22 @@ class LiveSolarInstrumentedTest {
         }
     }
 
+    /**
+     * A freshly booted emulator is sometimes slow to show the first frame or shows a system
+     * "isn't responding" dialog (e.g. for System UI); wait longer and dismiss such dialogs.
+     */
+    private fun findLiveTab(): androidx.test.uiautomator.UiObject2? {
+        val deadline = SystemClock.elapsedRealtime() + 60_000
+        while (SystemClock.elapsedRealtime() < deadline) {
+            device.wait(Until.findObject(By.desc("Live")), 5_000)?.let { return it }
+            device.findObject(By.res("android:id/aerr_wait"))?.let {
+                Log.w(logTag, "dismissing system 'not responding' dialog")
+                it.click()
+            }
+        }
+        return null
+    }
+
     @Test
     fun liveSolar_updatesEverySecondInRealTime() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
@@ -92,7 +108,8 @@ class LiveSolarInstrumentedTest {
             scenario.onActivity { vm = ViewModelProvider(it, MainViewModel.Factory)[MainViewModel::class.java] }
             runBlocking { assertTrue(vm.saveBattery(true, BatteryStorage())) }
 
-            val liveTab = device.wait(Until.findObject(By.desc("Live")), 20_000)
+            val liveTab = findLiveTab()
+            if (liveTab == null) screenshot("00-live-tab-missing")
             assertNotNull("Live tab not found", liveTab)
             liveTab.click()
             assertTrue("Live screen did not appear", device.wait(Until.hasObject(By.res(LiveTags.CLOCK)), 20_000))
