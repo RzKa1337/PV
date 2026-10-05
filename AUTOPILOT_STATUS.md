@@ -1,6 +1,6 @@
 # AUTOPILOT STATUS — Solar Tracker PRO
 
-Ostatnia aktualizacja: 2026-10-05 · gałąź `ccr-81f74041-r3omte` · ostatnie wydanie: v0.5.0
+Ostatnia aktualizacja: 2026-10-05 · gałąź `ccr-81f74041-r3omte` · ostatnie wydanie: v0.6.0
 
 ## Audyt repozytorium (faza 0)
 
@@ -88,6 +88,6 @@ RS232→TCP, bramkę Modbus TCP lub kabel RS232→USB (OTG). Szczegóły: `ANENJ
 | 3 | `core/shading`: przeszkody, wysokości, teren, horyzont, cień panel/string, zdarzenia, straty, pewność, dostawcy | ✅ testy |
 | 4 | `core/forecast`: PV, obciążenie, SOC, EnergyForecastEngine, Solar Advisor | ✅ testy |
 | 5 | Android: Centrum energii, konfiguracja, mapa (osmdroid), ekran zacienienia, SQLite, USB, Keystore | ✅ build + lint; test emulatora z symulatorem |
-| 6 | Dokumentacja, CHANGELOG, wydanie v0.6.0 | ✅ / wydanie po zielonym CI |
+| 6 | Dokumentacja, CHANGELOG, wydanie v0.6.0 | ✅ CI 37326391198 zielone (testy, lint, APK, emulator: Live + Centrum z symulatorem + Keystore + SQLite); wydanie v0.6.0 z SHA256SUMS, ten sam certyfikat co v0.5.0 |
 
 Wymaga walidacji w terenie: **REAL DEVICE VALIDATION REQUIRED** (Anenji), **REAL MAP AND HEIGHT DATA VALIDATION REQUIRED**.
