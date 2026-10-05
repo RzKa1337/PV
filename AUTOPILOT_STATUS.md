@@ -1,6 +1,6 @@
 # AUTOPILOT STATUS — Solar Tracker PRO
 
-Ostatnia aktualizacja: 2026-10-05 · gałąź `ccr-81f74041-r3omte` · ostatnie wydanie: v0.7.0 (w przygotowaniu: v0.8.0)
+Ostatnia aktualizacja: 2026-10-05 · gałąź `ccr-81f74041-r3omte` · ostatnie wydanie: v0.8.0
 
 ## Audyt repozytorium (faza 0)
 
@@ -103,7 +103,7 @@ Wymaga walidacji w terenie: **REAL DEVICE VALIDATION REQUIRED** (Anenji), **REAL
 | 4 | EMS (tylko decyzje), okna nadwyżki/deficytu, bilans 7 dni, agregat | ✅ testy JVM (w tym zachowanie energii) |
 | 5 | Projektant PV, uzysk roczny, porównanie lokalizacji, tryb pojazdu | ✅ testy JVM |
 | 6 | Historia okresów, eksport CSV/JSON/PDF, FREE/PRO | ✅ testy JVM |
-| 7 | UI: zakładka Narzędzia, Centrum → Analizy; test instrumentalny; dokumentacja | 🟡 czeka na CI (kompilacja Androida tylko w CI) |
+| 7 | UI: zakładka Narzędzia, Centrum → Analizy; test instrumentalny; dokumentacja | ✅ CI 37353798001 zielone (unit, lint, APK, emulator); wydanie v0.8.0 (run 37355466398), ten sam certyfikat |
 
 Testy `:core`: 232/232. Dokumentacja: `ARCHITECTURE.md`, `CALCULATIONS.md`, `TESTING.md`, `ROADMAP.md`, `API.md`.
 Wymaga walidacji w terenie: falownik Anenji (REAL DEVICE VALIDATION REQUIRED), dane mapowe/wysokości, zdrowie instalacji na prawdziwej historii.
