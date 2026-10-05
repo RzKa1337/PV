@@ -101,6 +101,7 @@ jobs:
         run: ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest
 
       - name: Live Solar test on emulator
+        timeout-minutes: 25
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30

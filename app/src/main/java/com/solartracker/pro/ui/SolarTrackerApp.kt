@@ -22,7 +22,10 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.solartracker.pro.core.energy.BatteryStorage
@@ -47,6 +50,7 @@ private enum class Tab(val label: String, val icon: ImageVector) {
     SETTINGS("Ustawienia", Icons.Outlined.Settings),
 }
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun SolarTrackerApp(viewModel: MainViewModel) {
     var tab by rememberSaveable { mutableIntStateOf(Tab.DASHBOARD.ordinal) }
@@ -84,6 +88,8 @@ fun SolarTrackerApp(viewModel: MainViewModel) {
     }
 
     Scaffold(
+        // Expose test tags as resource ids so UI tests (UiAutomator) can read the live values.
+        modifier = Modifier.semantics { testTagsAsResourceId = true },
         bottomBar = {
             NavigationBar {
                 Tab.entries.forEach { t ->
