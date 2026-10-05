@@ -60,7 +60,7 @@ interface SettingsActions {
     fun setPeakPower(kwp: Double)
     fun setTilt(degrees: Double)
     fun setPanelAzimuth(degrees: Double)
-    fun setManualLocation(latitude: Double, longitude: Double, name: String)
+    fun setManualLocation(latitude: Double, longitude: Double, name: String, elevationM: Double)
     fun requestGpsLocation()
     fun setThemeMode(mode: ThemeMode)
     fun setWeatherEnabled(enabled: Boolean)
@@ -189,8 +189,11 @@ private fun LocationSection(settings: AppSettings, gpsStatus: GpsStatus, actions
     var name by rememberSaveable(loc) { mutableStateOf(settings.locationName) }
     var latText by rememberSaveable(loc) { mutableStateOf(Format.decimal(loc.latitude, 4)) }
     var lonText by rememberSaveable(loc) { mutableStateOf(Format.decimal(loc.longitude, 4)) }
+    var elevationText by rememberSaveable(loc) { mutableStateOf(Format.decimal(loc.elevationM, 0)) }
     val lat = Format.parseDecimal(latText)
     val lon = Format.parseDecimal(lonText)
+    val elevation = if (elevationText.isBlank()) 0.0 else Format.parseDecimal(elevationText)
+    val elevationValid = elevation != null && elevation in -500.0..9000.0
     val latValid = lat != null && lat in -90.0..90.0
     val lonValid = lon != null && lon in -180.0..180.0
 
@@ -245,9 +248,18 @@ private fun LocationSection(settings: AppSettings, gpsStatus: GpsStatus, actions
                 modifier = Modifier.weight(1f),
             )
         }
+        OutlinedTextField(
+            value = elevationText,
+            onValueChange = { elevationText = it.take(6) },
+            label = { Text("Wysokość n.p.m. [m] (opcjonalnie)") },
+            isError = !elevationValid,
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+            modifier = Modifier.fillMaxWidth(),
+        )
         Button(
-            onClick = { if (lat != null && lon != null) actions.setManualLocation(lat, lon, name) },
-            enabled = latValid && lonValid,
+            onClick = { if (lat != null && lon != null) actions.setManualLocation(lat, lon, name, elevation ?: 0.0) },
+            enabled = latValid && lonValid && elevationValid,
         ) { Text("Zapisz lokalizację") }
     }
 }

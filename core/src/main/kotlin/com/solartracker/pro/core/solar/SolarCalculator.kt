@@ -10,16 +10,43 @@ import kotlin.math.asin
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.floor
+import kotlin.math.pow
 import kotlin.math.roundToLong
 import kotlin.math.sin
 import kotlin.math.tan
 
-/** Geographic position in decimal degrees (north and east positive). */
-data class GeoLocation(val latitude: Double, val longitude: Double) {
+/**
+ * Geographic position in decimal degrees (north and east positive).
+ * [elevationM] is the height above sea level (0 when unknown); it is used for the
+ * pressure-corrected air mass.
+ */
+data class GeoLocation(val latitude: Double, val longitude: Double, val elevationM: Double = 0.0) {
     init {
         require(latitude in -90.0..90.0) { "Latitude out of range: $latitude" }
         require(longitude in -180.0..180.0) { "Longitude out of range: $longitude" }
+        require(elevationM.isFinite() && elevationM in -500.0..9000.0) { "Elevation out of range: $elevationM" }
     }
+}
+
+/**
+ * Full set of solar angles for one moment, all in full double precision.
+ *
+ * @property hourAngleDeg local hour angle, negative before and positive after solar noon (-180..180)
+ * @property zenithDeg apparent zenith angle (= zenith distance) = 90° − apparent elevation
+ * @property airMass relative optical air mass (Kasten–Young, pressure corrected for
+ *   [GeoLocation.elevationM]); null when the sun is below the horizon
+ */
+data class SolarDetails(
+    val elevationDeg: Double,
+    val geometricElevationDeg: Double,
+    val azimuthDeg: Double,
+    val hourAngleDeg: Double,
+    val declinationDeg: Double,
+    val equationOfTimeMin: Double,
+    val airMass: Double?,
+) {
+    val zenithDeg: Double get() = 90.0 - elevationDeg
+    val position: SolarPosition get() = SolarPosition(elevationDeg, azimuthDeg)
 }
 
 /**
@@ -59,7 +86,10 @@ object SolarCalculator {
     private const val SUNRISE_ZENITH_DEG = 90.833
     private const val MINUTES_PER_DAY = 1440.0
 
-    fun position(location: GeoLocation, instant: Instant): SolarPosition {
+    fun position(location: GeoLocation, instant: Instant): SolarPosition = details(location, instant).position
+
+    /** All solar angles for [instant] at [location]; [position] is derived from this. */
+    fun details(location: GeoLocation, instant: Instant): SolarDetails {
         val sun = sunParameters(julianDay(instant))
         val minutesUtc = minutesOfUtcDay(instant)
         var trueSolarTime = (minutesUtc + sun.equationOfTimeMin + 4.0 * location.longitude) % MINUTES_PER_DAY
@@ -76,8 +106,26 @@ object SolarCalculator {
         val azimuth = normalizeDegrees(deg(azimuthFromSouth) + 180.0)
 
         val geometricElevation = 90.0 - zenith
-        val elevation = geometricElevation + refractionCorrectionDeg(geometricElevation)
-        return SolarPosition(elevationDeg = elevation.coerceIn(-90.0, 90.0), azimuthDeg = azimuth)
+        val elevation = (geometricElevation + refractionCorrectionDeg(geometricElevation)).coerceIn(-90.0, 90.0)
+        return SolarDetails(
+            elevationDeg = elevation,
+            geometricElevationDeg = geometricElevation,
+            azimuthDeg = azimuth,
+            hourAngleDeg = trueSolarTime / 4.0 - 180.0,
+            declinationDeg = sun.declinationDeg,
+            equationOfTimeMin = sun.equationOfTimeMin,
+            airMass = airMass(90.0 - elevation, location.elevationM),
+        )
+    }
+
+    /**
+     * Kasten & Young (1989) relative air mass for an apparent zenith angle, scaled by the
+     * standard-atmosphere pressure ratio exp(−h / 8434.5 m). Null below the horizon.
+     */
+    fun airMass(zenithDeg: Double, elevationM: Double = 0.0): Double? {
+        if (zenithDeg >= 90.0) return null
+        val am = 1.0 / (cos(rad(zenithDeg)) + 0.50572 * (96.07995 - zenithDeg).pow(-1.6364))
+        return am * kotlin.math.exp(-elevationM / 8434.5)
     }
 
     /**

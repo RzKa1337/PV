@@ -29,7 +29,7 @@ data class AppSettings(
     val activeBattery: BatteryStorage? get() = battery.takeIf { batteryEnabled && it.isValid }
 
     companion object {
-        val DEFAULT_LOCATION = GeoLocation(52.2297, 21.0122)
+        val DEFAULT_LOCATION = GeoLocation(52.2297, 21.0122, elevationM = 100.0)
         const val DEFAULT_LOCATION_NAME = "Warszawa"
     }
 }

@@ -77,7 +77,22 @@ Zaimplementowane, kompiluje się i przechodzi lint w CI — **czeka na ręczny t
 - [ ] Karta pogody na pulpicie, sekcja „Pogoda” w ustawieniach, źródło danych pod wynikami
 - [ ] Pobieranie danych Open-Meteo na prawdziwym telefonie (sieć niedostępna w środowisku budowania)
 
+## v0.4.0 — Live Solar
+
+### Obliczenia (`:core`)
+- [x] `SecondTicker`: tick zsynchronizowany z granicą sekundy zegara ściennego, bez dryfu — testy (czas wirtualny) + 3-minutowy bieg w czasie rzeczywistym
+- [x] `SolarCalculator.details`: kąt godzinowy, deklinacja, zenit, air mass (z wysokością n.p.m.)
+- [x] Kąt padania i wykorzystanie geometrii; `PvEstimator.pointEstimate` (POA, temperatura ogniwa, moc)
+- [x] `EnergyFlowSimulator.instantFlow` i `socAt` — te same reguły co symulacja
+- [x] `LiveSolarCalculator`, `SunPath`
+
+### Aplikacja (`:app`)
+- [x] ViewModel: ticker tylko przy aktywnym ekranie (WhileSubscribed + lifecycle), pauza — testy jednostkowe
+- [x] Wysokość n.p.m. z GPS lub ręcznie
+- [ ] Ekran Live Solar (zegar, AZ/EL, moc, kompas, droga Słońca, LIVE, energia, animacja) — test instrumentalny na emulatorze w CI; czeka na test na telefonie
+
 ## Później (pomysły)
+- [ ] Integracja z falownikiem (rzeczywista moc PV obok modelu)
 - [ ] Śnieg na panelach (np. z `snow_depth` w prognozie)
 - [ ] Wpływ temperatury na pojemność i moc ładowania baterii
 - [ ] Zacienienie (horyzont, drzewa, budynki)

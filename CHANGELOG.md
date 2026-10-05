@@ -5,6 +5,17 @@ Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie 
 
 ## [Unreleased]
 
+### Added
+- Live Solar tab: sun position and all dependent values recomputed locally every second while the screen is visible (clock synchronised to the system second, no drift)
+- Azimuth, elevation, zenith, hour angle, declination, air mass (elevation-corrected), angle of incidence, geometric utilisation, POA/GHI/DNI/DHI, cell temperature, time to sunrise/sunset
+- Modelled PV power ("Szacowana moc PV", never presented as a measurement), irradiance source label
+- Sun position compass, today's sun path chart, LIVE card, "Energia teraz" with battery flow/SOC and animated energy flow
+- Optional elevation above sea level (GPS altitude or manual)
+- Instrumented test watching the Live screen for 3 minutes on an emulator in CI
+
+### Changed
+- `SolarCalculator.position` now derives from `details`; clear-sky air mass and flow-step rules shared with the live calculations
+
 ## [v0.3.0] - 2026-10-05
 
 ### Added

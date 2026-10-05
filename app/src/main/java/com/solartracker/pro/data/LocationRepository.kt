@@ -51,7 +51,10 @@ class LocationRepository(context: Context) : LocationProvider {
 
         val fresh = withTimeoutOrNull(timeoutMillis) { requestSingleFix(manager, providers.first()) }
         val location = fresh ?: lastKnownLocation(manager, providers)
-        return location?.let { GeoLocation(it.latitude.coerceIn(-90.0, 90.0), it.longitude.coerceIn(-180.0, 180.0)) }
+        return location?.let {
+            val altitude = if (it.hasAltitude()) it.altitude.takeIf { a -> a.isFinite() }?.coerceIn(-500.0, 9000.0) else null
+            GeoLocation(it.latitude.coerceIn(-90.0, 90.0), it.longitude.coerceIn(-180.0, 180.0), altitude ?: 0.0)
+        }
     }
 
     private fun enabledProviders(): List<String> {

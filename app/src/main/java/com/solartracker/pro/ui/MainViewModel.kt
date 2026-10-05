@@ -6,7 +6,11 @@ import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.AP
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.solartracker.pro.core.energy.BackupSource
 import com.solartracker.pro.core.energy.BatteryStorage
+import com.solartracker.pro.core.live.LiveSolarCalculator
+import com.solartracker.pro.core.live.SecondTicker
+import com.solartracker.pro.core.live.SunPath
 import com.solartracker.pro.core.energy.CostComparison
 import com.solartracker.pro.core.energy.EnergyFlowSimulator
 import com.solartracker.pro.core.energy.EnergyPrices
@@ -39,7 +43,12 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.onCompletion
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -166,6 +175,8 @@ class MainViewModel(
     private val weatherProvider: WeatherProvider? = null,
     private val zoneProvider: () -> ZoneId = { ZoneId.systemDefault() },
     private val clock: () -> Instant = { Instant.now() },
+    /** Source of live ticks; by default one per wall-clock second (see [SecondTicker]). */
+    private val liveTicker: (clock: () -> Instant) -> Flow<Instant> = { c -> SecondTicker(c).ticks() },
 ) : ViewModel() {
 
     val settings: StateFlow<AppSettings?> = settingsRepository.settings
@@ -237,6 +248,78 @@ class MainViewModel(
             error = result.error,
             updatedAt = result.forecast?.fetchedAt ?: _weather.value.updatedAt,
         )
+    }
+
+    // --- Live Solar: local calculations every second, weather data only from the cache/engine ---
+
+    private val _livePaused = MutableStateFlow(false)
+
+    /** True when the user paused live tracking with the ⏸ button. */
+    val livePaused: StateFlow<Boolean> = _livePaused.asStateFlow()
+
+    private val _liveActive = MutableStateFlow(false)
+
+    /** True while the 1-second ticker is running (screen visible, app in foreground, not paused). */
+    val liveActive: StateFlow<Boolean> = _liveActive.asStateFlow()
+
+    @Volatile
+    private var liveDayCache: Pair<List<Any?>, SimulationResult?>? = null
+
+    /**
+     * Live state, recomputed every second. The ticker only runs while somebody collects this flow:
+     * the Live screen collects it with collectAsStateWithLifecycle, so leaving the screen or moving
+     * the app to the background cancels the ticker at once (WhileSubscribed(0)); returning starts
+     * it again. No service, wake lock or network request is involved.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val live: StateFlow<LiveUiState?> = _livePaused
+        .flatMapLatest { paused ->
+            if (paused) {
+                emptyFlow()
+            } else {
+                combine(liveTicker(clock), inputs) { now, (s, e) -> buildLive(now, s, e) }
+                    .onStart { _liveActive.value = true }
+                    .onCompletion { _liveActive.value = false }
+            }
+        }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(0), null)
+
+    /** Today's sun path; recomputed when the date or location changes, not every second. */
+    val liveSunPath: StateFlow<SunPathUi?> = combine(
+        validSettings.map { it.location }.distinctUntilChanged(),
+        today,
+    ) { location, date -> SunPath.forDay(location, date, zoneProvider()).toUi(zoneProvider()) }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), null)
+
+    fun setLivePaused(paused: Boolean) {
+        _livePaused.value = paused
+    }
+
+    private fun buildLive(now: Instant, s: AppSettings, e: Engine): LiveUiState {
+        val zone = zoneProvider()
+        val battery = s.activeBattery
+        val consumption = s.consumption.profile()
+        val soc = battery?.let { liveDaySimulation(s, e, battery, now.atZone(zone).toLocalDate(), zone)?.socAt(now) }
+        val sourceAt: (Instant) -> WeatherSource = e.model?.let { m -> { t: Instant -> m.sourceAt(t) } } ?: { WeatherSource.CLEAR_SKY }
+        val snapshot = LiveSolarCalculator(e.estimator, e.simulator, sourceAt)
+            .snapshot(now, zone, s.location, s.system, consumption, battery, soc)
+        return snapshot.toUi(
+            locationName = s.locationName,
+            weatherEnabled = e.weather.enabled,
+            usableKwh = battery?.usableCapacityKwh,
+            backupLabel = if (s.prices.backupSource == BackupSource.GENERATOR) "Agregat" else "Sieć",
+        )
+    }
+
+    /** Today's 15-minute simulation for the live SOC, cached until any input changes. */
+    private fun liveDaySimulation(s: AppSettings, e: Engine, battery: BatteryStorage, date: LocalDate, zone: ZoneId): SimulationResult? {
+        val key = listOf(date, zone, s.system, s.location, battery, s.consumption, e)
+        liveDayCache?.let { (k, v) -> if (k == key) return v }
+        val result = e.simulator.simulate(s.system, s.location, date, 1, zone, s.consumption.profile(), battery)
+        liveDayCache = key to result
+        return result
     }
 
     /** Forces a fresh download of the forecast. */
@@ -402,9 +485,9 @@ class MainViewModel(
         viewModelScope.launch { settingsRepository.updateSystem(transform) }
     }
 
-    fun setManualLocation(latitude: Double, longitude: Double, name: String) {
+    fun setManualLocation(latitude: Double, longitude: Double, name: String, elevationM: Double = 0.0) {
         viewModelScope.launch {
-            settingsRepository.setLocation(GeoLocation(latitude, longitude), name, LocationSource.MANUAL)
+            settingsRepository.setLocation(GeoLocation(latitude, longitude, elevationM), name, LocationSource.MANUAL)
         }
     }
 

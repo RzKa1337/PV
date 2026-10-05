@@ -46,6 +46,16 @@ Moduł `:core` zawiera:
 - Deficyt pokrywa bateria do min. SOC, z limitem mocy rozładowania i sprawnością rozładowania;
   reszta to energia z sieci/agregatu.
 
+## Live Solar
+- Zakładka **Live**: pozycja Słońca, kąt padania, POA i modelowana moc PV, bilans energii z baterią –
+  przeliczane lokalnie **co 1 sekundę**, gdy ekran jest widoczny.
+- `SecondTicker`: czas astronomiczny z `Instant.now()`, oczekiwanie przez `delay` (zegar monotoniczny)
+  do najbliższej granicy sekundy + 5 ms – bez narastającego dryfu, bez gubienia sekund.
+- Cykl życia: `StateFlow` + `SharingStarted.WhileSubscribed(0)` + `collectAsStateWithLifecycle` –
+  ticker zatrzymuje się po opuszczeniu ekranu lub przejściu aplikacji w tło. Bez usług w tle,
+  wake locków i zapytań sieciowych co sekundę (pogoda z cache, odświeżana co godzinę).
+- Moc to wartość **modelowana** – aplikacja nie ma danych z falownika.
+
 ## Pogoda
 - Prognoza godzinowa Open-Meteo na 16 dni (promieniowanie bezpośrednie i rozproszone, temperatura,
   zachmurzenie) – bez klucza API, dane CC BY 4.0.

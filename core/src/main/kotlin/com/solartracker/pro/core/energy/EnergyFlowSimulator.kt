@@ -52,6 +52,25 @@ data class FlowStep(
     val dischargePowerKw: Double get() = fromBatteryKwh / durationHours
 }
 
+/** Instantaneous power flow [kW]. Battery: positive [chargeKw] or [dischargeKw]. */
+data class InstantFlow(
+    val pvKw: Double,
+    val loadKw: Double,
+    val directKw: Double,
+    val chargeKw: Double,
+    val dischargeKw: Double,
+    /** Missing power taken from the grid or a generator. */
+    val gridImportKw: Double,
+    /** PV surplus neither used nor stored (export or curtailed). */
+    val exportKw: Double,
+) {
+    /** + charging, − discharging. */
+    val batteryKw: Double get() = chargeKw - dischargeKw
+
+    /** PV minus load: + surplus, − deficit. */
+    val netKw: Double get() = pvKw - loadKw
+}
+
 /** Totals over a period [kWh]. */
 data class EnergyBalance(
     val pvKwh: Double,
@@ -163,6 +182,22 @@ class SimulationResult(
         )
     }
 
+    /**
+     * SOC at [instant], interpolated linearly inside the simulation step that contains it;
+     * null without a battery or outside the simulated period.
+     */
+    fun socAt(instant: Instant): Double? {
+        if (battery == null || steps.isEmpty()) return null
+        val index = steps.indexOfLast { !it.start.isAfter(instant) }
+        if (index < 0) return null
+        val step = steps[index]
+        val stepMillis = (step.durationHours * 3_600_000.0)
+        val elapsed = (instant.toEpochMilli() - step.start.toEpochMilli()).toDouble()
+        if (elapsed > stepMillis) return if (index == steps.lastIndex) null else step.socPercent
+        val before = if (index == 0) startSocPercent ?: battery.initialSocPercent else steps[index - 1].socPercent
+        return before + (step.socPercent - before) * (elapsed / stepMillis).coerceIn(0.0, 1.0)
+    }
+
     /** Returns a result restricted to [fromDate]..[toDate], keeping the carried-over SOC. */
     fun slice(fromDate: LocalDate, toDate: LocalDate): SimulationResult {
         val before = steps.lastOrNull { it.date < fromDate }
@@ -248,33 +283,14 @@ class EnergyFlowSimulator(private val estimator: PvEstimator = PvEstimator()) {
             val dt = series.durationHours[i]
             val pv = series.pvKwh[i]
             val load = consumption.powerKwAtHour(series.hourOfDay[i]) * dt
-
-            val direct = min(pv, load)
-            var surplus = pv - direct
-            var deficit = load - direct
-            var toBattery = 0.0
-            var fromBattery = 0.0
-            var loss = 0.0
-
-            if (battery != null) {
-                // 1. Surplus PV charges the battery, limited by power and remaining room.
-                if (surplus > 0.0 && stored < maxStored) {
-                    val roomInput = (maxStored - stored) / battery.chargeEfficiency
-                    toBattery = min(surplus, min(battery.maxChargePowerKw * dt, roomInput))
-                    stored = min(maxStored, stored + toBattery * battery.chargeEfficiency)
-                    loss += toBattery * (1.0 - battery.chargeEfficiency)
-                    surplus -= toBattery
-                }
-                // 2. Missing energy comes from the battery, limited by power and min SOC.
-                if (deficit > 0.0 && stored > minStored) {
-                    val deliverable = (stored - minStored) * battery.dischargeEfficiency
-                    fromBattery = min(deficit, min(battery.maxDischargePowerKw * dt, deliverable))
-                    val drawn = fromBattery / battery.dischargeEfficiency
-                    stored = max(minStored, stored - drawn)
-                    loss += drawn - fromBattery
-                    deficit -= fromBattery
-                }
-            }
+            val r = flowStep(pv, load, dt, battery, stored, minStored, maxStored)
+            stored = r.storedAfter
+            val direct = r.direct
+            val toBattery = r.toBattery
+            val fromBattery = r.fromBattery
+            val deficit = r.grid
+            val surplus = r.surplus
+            val loss = r.loss
 
             steps += FlowStep(
                 start = series.start[i],
@@ -293,6 +309,83 @@ class EnergyFlowSimulator(private val estimator: PvEstimator = PvEstimator()) {
             )
         }
         return SimulationResult(battery, steps, if (battery != null) initialSoc else null)
+    }
+
+    /**
+     * Instantaneous power flow [kW] for the current PV power and load, using the same rules as
+     * [run] (evaluated over one second, so power limits and min/max SOC apply exactly as in the
+     * simulation). [socPercent] is the battery state right now.
+     */
+    fun instantFlow(pvKw: Double, loadKw: Double, battery: BatteryStorage?, socPercent: Double?): InstantFlow {
+        val pv = pvKw.coerceAtLeast(0.0)
+        val load = loadKw.coerceAtLeast(0.0)
+        if (battery != null) require(battery.isValid) { "Invalid battery: ${battery.validate()}" }
+        val dt = 1.0 / 3600.0
+        val stored = battery?.storedKwh((socPercent ?: battery.initialSocPercent).coerceIn(0.0, 100.0)) ?: 0.0
+        val r = flowStep(
+            pv * dt, load * dt, dt, battery, stored,
+            battery?.storedKwh(battery.minSocPercent) ?: 0.0,
+            battery?.storedKwh(battery.maxSocPercent) ?: 0.0,
+        )
+        return InstantFlow(
+            pvKw = pv,
+            loadKw = load,
+            directKw = r.direct / dt,
+            chargeKw = r.toBattery / dt,
+            dischargeKw = r.fromBattery / dt,
+            gridImportKw = r.grid / dt,
+            exportKw = r.surplus / dt,
+        )
+    }
+
+    private class StepResult(
+        val direct: Double,
+        val toBattery: Double,
+        val fromBattery: Double,
+        val grid: Double,
+        val surplus: Double,
+        val loss: Double,
+        val storedAfter: Double,
+    )
+
+    /** One step of PV → loads → battery → grid/generator; energies in kWh over [dt] hours. */
+    private fun flowStep(
+        pv: Double,
+        load: Double,
+        dt: Double,
+        battery: BatteryStorage?,
+        storedBefore: Double,
+        minStored: Double,
+        maxStored: Double,
+    ): StepResult {
+        var stored = storedBefore
+        val direct = min(pv, load)
+        var surplus = pv - direct
+        var deficit = load - direct
+        var toBattery = 0.0
+        var fromBattery = 0.0
+        var loss = 0.0
+
+        if (battery != null) {
+            // 1. Surplus PV charges the battery, limited by power and remaining room.
+            if (surplus > 0.0 && stored < maxStored) {
+                val roomInput = (maxStored - stored) / battery.chargeEfficiency
+                toBattery = min(surplus, min(battery.maxChargePowerKw * dt, roomInput))
+                stored = min(maxStored, stored + toBattery * battery.chargeEfficiency)
+                loss += toBattery * (1.0 - battery.chargeEfficiency)
+                surplus -= toBattery
+            }
+            // 2. Missing energy comes from the battery, limited by power and min SOC.
+            if (deficit > 0.0 && stored > minStored) {
+                val deliverable = (stored - minStored) * battery.dischargeEfficiency
+                fromBattery = min(deficit, min(battery.maxDischargePowerKw * dt, deliverable))
+                val drawn = fromBattery / battery.dischargeEfficiency
+                stored = max(minStored, stored - drawn)
+                loss += drawn - fromBattery
+                deficit -= fromBattery
+            }
+        }
+        return StepResult(direct, toBattery, fromBattery, deficit, surplus, loss, stored)
     }
 
     /** Convenience: PV series + energy flow in one call. */

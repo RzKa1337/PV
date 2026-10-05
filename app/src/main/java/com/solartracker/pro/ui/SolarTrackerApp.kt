@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.BatteryChargingFull
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material3.Icon
@@ -32,12 +33,14 @@ import com.solartracker.pro.ui.screens.AngleComparisonScreen
 import com.solartracker.pro.ui.screens.DashboardScreen
 import com.solartracker.pro.ui.screens.EnergyScreen
 import com.solartracker.pro.ui.screens.EnergySettingsActions
+import com.solartracker.pro.ui.screens.LiveSolarScreen
 import com.solartracker.pro.ui.screens.MonthlyScreen
 import com.solartracker.pro.ui.screens.SettingsActions
 import com.solartracker.pro.ui.screens.SettingsScreen
 
 private enum class Tab(val label: String, val icon: ImageVector) {
     DASHBOARD("Pulpit", Icons.Outlined.WbSunny),
+    LIVE("Live", Icons.Outlined.Speed),
     ANGLES("Kąty", Icons.Outlined.Tune),
     MONTHLY("Miesiące", Icons.Outlined.BarChart),
     ENERGY("Energia", Icons.Outlined.BatteryChargingFull),
@@ -58,8 +61,8 @@ fun SolarTrackerApp(viewModel: MainViewModel) {
             override fun setPeakPower(kwp: Double) = viewModel.setPeakPower(kwp)
             override fun setTilt(degrees: Double) = viewModel.setTilt(degrees)
             override fun setPanelAzimuth(degrees: Double) = viewModel.setPanelAzimuth(degrees)
-            override fun setManualLocation(latitude: Double, longitude: Double, name: String) =
-                viewModel.setManualLocation(latitude, longitude, name)
+            override fun setManualLocation(latitude: Double, longitude: Double, name: String, elevationM: Double) =
+                viewModel.setManualLocation(latitude, longitude, name, elevationM)
             override fun setThemeMode(mode: ThemeMode) = viewModel.setThemeMode(mode)
             override fun setWeatherEnabled(enabled: Boolean) = viewModel.setWeatherEnabled(enabled)
             override fun refreshWeather() = viewModel.refreshWeather()
@@ -87,8 +90,9 @@ fun SolarTrackerApp(viewModel: MainViewModel) {
                     NavigationBarItem(
                         selected = tab == t.ordinal,
                         onClick = { tab = t.ordinal },
-                        icon = { Icon(t.icon, contentDescription = null) },
-                        label = { Text(t.label) },
+                        icon = { Icon(t.icon, contentDescription = t.label) },
+                        label = { Text(t.label, maxLines = 1) },
+                        alwaysShowLabel = false,
                     )
                 }
             }
@@ -99,6 +103,15 @@ fun SolarTrackerApp(viewModel: MainViewModel) {
             Tab.DASHBOARD -> {
                 val state by viewModel.dashboard.collectAsStateWithLifecycle()
                 DashboardScreen(state, viewModel::refreshWeather, contentModifier)
+            }
+            Tab.LIVE -> {
+                // Collecting with lifecycle: the 1-second ticker runs only while this tab is shown
+                // and the app is in the foreground.
+                val state by viewModel.live.collectAsStateWithLifecycle()
+                val path by viewModel.liveSunPath.collectAsStateWithLifecycle()
+                val active by viewModel.liveActive.collectAsStateWithLifecycle()
+                val paused by viewModel.livePaused.collectAsStateWithLifecycle()
+                LiveSolarScreen(state, path, active, paused, viewModel::setLivePaused, contentModifier)
             }
             Tab.ANGLES -> {
                 val state by viewModel.tiltComparison.collectAsStateWithLifecycle()

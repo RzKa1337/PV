@@ -45,6 +45,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         dataStore.edit { prefs ->
             prefs[Keys.LATITUDE] = location.latitude
             prefs[Keys.LONGITUDE] = location.longitude
+            prefs[Keys.ELEVATION] = location.elevationM
             prefs[Keys.LOCATION_NAME] = name.trim().take(MAX_NAME_LENGTH)
             prefs[Keys.LOCATION_SOURCE] = source.name
         }
@@ -163,7 +164,12 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         val hasLocation = lat != null && lon != null
         return AppSettings(
             system = system,
-            location = if (hasLocation) GeoLocation(lat!!, lon!!) else defaults.location,
+            location = if (hasLocation) {
+                val elevation = this[Keys.ELEVATION]?.takeIf { it.isFinite() && it in -500.0..9000.0 } ?: 0.0
+                GeoLocation(lat!!, lon!!, elevation)
+            } else {
+                defaults.location
+            },
             locationName = if (hasLocation) this[Keys.LOCATION_NAME].orEmpty() else defaults.locationName,
             locationSource = enumValueOrDefault(this[Keys.LOCATION_SOURCE], defaults.locationSource),
             themeMode = enumValueOrDefault(this[Keys.THEME_MODE], defaults.themeMode),
@@ -184,6 +190,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         val AZIMUTH = doublePreferencesKey("azimuth_deg")
         val LATITUDE = doublePreferencesKey("latitude")
         val LONGITUDE = doublePreferencesKey("longitude")
+        val ELEVATION = doublePreferencesKey("elevation_m")
         val LOCATION_NAME = stringPreferencesKey("location_name")
         val LOCATION_SOURCE = stringPreferencesKey("location_source")
         val THEME_MODE = stringPreferencesKey("theme_mode")

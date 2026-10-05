@@ -2,6 +2,7 @@ package com.solartracker.pro.core.pv
 
 import com.solartracker.pro.core.solar.GeoLocation
 import com.solartracker.pro.core.solar.SolarCalculator
+import com.solartracker.pro.core.solar.SolarDetails
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
@@ -11,6 +12,27 @@ import java.time.ZoneId
 
 /** Estimated PV power at a point in time. */
 data class PowerPoint(val time: Instant, val powerKw: Double)
+
+/**
+ * Model state for one moment (MODELLED, not measured).
+ *
+ * @property poa plane-of-array irradiance [W/m²]
+ * @property angleOfIncidenceDeg angle between the sun's rays and the panel normal
+ * @property cellTemperatureC panel temperature, null when the air temperature is unknown
+ */
+data class PvPointEstimate(
+    val sun: SolarDetails,
+    val irradiance: Irradiance,
+    val ghi: Double,
+    val poa: Double,
+    val angleOfIncidenceDeg: Double,
+    val cellTemperatureC: Double?,
+    val powerKw: Double,
+) {
+    /** Share of direct sunlight the panel geometry captures: cos(AOI), 0 when the sun is down. */
+    val geometricUtilization: Double
+        get() = if (sun.elevationDeg > 0.0) kotlin.math.cos(Math.toRadians(angleOfIncidenceDeg)).coerceAtLeast(0.0) else 0.0
+}
 
 /** Estimated energy for one panel tilt. */
 data class TiltEstimate(val tiltDeg: Double, val energyKwh: Double)
@@ -151,11 +173,39 @@ class PvEstimator(
         val irradiance = irradianceModel.irradiance(position, instant)
         return DoubleArray(systems.size) { i ->
             val s = systems[i]
-            val poa = planeOfArrayIrradiance(irradiance, position, s.tiltDeg, s.azimuthDeg)
-            val temperature = temperatureFactor(poa, irradiance.ambientTemperatureC)
-            (s.peakPowerKw * poa / STC_IRRADIANCE * s.performanceRatio * temperature).coerceIn(0.0, s.peakPowerKw)
+            powerFromPoa(s, planeOfArrayIrradiance(irradiance, position, s.tiltDeg, s.azimuthDeg), irradiance.ambientTemperatureC)
         }
     }
+
+    /**
+     * Everything the model knows about one moment: sun, irradiance, panel geometry, cell
+     * temperature and power. Uses exactly the same formulas as [powerKw].
+     */
+    fun pointEstimate(system: PvSystem, location: GeoLocation, instant: Instant): PvPointEstimate {
+        val s = system.sanitized()
+        val sun = SolarCalculator.details(location, instant)
+        val position = sun.position
+        val aoi = angleOfIncidenceDeg(position, s.tiltDeg, s.azimuthDeg)
+        if (!position.isAboveHorizon) {
+            val night = irradianceModel.irradiance(position, instant)
+            return PvPointEstimate(sun, Irradiance(0.0, 0.0, night.ambientTemperatureC), 0.0, 0.0, aoi, night.ambientTemperatureC, 0.0)
+        }
+        val irradiance = irradianceModel.irradiance(position, instant)
+        val poa = planeOfArrayIrradiance(irradiance, position, s.tiltDeg, s.azimuthDeg)
+        return PvPointEstimate(
+            sun = sun,
+            irradiance = irradiance,
+            ghi = irradiance.ghi(position),
+            poa = poa,
+            angleOfIncidenceDeg = aoi,
+            cellTemperatureC = irradiance.ambientTemperatureC?.let { cellTemperatureC(poa, it) },
+            powerKw = powerFromPoa(s, poa, irradiance.ambientTemperatureC),
+        )
+    }
+
+    private fun powerFromPoa(s: PvSystem, poa: Double, ambientC: Double?): Double =
+        (s.peakPowerKw * poa / STC_IRRADIANCE * s.performanceRatio * temperatureFactor(poa, ambientC))
+            .coerceIn(0.0, s.peakPowerKw)
 
     companion object {
         /** Panel power temperature coefficient [1/°C] (typical crystalline silicon). */

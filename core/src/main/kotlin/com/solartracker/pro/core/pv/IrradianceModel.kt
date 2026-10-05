@@ -1,5 +1,6 @@
 package com.solartracker.pro.core.pv
 
+import com.solartracker.pro.core.solar.SolarCalculator
 import com.solartracker.pro.core.solar.SolarPosition
 import java.time.Instant
 import java.time.ZoneOffset
@@ -42,7 +43,7 @@ class ClearSkyModel : IrradianceModel {
     override fun irradiance(position: SolarPosition, instant: Instant): Irradiance {
         if (!position.isAboveHorizon) return Irradiance.ZERO
         val zenith = position.zenithDeg
-        val airMass = 1.0 / (cos(Math.toRadians(zenith)) + 0.50572 * (96.07995 - zenith).pow(-1.6364))
+        val airMass = SolarCalculator.airMass(zenith) ?: return Irradiance.ZERO
         val extraterrestrial = extraterrestrialIrradiance(instant)
         val dni = extraterrestrial * 0.7.pow(airMass.pow(0.678))
         return Irradiance(dni = dni, dhi = 0.1 * dni)
@@ -71,12 +72,23 @@ fun planeOfArrayIrradiance(
     albedo: Double = 0.2,
 ): Double {
     if (!position.isAboveHorizon) return 0.0
-    val zenith = Math.toRadians(position.zenithDeg)
     val tilt = Math.toRadians(tiltDeg)
-    val cosIncidence = cos(zenith) * cos(tilt) +
-        sin(zenith) * sin(tilt) * cos(Math.toRadians(position.azimuthDeg - panelAzimuthDeg))
-    val beam = irradiance.dni * max(0.0, cosIncidence)
+    val beam = irradiance.dni * max(0.0, cosIncidence(position, tiltDeg, panelAzimuthDeg))
     val skyDiffuse = irradiance.dhi * (1.0 + cos(tilt)) / 2.0
     val groundReflected = irradiance.ghi(position) * albedo * (1.0 - cos(tilt)) / 2.0
     return beam + skyDiffuse + groundReflected
 }
+
+/** Cosine of the angle between the sun's rays and the panel normal (may be negative = behind). */
+fun cosIncidence(position: SolarPosition, tiltDeg: Double, panelAzimuthDeg: Double): Double {
+    val zenith = Math.toRadians(position.zenithDeg)
+    val tilt = Math.toRadians(tiltDeg)
+    return (
+        cos(zenith) * cos(tilt) +
+            sin(zenith) * sin(tilt) * cos(Math.toRadians(position.azimuthDeg - panelAzimuthDeg))
+        ).coerceIn(-1.0, 1.0)
+}
+
+/** Angle of incidence [°] of direct sunlight on the panel; 0° = rays perpendicular to the panel. */
+fun angleOfIncidenceDeg(position: SolarPosition, tiltDeg: Double, panelAzimuthDeg: Double): Double =
+    Math.toDegrees(kotlin.math.acos(cosIncidence(position, tiltDeg, panelAzimuthDeg)))
