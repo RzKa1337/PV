@@ -92,6 +92,9 @@ Zakładka **Narzędzia**: projektant PV (dobór stringów z danych z kart katalo
 koszt magazynowania), porównanie lokalizacji i optymalny kąt, tryb pojazdu (energia, zasięg, najlepszy kierunek parkowania).
 Wartości z modelu czystego nieba są oznaczone jako górna granica.
 
+Od v0.9.0: odbiorniki elastyczne i agregat w Konfiguracji (EMS podaje godziny uruchomienia), wiatr/śnieg/opady/wilgotność/
+widoczność w prognozie i na pulpicie, dokładność prognoz (godzina i dzień naprzód) w Analizach.
+
 Dokumentacja techniczna: [ARCHITECTURE.md](ARCHITECTURE.md), [CALCULATIONS.md](CALCULATIONS.md), [TESTING.md](TESTING.md),
 [API.md](API.md), [ROADMAP.md](ROADMAP.md).
 

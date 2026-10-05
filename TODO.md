@@ -121,12 +121,12 @@ Zaimplementowane, kompiluje się i przechodzi lint w CI — **czeka na ręczny t
 - [x] Projektant PV, porównanie lokalizacji, tryb pojazdu – testy
 - [x] Historia okresów, eksport CSV/JSON/PDF, FREE/PRO – testy
 - [x] UI: Narzędzia, Centrum → Analizy; test instrumentalny
-- [ ] Odbiorniki elastyczne i agregat w ustawieniach (EMS)
-- [ ] Dodatkowe pola pogody (wiatr, wilgotność, opady, śnieg, widoczność)
-- [ ] Panel dokładności prognoz (zapis prognoz)
+- [x] Odbiorniki elastyczne i agregat w ustawieniach (EMS) – v0.9.0
+- [x] Dodatkowe pola pogody (wiatr, wilgotność, opady, śnieg, widoczność) – v0.9.0
+- [x] Panel dokładności prognoz (zapis prognoz) – v0.9.0
 
 ## Później (pomysły)
-- [ ] Śnieg na panelach z `snow_depth` w prognozie (model gotowy w łańcuchu strat)
+- [x] Śnieg na panelach z `snow_depth` w prognozie – v0.9.0
 - [ ] Wpływ temperatury na pojemność i moc ładowania baterii
 - [x] Tryb pojazdu (v0.8.0, Narzędzia)
 - [ ] Wpisywanie rzeczywistej produkcji i porównanie z szacunkiem

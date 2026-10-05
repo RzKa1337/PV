@@ -5,6 +5,13 @@ Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie 
 
 ## [Unreleased]
 
+## [v0.9.0] - 2026-10-05
+
+### Added
+- EMS settings (Centrum → Konfiguracja): flexible loads (power, run time, time window, surplus only) and generator (power, start/stop SOC, minimum run, fuel use); Analizy shows start times per load and generator runs with fuel estimate. Recommendations only – nothing is switched
+- Weather: wind, humidity, precipitation, snow depth and visibility from Open-Meteo; forecasts include wind cooling and drop to zero under forecast snow on the panels; dashboard shows the extra fields and a snow warning
+- Forecast accuracy: hour-ahead and day-ahead PV forecasts are stored and compared with measured production (30 days: MAE, RMSE, MAPE, bias); hours with data gaps and night hours are excluded
+
 ## [v0.8.0] - 2026-10-05
 
 ### Added

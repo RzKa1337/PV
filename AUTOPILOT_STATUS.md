@@ -1,6 +1,6 @@
 # AUTOPILOT STATUS — Solar Tracker PRO
 
-Ostatnia aktualizacja: 2026-10-05 · gałąź `ccr-81f74041-r3omte` · ostatnie wydanie: v0.8.0
+Ostatnia aktualizacja: 2026-10-05 · gałąź `ccr-81f74041-r3omte` · ostatnie wydanie: v0.9.0
 
 ## Audyt repozytorium (faza 0)
 
@@ -107,3 +107,7 @@ Wymaga walidacji w terenie: **REAL DEVICE VALIDATION REQUIRED** (Anenji), **REAL
 
 Testy `:core`: 232/232. Dokumentacja: `ARCHITECTURE.md`, `CALCULATIONS.md`, `TESTING.md`, `ROADMAP.md`, `API.md`.
 Wymaga walidacji w terenie: falownik Anenji (REAL DEVICE VALIDATION REQUIRED), dane mapowe/wysokości, zdrowie instalacji na prawdziwej historii.
+
+## v0.9.0
+Odbiorniki elastyczne i agregat dla EMS, dodatkowe dane pogodowe (wiatr, śnieg, opady, wilgotność, widoczność) w prognozie i na pulpicie,
+śledzenie dokładności prognoz (godzina/dzień naprzód). Testy `:core` 239/239; CI 37358388435 zielone (unit, lint, APK, emulator).
