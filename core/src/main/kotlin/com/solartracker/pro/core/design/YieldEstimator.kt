@@ -51,6 +51,12 @@ object YieldEstimator {
         return AnnualYield(total, monthly, factor?.let { total * it }, if (factor != null) DataKind.ESTIMATED else DataKind.UNKNOWN, array.peakPowerW)
     }
 
+    /** Clear-sky energy of one day [kWh] (solar-midnight window). */
+    fun day(array: PvArrayConfig, losses: LossProfile, location: GeoLocation, date: LocalDate, stepMinutes: Long = 20): Double {
+        val dayStart = date.atStartOfDay().toInstant(ZoneOffset.UTC).minusSeconds((location.longitude / 15.0 * 3600).toLong())
+        return engine.daily(array, losses, location, dayStart, { t, sun -> PvConditions(clearSky.irradiance(sun, t)) }, stepMinutes).acOutputW / 1000.0
+    }
+
     /** Best fixed tilt (equator-facing) by clear-sky annual energy, searched every [stepDeg]. */
     fun optimalTilt(array: PvArrayConfig, losses: LossProfile, location: GeoLocation, stepDeg: Int = 5): Pair<Double, AnnualYield> {
         val azimuth = if (location.latitude >= 0) 180.0 else 0.0

@@ -17,6 +17,7 @@ enum class Feature(val label: String, val minPlan: Plan) {
     ECONOMICS("Ekonomia i ROI", Plan.PRO),
     LOCATION_COMPARISON("Porównanie lokalizacji", Plan.PRO),
     VEHICLE("Tryb pojazdu", Plan.PRO),
+    TILT_OPTIMIZER("Optymalizator kąta paneli", Plan.PRO),
     EXPORT("Eksport CSV/JSON/PDF", Plan.PRO),
 }
 

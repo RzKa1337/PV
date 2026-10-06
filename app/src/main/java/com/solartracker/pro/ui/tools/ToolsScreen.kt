@@ -51,7 +51,13 @@ import com.solartracker.pro.core.economics.TariffAssumptions
 import com.solartracker.pro.core.pv.LossProfile
 import com.solartracker.pro.core.pv.PvArrayConfig
 import com.solartracker.pro.core.solar.GeoLocation
+import com.solartracker.pro.core.design.AdjustableMount
+import com.solartracker.pro.core.design.TiltOptimizer
+import com.solartracker.pro.core.design.TiltRecommendation
+import com.solartracker.pro.core.vehicle.HeadingProfile
+import com.solartracker.pro.core.vehicle.VehicleBody
 import com.solartracker.pro.core.vehicle.VehicleEstimate
+import com.solartracker.pro.core.vehicle.VehiclePanel
 import com.solartracker.pro.core.vehicle.VehicleSolarConfig
 import com.solartracker.pro.core.vehicle.VehicleSolarEstimator
 import com.solartracker.pro.data.AppSettings
@@ -69,6 +75,7 @@ private enum class Tool(val label: String, val feature: Feature) {
     ECONOMICS("Ekonomia", Feature.ECONOMICS),
     LOCATIONS("Lokalizacje", Feature.LOCATION_COMPARISON),
     VEHICLE("Pojazd", Feature.VEHICLE),
+    TILT("Kąt paneli", Feature.TILT_OPTIMIZER),
 }
 
 /** Planning tools. Pure calculations from core; inputs come from the user or the saved installation. */
@@ -92,6 +99,7 @@ fun ToolsScreen(settings: AppSettings, access: FeatureAccessManager, subscriptio
             Tool.ECONOMICS -> EconomicsTool(settings)
             Tool.LOCATIONS -> LocationsTool(settings)
             Tool.VEHICLE -> VehicleTool(settings)
+            Tool.TILT -> TiltTool(settings)
         }
     }
 }
@@ -323,47 +331,132 @@ private fun LocationsTool(settings: AppSettings) {
 
 @Composable
 private fun VehicleTool(settings: AppSettings) {
+    var length by rememberSaveable { mutableStateOf("") }
+    var width by rememberSaveable { mutableStateOf("") }
+    var roofArea by rememberSaveable { mutableStateOf("") }
+    var count by rememberSaveable { mutableStateOf("") }
     var power by rememberSaveable { mutableStateOf("") }
+    var panelLength by rememberSaveable { mutableStateOf("") }
+    var panelWidth by rememberSaveable { mutableStateOf("") }
     var tilt by rememberSaveable { mutableStateOf("0") }
     var relAz by rememberSaveable { mutableStateOf("0") }
     var heading by rememberSaveable { mutableStateOf("0") }
     var consumption by rememberSaveable { mutableStateOf("") }
-    var error by remember { mutableStateOf<String?>(null) }
-    var result by remember { mutableStateOf<Pair<VehicleEstimate, VehicleEstimate?>?>(null) }
+    var errors by remember { mutableStateOf(emptyList<String>()) }
     var cfg by remember { mutableStateOf<VehicleSolarConfig?>(null) }
     var run by remember { mutableIntStateOf(0) }
+    var busy by remember { mutableStateOf(false) }
+    var current by remember { mutableStateOf<VehicleEstimate?>(null) }
+    var profile by remember { mutableStateOf<HeadingProfile?>(null) }
+    var tilts by remember { mutableStateOf<List<Pair<Double, Double>>>(emptyList()) }
 
     SectionCard {
-        Text("Tryb pojazdu (kamper, łódź, auto)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        Pair2({ Num("Moc paneli [W]", power, { s -> power = s }, it) }, { Num("Kąt paneli [°]", tilt, { s -> tilt = s }, it) })
-        Pair2({ Num("Kierunek paneli wzgl. przodu [°]", relAz, { s -> relAz = s }, it) }, { Num("Kurs pojazdu [°]", heading, { s -> heading = s }, it) })
-        Num("Zużycie [kWh/100 km] (opcj.)", consumption, { s -> consumption = s }, Modifier.fillMaxWidth())
-        Text("Lokalizacja: ${settings.locationName}. Okres: od teraz do końca dnia.", style = MaterialTheme.typography.bodySmall)
-        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        Text("Tryb pojazdu (bus, kamper, łódź)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text("Pojazd (opcjonalnie – sprawdza, czy panele zmieszczą się na dachu)", fontWeight = FontWeight.SemiBold)
+        Pair2({ Num("Długość [m]", length, { s -> length = s }, it) }, { Num("Szerokość [m]", width, { s -> width = s }, it) })
+        Num("Użyteczna powierzchnia dachu [m²]", roofArea, { s -> roofArea = s }, Modifier.fillMaxWidth())
+        Text("Panele (ułożone kolejno wzdłuż dachu)", fontWeight = FontWeight.SemiBold)
+        Pair2({ Num("Liczba paneli", count, { s -> count = s }, it) }, { Num("Moc panelu [W]", power, { s -> power = s }, it) })
+        Pair2({ Num("Długość panelu [m]", panelLength, { s -> panelLength = s }, it) }, { Num("Szerokość panelu [m]", panelWidth, { s -> panelWidth = s }, it) })
+        Pair2({ Num("Kąt paneli [°]", tilt, { s -> tilt = s }, it) }, { Num("Kierunek wzgl. przodu [°]", relAz, { s -> relAz = s }, it) })
+        Pair2({ Num("Kurs pojazdu [°]", heading, { s -> heading = s }, it) }, { Num("Zużycie [kWh/100 km]", consumption, { s -> consumption = s }, it) })
+        Text("Kąt 0° = panele płasko. Kierunek: 0° = pochylone ku przodowi, 90° = ku prawej burcie. Lokalizacja: ${settings.locationName}. Okres: od teraz do końca dnia.",
+            style = MaterialTheme.typography.bodySmall)
+        errors.forEach { Text(it, color = MaterialTheme.colorScheme.error) }
         Button(onClick = {
+            val n = count.num()?.toInt() ?: 0
             val p = power.num()
-            if (p == null || p <= 0) { error = "Podaj moc paneli"; return@Button }
-            error = null
-            cfg = VehicleSolarConfig(p, (tilt.num() ?: 0.0).coerceIn(0.0, 90.0), relAz.num() ?: 0.0, consumptionKwhPer100Km = consumption.num())
-            run++
-        }) { Text("Oblicz") }
+            if (n !in 1..40 || p == null) { errors = listOf("Podaj liczbę paneli (1–40) i moc panelu"); return@Button }
+            val pl = panelLength.num() ?: 0.0
+            val pw = panelWidth.num() ?: 0.0
+            val body = if (length.num() != null && width.num() != null) VehicleBody(length.num()!!, width.num()!!, roofArea.num()) else null
+            val panels = (0 until n).map { i ->
+                VehiclePanel("Panel ${i + 1}", p, pl, pw, xM = i * pl, yM = 0.0, tiltDeg = (tilt.num() ?: 0.0), relativeAzimuthDeg = relAz.num() ?: 0.0)
+            }
+            val c = VehicleSolarConfig(p * n, consumptionKwhPer100Km = consumption.num(), body = body.takeIf { pl > 0 && pw > 0 },
+                panels = panels.takeIf { pl > 0 && pw > 0 } ?: emptyList(), tiltDeg = tilt.num() ?: 0.0, relativeAzimuthDeg = relAz.num() ?: 0.0)
+            errors = c.validate()
+            if (errors.isEmpty()) { cfg = c; run++ }
+        }, enabled = !busy) { Text(if (busy) "Liczenie…" else "Oblicz") }
     }
     LaunchedEffect(run) {
         val c = cfg ?: return@LaunchedEffect
+        busy = true
         val now = Instant.now()
         val end = now.atZone(ZoneId.systemDefault()).toLocalDate().plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant()
-        result = withContext(Dispatchers.Default) {
-            VehicleSolarEstimator.estimate(c, settings.location, heading.num() ?: 0.0, now, end) to
-                (if (c.tiltDeg > 0) VehicleSolarEstimator.bestHeading(c, settings.location, now, end) else null)
+        val h = heading.num() ?: 0.0
+        withContext(Dispatchers.Default) {
+            current = VehicleSolarEstimator.estimate(c, settings.location, h, now, end)
+            profile = VehicleSolarEstimator.headingProfile(c, settings.location, now, end, stepDeg = 10)
+            tilts = VehicleSolarEstimator.tiltComparison(c, settings.location, h, now, end, (0..90 step 10).map { it.toDouble() })
+        }
+        busy = false
+    }
+    current?.let { cur ->
+        SectionCard {
+            Line("Moc paneli", "${f(cfg?.totalPowerW ?: 0.0, 0)} W")
+            Line("Energia do końca dnia (kurs ${f(cur.headingDeg, 0)}°)", "${f(cur.energyKwh, 2)} kWh")
+            cur.rangeKm?.let { Line("Zasięg z tej energii", "${f(it, 0)} km") }
+            profile?.let { p ->
+                if (p.flat) Text("Panele płaskie – kierunek parkowania prawie nie ma znaczenia (różnica ${f(p.sensitivity * 100, 1)}%).", style = MaterialTheme.typography.bodySmall)
+                else {
+                    Line("Najlepszy kurs parkowania", "${f(p.best.headingDeg, 0)}° → ${f(p.best.energyKwh, 2)} kWh")
+                    Line("Najgorszy kurs", "${f(p.worst.headingDeg, 0)}° → ${f(p.worst.energyKwh, 2)} kWh")
+                }
+                Text("Kurs → energia: " + p.points.filter { it.headingDeg.toInt() % 45 == 0 }.joinToString(" · ") { "${f(it.headingDeg, 0)}°: ${f(it.energyKwh, 2)}" },
+                    style = MaterialTheme.typography.bodySmall)
+            }
+            if (tilts.isNotEmpty()) {
+                val best = tilts.maxBy { it.second }
+                Line("Najlepszy kąt przy tym kursie", "${f(best.first, 0)}° → ${f(best.second, 2)} kWh")
+                Text("Kąt → energia: " + tilts.joinToString(" · ") { "${f(it.first, 0)}°: ${f(it.second, 2)}" }, style = MaterialTheme.typography.bodySmall)
+                Text("Tylko obliczenia – aplikacja nie steruje mechanizmem paneli.", style = MaterialTheme.typography.bodySmall)
+            }
+            EstimateBadge(text = "GÓRNA GRANICA — BEZ CHMUR I CIENIA")
         }
     }
-    result?.let { (cur, best) ->
+}
+
+// ---------------------------------------------------------------- Tilt optimizer
+
+@Composable
+private fun TiltTool(settings: AppSettings) {
+    var minTilt by rememberSaveable { mutableStateOf("") }
+    var maxTilt by rememberSaveable { mutableStateOf("") }
+    var run by remember { mutableIntStateOf(0) }
+    var busy by remember { mutableStateOf(false) }
+    var rec by remember { mutableStateOf<TiltRecommendation?>(null) }
+    val s = settings.system
+    SectionCard {
+        Text("Optymalizator kąta paneli", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text("Instalacja ${f(s.peakPowerKw, 2)} kWp, azymut ${f(s.azimuthDeg, 0)}°, ${settings.locationName}. Porównanie kątów 0–90° co 5°: dziś, każdy miesiąc i cały rok.",
+            style = MaterialTheme.typography.bodySmall)
+        Text("Ruchomy stelaż (opcjonalnie): zakres regulacji", fontWeight = FontWeight.SemiBold)
+        Pair2({ Num("Min. kąt [°]", minTilt, { v -> minTilt = v }, it) }, { Num("Maks. kąt [°]", maxTilt, { v -> maxTilt = v }, it) })
+        Button(onClick = { run++ }, enabled = !busy) { Text(if (busy) "Liczenie…" else "Porównaj kąty") }
+    }
+    LaunchedEffect(run) {
+        if (run == 0) return@LaunchedEffect
+        busy = true
+        val mount = if (minTilt.num() != null && maxTilt.num() != null && maxTilt.num()!! > minTilt.num()!!) AdjustableMount(minTilt.num()!!, maxTilt.num()!!) else null
+        rec = withContext(Dispatchers.Default) {
+            TiltOptimizer.compare(PvArrayConfig(1, s.peakPowerKw * 1000, s.tiltDeg, s.azimuthDeg), LossProfile(), settings.location, java.time.LocalDate.now(), mount = mount)
+        }
+        busy = false
+    }
+    rec?.let { r ->
         SectionCard {
-            Line("Energia do końca dnia", "${f(cur.energyKwh, 2)} kWh")
-            cur.rangeKm?.let { Line("Zasięg z tej energii", "${f(it, 0)} km") }
-            best?.let { Line("Najlepszy kurs parkowania", "${f(it.headingDeg, 0)}° → ${f(it.energyKwh, 2)} kWh") }
-            if (best == null) Text("Panele płaskie — kierunek parkowania nie ma znaczenia.", style = MaterialTheme.typography.bodySmall)
-            EstimateBadge(text = "GÓRNA GRANICA — BEZ CHMUR I CIENIA")
+            Line("NAJLEPSZY KĄT STAŁY (rok)", "${f(r.bestStatic.tiltDeg, 0)}° → ${f(r.bestStatic.annualKwh, 0)} kWh")
+            Line("NAJLEPSZY KĄT DZIŚ", "${f(r.bestDaily.tiltDeg, 0)}° → ${f(r.bestDaily.dailyKwh, 1)} kWh")
+            Line("Obecny kąt ${f(s.tiltDeg, 0)}°", r.yields.minBy { kotlin.math.abs(it.tiltDeg - s.tiltDeg) }.let { "${f(it.annualKwh, 0)} kWh/rok" })
+            Text("NAJLEPSZY KĄT W MIESIĄCU", fontWeight = FontWeight.SemiBold)
+            Text(r.bestMonthly.entries.joinToString(" · ") { "${it.key.getDisplayName(java.time.format.TextStyle.SHORT, Locale.forLanguageTag("pl"))} ${f(it.value, 0)}°" },
+                style = MaterialTheme.typography.bodySmall)
+            Line("Zysk z ustawiania co miesiąc", "+${f(r.monthlyAdjustGainPercent, 1)}%")
+            Text("Kąt → rok: " + r.yields.filter { it.tiltDeg.toInt() % 10 == 0 }.joinToString(" · ") { "${f(it.tiltDeg, 0)}°: ${f(it.annualKwh, 0)}" },
+                style = MaterialTheme.typography.bodySmall)
+            Text("Tylko obliczenia – aplikacja nie steruje siłownikami.", style = MaterialTheme.typography.bodySmall)
+            EstimateBadge(text = "GÓRNA GRANICA — BEZ CHMUR")
         }
     }
 }
