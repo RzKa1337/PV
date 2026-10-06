@@ -82,7 +82,14 @@ class EnergyCenterInstrumentedTest {
             }
             assertNotNull("advisor chip", chip)
             chip.click()
-            val answer = device.wait(Until.findObject(By.textContains("Tryb:")), 10_000)
+            // The answer appears below the chips; more cards above may push it off screen.
+            val answerSelector = By.textContains("Tryb:")
+            var answer = device.wait(Until.findObject(answerSelector), 5_000)
+            repeat(10) {
+                if (answer != null) return@repeat
+                device.findObjects(By.scrollable(true)).maxByOrNull { it.visibleBounds.height() }?.scroll(Direction.DOWN, 0.5f)
+                answer = device.wait(Until.findObject(answerSelector), 1_000)
+            }
             assertNotNull("advisor answer", answer)
             Log.i(tag, "advisor: ${answer.text}")
             assertTrue(answer.text.contains("SYMULATOR"))
