@@ -60,7 +60,7 @@ class EnergyCenterInstrumentedTest {
     fun simulatedInverterIsShownAsSimulatedAndOnline() {
         runBlocking { EnergySettingsStore(context).setInverter(InverterConfig(enabled = true, link = InverterLink.SIMULATOR, pollIntervalSeconds = 2)) }
         ActivityScenario.launch(MainActivity::class.java).use {
-            val tab = device.wait(Until.findObject(By.desc("Centrum")), 60_000)
+            val tab = UiTestSupport.findDismissingAnr(device, By.desc("Centrum"), tag)
             assertNotNull("Centrum tab not found", tab)
             tab.click()
             assertNotNull("simulator label", device.wait(Until.findObject(By.textContains("SYMULATOR – dane testowe")), 30_000))

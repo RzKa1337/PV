@@ -39,7 +39,7 @@ class ToolsInstrumentedTest {
     @Test
     fun designerValidatesAndLocationsCompare() {
         ActivityScenario.launch(MainActivity::class.java).use {
-            val tab = device.wait(Until.findObject(By.desc("Narzędzia")), 60_000)
+            val tab = UiTestSupport.findDismissingAnr(device, By.desc("Narzędzia"), tag)
             assertNotNull("Narzędzia tab", tab)
             tab.click()
             assertNotNull("designer chip", device.wait(Until.findObject(By.text("Projektant PV")), 10_000))
@@ -69,7 +69,7 @@ class ToolsInstrumentedTest {
     @Test
     fun insightsPageShowsEmsAndHistory() {
         ActivityScenario.launch(MainActivity::class.java).use {
-            val tab = device.wait(Until.findObject(By.desc("Centrum")), 60_000)
+            val tab = UiTestSupport.findDismissingAnr(device, By.desc("Centrum"), tag)
             assertNotNull("Centrum tab", tab)
             tab.click()
             val open = scrollTo(By.textContains("Analizy: zdrowie"))
