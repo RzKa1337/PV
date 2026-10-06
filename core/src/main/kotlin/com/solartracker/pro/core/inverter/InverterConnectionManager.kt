@@ -202,7 +202,8 @@ class InverterConnectionManager(
         identicalStreak = if (raw != null && raw.copy(timestamp = reading.timestamp) == reading) identicalStreak + 1 else 0
         lastRaw = reading
         val v = validator?.validate(reading, last, expectedPvW(reading.timestamp))
-        val frozen = identicalStreak >= settings.frozenAfterReads
+        // The simulator is deterministic (constant at night), so "frozen" is only checked on real devices.
+        val frozen = identicalStreak >= settings.frozenAfterReads && !provider.info.simulated
         val validation = v?.let {
             if (frozen) it.copy(issues = it.issues + TelemetryIssue(IssueType.FROZEN, null, "$identicalStreak identycznych odczytów z rzędu")) else it
         }

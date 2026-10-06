@@ -84,7 +84,9 @@ import com.solartracker.pro.core.inverter.InverterRepository
 import com.solartracker.pro.core.inverter.InverterTelemetry
 import com.solartracker.pro.core.inverter.LinkStatus
 import com.solartracker.pro.core.inverter.TelemetryField
+import com.solartracker.pro.core.inverter.PlausibilityLimits
 import com.solartracker.pro.core.inverter.TelemetryValidation
+import com.solartracker.pro.core.inverter.TelemetryValidator
 import com.solartracker.pro.core.pv.PvEstimator
 import com.solartracker.pro.core.quality.DataKind
 import com.solartracker.pro.core.shading.DayShading
@@ -333,6 +335,10 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
             provider, config.pollSettings,
             onTelemetry = { t -> viewModelScope.launch(Dispatchers.Default) { onTelemetry(t) } },
             onEvent = { e -> _events.value = (listOf("${java.time.LocalTime.now().withNano(0)} $e") + _events.value).take(50) },
+            validator = TelemetryValidator(PlausibilityLimits(
+                batteryNominalV = siteConfig.value?.batteryVoltage ?: 48.0,
+                ratedPowerW = config.ratedPowerW,
+            )),
             expectedPvW = { time -> expectedPvW(time) },
         )
         manager = m
