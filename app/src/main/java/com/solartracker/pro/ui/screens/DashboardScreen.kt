@@ -45,7 +45,12 @@ import com.solartracker.pro.ui.components.SectionCard
 import com.solartracker.pro.ui.components.StatTile
 
 @Composable
-fun DashboardScreen(state: DashboardState?, onRefreshWeather: () -> Unit, modifier: Modifier = Modifier) {
+fun DashboardScreen(
+    state: DashboardState?,
+    onRefreshWeather: () -> Unit,
+    modifier: Modifier = Modifier,
+    energyOverview: @Composable () -> Unit = {},
+) {
     if (state == null) {
         Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         return
@@ -59,6 +64,7 @@ fun DashboardScreen(state: DashboardState?, onRefreshWeather: () -> Unit, modifi
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         LocationHeader(state)
+        energyOverview()
         state.weather?.let { WeatherCard(it, onRefreshWeather) }
         SunCard(state)
 

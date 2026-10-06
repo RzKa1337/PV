@@ -104,6 +104,8 @@ fun InsightsScreen(vm: EnergyCenterViewModel, onBack: () -> Unit, modifier: Modi
         }
 
         val forecastState by vm.forecast.collectAsStateWithLifecycle()
+        DailyReportCard(insights.dailyToday, insights.dailyYesterday)
+        TwinCard(insights.twin)
         OutlookCard(forecastState.outlook)
 
         // FORECAST ACCURACY

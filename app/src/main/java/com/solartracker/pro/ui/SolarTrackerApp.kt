@@ -48,6 +48,9 @@ import com.solartracker.pro.ui.screens.SettingsActions
 import com.solartracker.pro.ui.screens.SettingsScreen
 import com.solartracker.pro.ui.screens.UpdateSection
 import com.solartracker.pro.ui.energy.EnergyCenterScreen
+import com.solartracker.pro.ui.energy.EnergyOverview
+import com.solartracker.pro.energy.EnergyCenterViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 private enum class Tab(val label: String, val icon: ImageVector) {
     DASHBOARD("Pulpit", Icons.Outlined.WbSunny),
@@ -124,7 +127,9 @@ fun SolarTrackerApp(viewModel: MainViewModel, openSettingsRequest: Int = 0) {
         when (Tab.entries[tab]) {
             Tab.DASHBOARD -> {
                 val state by viewModel.dashboard.collectAsStateWithLifecycle()
-                DashboardScreen(state, viewModel::refreshWeather, contentModifier)
+                val weather by viewModel.weather.collectAsStateWithLifecycle()
+                val energyVm: EnergyCenterViewModel = viewModel()
+                DashboardScreen(state, viewModel::refreshWeather, contentModifier) { EnergyOverview(energyVm, weather) }
             }
             Tab.LIVE -> {
                 // Collecting with lifecycle: the 1-second ticker runs only while this tab is shown

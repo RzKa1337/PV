@@ -6,6 +6,7 @@ import android.os.Bundle
 import com.solartracker.pro.update.UpdateManager
 import com.solartracker.pro.update.UpdateRecovery
 import com.solartracker.pro.update.UpdateStore
+import com.solartracker.pro.energy.DailyReportWorker
 import com.solartracker.pro.update.UpdateWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -47,5 +48,6 @@ class SolarTrackerApplication : Application() {
 
         appScope.launch { runCatching { updateManager.store.migrateToken() } }
         appScope.launch { UpdateWorker.schedule(this@SolarTrackerApplication, updateManager.store.snapshot().config) }
+        DailyReportWorker.schedule(this)
     }
 }

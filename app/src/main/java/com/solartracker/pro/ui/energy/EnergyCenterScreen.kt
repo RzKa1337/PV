@@ -53,10 +53,13 @@ import java.time.format.DateTimeFormatter
 private val hm = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
 private val hms = DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneId.systemDefault())
 
+/**
+ * Feeds the weather to the Energy Center model and polls the inverter only while the calling screen is
+ * visible and the app is in the foreground (battery friendly).
+ */
 @Composable
-fun EnergyCenterScreen(weather: WeatherState, modifier: Modifier = Modifier, vm: EnergyCenterViewModel = viewModel()) {
+fun MonitorWhileVisible(vm: EnergyCenterViewModel, weather: WeatherState) {
     LaunchedEffect(weather.forecast, weather.climate) { vm.setWeather(weather.forecast, weather.climate) }
-    // Monitoring only while this screen is visible and the app is in the foreground.
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(lifecycle) {
         val observer = LifecycleEventObserver { _, e ->
@@ -73,6 +76,11 @@ fun EnergyCenterScreen(weather: WeatherState, modifier: Modifier = Modifier, vm:
             vm.setMonitoring(false)
         }
     }
+}
+
+@Composable
+fun EnergyCenterScreen(weather: WeatherState, modifier: Modifier = Modifier, vm: EnergyCenterViewModel = viewModel()) {
+    MonitorWhileVisible(vm, weather)
     var page by rememberSaveable { mutableStateOf("main") }
     when (page) {
         "shading" -> ShadingScreen(vm, onBack = { page = "main" }, modifier = modifier)
@@ -174,6 +182,8 @@ private fun EnergyCenterMain(vm: EnergyCenterViewModel, onShading: () -> Unit, o
             model.calibration?.let { Text("Kalibracja modelu: ${it.reason}" + if (it.ready) " (×${"%.2f".format(it.factor)}, pewność ${Fmt.conf(it.confidence)})" else "", style = MaterialTheme.typography.bodySmall) }
             model.calibrationModel?.let { Text("Kalibracja prognoz 3.0: ${it.describe()}", style = MaterialTheme.typography.bodySmall) }
         }
+
+        PerformanceCard(model.performance)
 
         // FORECAST
         SectionCard {

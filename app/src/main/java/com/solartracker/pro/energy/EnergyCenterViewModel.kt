@@ -33,6 +33,18 @@ import com.solartracker.pro.core.health.HealthInput
 import com.solartracker.pro.core.health.HealthReport
 import com.solartracker.pro.core.health.PredictiveFaultEngine
 import com.solartracker.pro.core.health.PvHealthEngine
+import com.solartracker.pro.core.analytics.DailyEnergyReport
+import com.solartracker.pro.core.analytics.DailyReportBuilder
+import com.solartracker.pro.core.health.PerformanceReport
+import com.solartracker.pro.core.health.PredictiveAlertInput
+import com.solartracker.pro.core.health.PvPerformanceAnalyzer
+import com.solartracker.pro.core.pv.ClearSkyModel
+import com.solartracker.pro.core.pv.LossProfile
+import com.solartracker.pro.core.pv.PvArrayConfig
+import com.solartracker.pro.core.pv.PvConditions
+import com.solartracker.pro.core.twin.DigitalTwin
+import com.solartracker.pro.core.twin.DigitalTwinBuilder
+import com.solartracker.pro.core.twin.TwinInput
 import com.solartracker.pro.core.analytics.Alert
 import com.solartracker.pro.core.analytics.AutoCalibrationEngine
 import com.solartracker.pro.core.analytics.CalibrationModel
@@ -95,6 +107,7 @@ import com.solartracker.pro.core.solar.SolarCalculator
 import com.solartracker.pro.core.weather.MonthlyClimate
 import com.solartracker.pro.core.weather.WeatherAwareIrradianceModel
 import com.solartracker.pro.core.weather.WeatherForecast
+import com.solartracker.pro.core.weather.WeatherSource
 import com.solartracker.pro.data.AppSettings
 import com.solartracker.pro.data.LocationSource
 import com.solartracker.pro.data.SettingsRepository
@@ -143,6 +156,8 @@ data class ModelState(
     val calibration: CalibrationResult? = null,
     /** AutoCalibration 3.0 model (per sky condition, sun elevation, hour, month). */
     val calibrationModel: CalibrationModel? = null,
+    /** Expected vs actual power with estimated loss shares. */
+    val performance: PerformanceReport? = null,
 )
 
 data class ForecastState(
@@ -190,6 +205,10 @@ data class InsightsState(
     val periodAccuracy: Map<AccuracyPeriod, AccuracyReport> = emptyMap(),
     /** Today's complete hours (day-ahead forecast, else hour-ahead). */
     val todayAccuracy: AccuracyReport? = null,
+    val dailyToday: DailyEnergyReport? = null,
+    val dailyYesterday: DailyEnergyReport? = null,
+    /** Sun → PV → inverter → battery → loads. */
+    val twin: DigitalTwin? = null,
 )
 
 class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
@@ -244,6 +263,8 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
     private var calibrationModelAt: Instant? = null
     private var lastObservationAt: Instant? = null
     private var outlookComputedAt: Instant? = null
+    private val recentTelemetry = ArrayDeque<InverterTelemetry>()
+    private var offlineSince: Instant? = null
     private val alertManager = AlertManager()
     private val lock = Mutex()
     private var previousTelemetry: InverterTelemetry? = null
@@ -317,7 +338,17 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
         manager = m
         _live.value = LiveState(info = provider.info, capabilities = provider.capabilities)
         monitorJob = viewModelScope.launch {
-            launch { m.state.collect { s -> _live.value = _live.value.copy(connection = s); if (s.status == LinkStatus.OFFLINE) onTelemetryMissing() } }
+            launch {
+                m.state.collect { s ->
+                    _live.value = _live.value.copy(connection = s)
+                    if (s.status == LinkStatus.OFFLINE) {
+                        if (offlineSince == null) offlineSince = Instant.now()
+                        onTelemetryMissing()
+                    } else if (s.status == LinkStatus.ONLINE) {
+                        offlineSince = null
+                    }
+                }
+            }
             launch { m.validation.collect { v -> _live.value = _live.value.copy(validation = v, diagnostics = provider.diagnostics) } }
             m.run()
         }
@@ -382,7 +413,24 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
                 withContext(Dispatchers.IO) { runCatching { db.addObservation(observation, usable) } }
             }
         }
-        _model.value = ModelState(modelKw, estimate.powerKw, comparison, calibration.result(), calibrationModel)
+        val hourNow = _weather.value.first?.at(t.timestamp)
+        val irradiance = weather.irradiance(estimate.sun.position, t.timestamp)
+        val performance = runCatching {
+            PvPerformanceAnalyzer.analyze(
+                PvArrayConfig(1, s.system.peakPowerKw * 1000, s.system.tiltDeg, s.system.azimuthDeg),
+                LossProfile(inverterLimitW = inv?.takeIf { it.enabled }?.ratedPowerW, inverterRatedW = inv?.takeIf { it.enabled }?.ratedPowerW),
+                s.location, t.timestamp,
+                PvConditions(irradiance, irradiance.ambientTemperatureC, hourNow?.windSpeedMs, hourNow?.snowDepthM),
+                actualW = t.pv.powerW, shadingFactor = shadeFactor,
+                fresh = _live.value.connection.status == LinkStatus.ONLINE,
+                clearSkyConditions = PvConditions(ClearSkyModel().irradiance(estimate.sun.position, t.timestamp), irradiance.ambientTemperatureC, hourNow?.windSpeedMs),
+            )
+        }.getOrNull()
+        synchronized(recentTelemetry) {
+            recentTelemetry.addLast(t)
+            while (recentTelemetry.size > 40) recentTelemetry.removeFirst()
+        }
+        _model.value = ModelState(modelKw, estimate.powerKw, comparison, calibration.result(), calibrationModel, performance)
 
         val anomalies = AnomalyDetector.detect(
             AnomalyInput(
@@ -533,6 +581,15 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
         // Read the store directly: right after a save the StateFlows may not have caught up yet.
         val loads = store.flexibleLoads.first()
         val gen = store.generator.first()
+        val securityNow = _forecast.value.security
+        val performance = _model.value.performance
+        val recent = synchronized(recentTelemetry) { recentTelemetry.toList() }
+        val clippingShare = withContext(Dispatchers.IO) {
+            runCatching {
+                db.observations(now.atZone(zone).toLocalDate().atStartOfDay(zone).toInstant()).filter { (it.sunElevationDeg ?: 0.0) > 15 }
+                    .takeIf { it.size >= 20 }?.let { list -> list.count { it.nearLimit }.toDouble() / list.size }
+            }.getOrNull()
+        }
         _insights.value = withContext(Dispatchers.Default) {
             val slots = (0 until 24 * 7).map { i ->
                 val t = now.plus(Duration.ofHours(i.toLong()))
@@ -563,9 +620,47 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
                 ))
                 Triple(report, null, PredictiveFaultEngine.analyze(days, now))
             }
-            val (health, reason, faults) = assessment
+            val (health, reason, trendFaults) = assessment
+            val hourAhead = ForecastAccuracy.pairHourly(stored[ForecastHorizon.HOUR_AHEAD].orEmpty(), all.filter { it.start >= now.minus(Duration.ofDays(14)) })
+                .filter { it.forecast > 0.01 || it.actual > 0.01 }
+            val weekAgo = now.minus(Duration.ofDays(7))
+            val predictive = PredictiveFaultEngine.predictive(PredictiveAlertInput(
+                now = now, security = securityNow, telemetry = telemetry, recent = recent,
+                batteryType = s.activeBattery?.type, batteryNominalVoltage = siteConfig.value?.batteryVoltage ?: 48.0,
+                inverterMaxTempC = 75.0, linkFailures = _live.value.connection.consecutiveFailures, linkOfflineSince = offlineSince,
+                accuracyRecent = ForecastAccuracy.evaluate(hourAhead.filter { it.time >= weekAgo }),
+                accuracyPrevious = ForecastAccuracy.evaluate(hourAhead.filter { it.time < weekAgo }),
+                typicalLoadKw = loadForecaster?.typicalKw(now), clippingShare = clippingShare, performance = performance,
+            ))
+            val faults = (predictive + trendFaults).distinctBy { it.id }
+            val today = now.atZone(zone).toLocalDate()
+            val todayAccuracy = run {
+                val dayStart = today.atStartOfDay(zone).toInstant()
+                val rows = all.filter { it.start >= dayStart }
+                listOf(ForecastHorizon.DAY_AHEAD, ForecastHorizon.HOUR_AHEAD).map { h ->
+                    ForecastAccuracy.evaluate(ForecastAccuracy.pairHourly(stored[h].orEmpty().filterKeys { it >= dayStart }, rows)
+                        .filter { it.forecast > 0.01 || it.actual > 0.01 })
+                }.firstOrNull { it.count > 0 }
+            }
+            val recentRows = all.filter { it.start >= today.minusDays(9).atStartOfDay(zone).toInstant() }
+            val weatherModel = WeatherAwareIrradianceModel(s.location, _weather.value.first, _weather.value.second)
+            val twin = DigitalTwinBuilder.build(TwinInput(
+                time = now, sun = SolarCalculator.position(s.location, now),
+                poaWm2 = PvEstimator(weatherModel).pointEstimate(s.system, s.location, now).poa,
+                weatherSource = when (weatherModel.sourceAt(now)) {
+                    WeatherSource.FORECAST -> "prognoza pogody"
+                    WeatherSource.CLIMATE -> "średnie klimatyczne"
+                    WeatherSource.CLEAR_SKY -> "bezchmurne niebo (górna granica)"
+                },
+                telemetry = telemetry, fresh = _live.value.freshness == Freshness.LIVE, link = _live.value.connection.status.takeIf { telemetry != null },
+                modelPvKw = _model.value.modelKw, forecastPvKw = pv.at(now, now, nowcast).expectedKw, performance = performance,
+                security = securityNow, loadForecastKw = load.at(now).kw, warnings = faults,
+            ))
             InsightsState(
                 health = health, healthReason = reason, faults = faults, ems = ems,
+                dailyToday = DailyReportBuilder.build(today, recentRows, zone, todayAccuracy, health?.score, _alerts.value.size),
+                dailyYesterday = DailyReportBuilder.build(today.minusDays(1), recentRows, zone, null, null, 0),
+                twin = twin,
                 periods = EnergyOptimizationEngine.periods(slots.takeWhile { it.start.atZone(zone).toLocalDate() == now.atZone(zone).toLocalDate() }, zone),
                 week = EnergyOptimizationEngine.daily(slots, zone),
                 totals = HistoryPeriod.entries.associateWith { HistoryPeriods.totals(all, it, zone, now) },
@@ -579,14 +674,7 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
                     val hourly = ForecastAccuracy.pairHourly(stored[ForecastHorizon.DAY_AHEAD].orEmpty(), all.filter { it.start >= monthAgo })
                     AccuracyPeriod.entries.associateWith { ForecastAccuracy.evaluate(ForecastComparison.aggregate(hourly, it, zone)) }
                 },
-                todayAccuracy = run {
-                    val dayStart = now.atZone(zone).toLocalDate().atStartOfDay(zone).toInstant()
-                    val rows = all.filter { it.start >= dayStart }
-                    listOf(ForecastHorizon.DAY_AHEAD, ForecastHorizon.HOUR_AHEAD).map { h ->
-                        ForecastAccuracy.evaluate(ForecastAccuracy.pairHourly(stored[h].orEmpty().filterKeys { it >= dayStart }, rows)
-                            .filter { it.forecast > 0.01 || it.actual > 0.01 })
-                    }.firstOrNull { it.count > 0 }
-                },
+                todayAccuracy = todayAccuracy,
             )
         }
     }
@@ -600,6 +688,7 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
             add("Wygenerowano: ${now.atZone(zone).toLocalDateTime().withNano(0)} · wersja ${BuildConfig.VERSION_NAME}")
             add(settings.value?.let { "Instalacja: ${it.system.peakPowerKw} kWp, ${it.system.tiltDeg}°, azymut ${it.system.azimuthDeg}°, ${it.locationName}" } ?: "")
             add("")
+            i.dailyToday?.let { add(""); addAll(it.text().lines()); add("") }
             add("ZDROWIE: " + (i.health?.explanation() ?: i.healthReason ?: "brak danych"))
             i.faults.forEach { add("OSTRZEŻENIE [${it.level.label}] ${it.title}: ${it.reason}") }
             add("")
