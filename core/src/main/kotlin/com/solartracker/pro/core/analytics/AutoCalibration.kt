@@ -5,6 +5,28 @@ import java.time.Instant
 import kotlin.math.abs
 
 
+/** Sky situation of a sample or forecast hour; calibration is learned separately for each. */
+enum class SkyCondition(val label: String) {
+    CLEAR("bezchmurnie"), PARTLY_CLOUDY("częściowe zachmurzenie"), OVERCAST("pochmurno"), RAIN("deszcz"), SNOW("śnieg"), UNKNOWN("nieznane"),
+}
+
+object SkyClassifier {
+    /**
+     * @param clearSkyIndex measured or forecast GHI / clear-sky GHI (null when unknown)
+     */
+    fun classify(cloudCoverPercent: Double?, precipitationMm: Double?, snowDepthM: Double?, temperatureC: Double?, clearSkyIndex: Double?): SkyCondition = when {
+        (snowDepthM ?: 0.0) >= 0.02 || ((precipitationMm ?: 0.0) >= 0.2 && (temperatureC ?: 99.0) <= 0.5) -> SkyCondition.SNOW
+        (precipitationMm ?: 0.0) >= 0.2 -> SkyCondition.RAIN
+        clearSkyIndex != null && clearSkyIndex >= 0.8 -> SkyCondition.CLEAR
+        clearSkyIndex != null && clearSkyIndex < 0.35 -> SkyCondition.OVERCAST
+        clearSkyIndex != null -> SkyCondition.PARTLY_CLOUDY
+        cloudCoverPercent == null -> SkyCondition.UNKNOWN
+        cloudCoverPercent < 20 -> SkyCondition.CLEAR
+        cloudCoverPercent > 75 -> SkyCondition.OVERCAST
+        else -> SkyCondition.PARTLY_CLOUDY
+    }
+}
+
 /** One sample used for calibration, with the context needed to separate effects. */
 data class CalibrationObservation(
     val time: Instant,
@@ -13,8 +35,96 @@ data class CalibrationObservation(
     val cellTemperatureC: Double?,
     /** Model output was near the inverter/MPPT limit (excluded from temperature/soiling analysis). */
     val nearLimit: Boolean = false,
+    val sunElevationDeg: Double? = null,
+    val sunAzimuthDeg: Double? = null,
+    val cloudCoverPercent: Double? = null,
+    /** Irradiance used by the model (POA) [W/m²]. */
+    val irradianceWm2: Double? = null,
+    val clearSkyIndex: Double? = null,
+    val condition: SkyCondition = SkyCondition.UNKNOWN,
+    /** Shading power factor applied by the model (1 = unshaded). */
+    val shadingFactor: Double? = null,
+    /** Inverter reported a fault at this time. */
+    val fault: Boolean = false,
+    /** Communication was healthy (fresh, validated reading). */
+    val linkOk: Boolean = true,
+    /** Telemetry validation rejected a value of this reading. */
+    val invalidTelemetry: Boolean = false,
 ) {
     val ratio: Double get() = realKw / modelKw
+}
+
+/** Situation for which a calibrated factor is requested (a forecast point). */
+data class CalibrationContext(val time: Instant, val sunElevationDeg: Double?, val condition: SkyCondition)
+
+/** Learned factor for one bucket (condition, sun elevation band, hour or month). */
+data class CalibrationBucket(val dimension: String, val key: String, val factor: Double, val samples: Int)
+
+/** Error of the model on held-out days, before and after calibration [kW]. */
+data class CalibrationMetrics(val samples: Int, val maeBefore: Double, val maeAfter: Double, val rmseBefore: Double, val rmseAfter: Double, val biasBefore: Double, val biasAfter: Double)
+
+/**
+ * Conditional calibration (AutoCalibration 3.0): a global factor plus multiplicative adjustments per sky
+ * condition, sun-elevation band, hour of day and month, each shrunk towards the global value by its
+ * sample count. The applied correction is further scaled by [confidence], so little data barely changes
+ * the forecast.
+ */
+data class CalibrationModel(
+    val globalFactor: Double,
+    val buckets: List<CalibrationBucket>,
+    val confidence: Double,
+    val sampleCount: Int,
+    val trainingDays: Int,
+    val excluded: Map<String, Int>,
+    /** Validation on the most recent days (not used for training); null with too few days. */
+    val validation: CalibrationMetrics?,
+    val ready: Boolean,
+    private val zone: java.time.ZoneId,
+) {
+    private val index = buckets.associateBy { it.dimension to it.key }
+
+    /** Correction factor for a point; 1.0 when not ready. Bounded to 0.5–1.3. */
+    fun factor(ctx: CalibrationContext): Double {
+        if (!ready) return 1.0
+        var f = globalFactor
+        for ((dim, key) in keys(ctx.time, ctx.sunElevationDeg, ctx.condition, zone)) {
+            // Hour and month are correlated with sun elevation: they get half weight (square root).
+            val weight = if (dim == "hour" || dim == "month") 0.5 else 1.0
+            index[dim to key]?.let { f *= Math.pow(it.factor / globalFactor, weight) }
+        }
+        val raw = f.coerceIn(0.5, 1.3)
+        return 1.0 + (raw - 1.0) * confidence
+    }
+
+    fun describe(): String = when {
+        !ready -> "Uczenie: $sampleCount próbek z $trainingDays dni (potrzeba więcej danych)"
+        else -> "Kalibracja z $sampleCount próbek / $trainingDays dni, pewność ${(confidence * 100).toInt()}%" +
+            (validation?.let { " · MAE ${"%.2f".format(it.maeBefore)} → ${"%.2f".format(it.maeAfter)} kW" } ?: "")
+    }
+
+    companion object {
+        fun elevationBand(deg: Double?): String? = deg?.let {
+            when {
+                it < 15 -> null
+                it < 30 -> "15-30"
+                it < 45 -> "30-45"
+                it < 60 -> "45-60"
+                else -> "60+"
+            }
+        }
+
+        internal fun keys(time: Instant, elevation: Double?, condition: SkyCondition, zone: java.time.ZoneId): List<Pair<String, String>> {
+            val z = time.atZone(zone)
+            return listOfNotNull(
+                ("condition" to condition.name).takeIf { condition != SkyCondition.UNKNOWN },
+                elevationBand(elevation)?.let { "elevation" to it },
+                "hour" to z.hour.toString(),
+                "month" to z.monthValue.toString(),
+            )
+        }
+
+        fun untrained(zone: java.time.ZoneId) = CalibrationModel(1.0, emptyList(), 0.0, 0, 0, emptyMap(), null, false, zone)
+    }
 }
 
 enum class CorrectionKind(val label: String) {
@@ -63,6 +173,71 @@ class AutoCalibrationEngine(
     fun restoreHistory(changes: List<CorrectionChange>) {
         history.clear(); history += changes
         changes.forEach { last[it.kind] = it.to }
+    }
+
+    /** Why a sample must not be learned from (null = usable). */
+    fun exclusionReason(o: CalibrationObservation): String? = when {
+        !o.linkOk -> "utrata komunikacji / dane nieaktualne"
+        o.invalidTelemetry -> "błędne dane z falownika"
+        o.fault -> "awaria falownika"
+        o.nearLimit -> "ograniczenie mocy (clipping)"
+        !o.realKw.isFinite() || !o.modelKw.isFinite() || o.realKw < 0 -> "nieprawidłowe wartości"
+        o.modelKw < 0.05 -> "model bliski zeru"
+        (o.sunElevationDeg ?: 90.0) < 10 -> "słońce zbyt nisko"
+        o.realKw == 0.0 && o.modelKw > 0.3 -> "PV wyłączone lub awaria (0 W)"
+        (o.shadingFactor ?: 1.0) < 0.5 -> "silne zacienienie (niepewny model cienia)"
+        else -> null
+    }
+
+    /**
+     * Builds the conditional model. The most recent ~20% of days (at least 2) are held out to measure
+     * MAE/RMSE/bias before vs after calibration when there are ≥ 7 training days.
+     */
+    fun buildModel(observations: List<CalibrationObservation>, zone: java.time.ZoneId, shrinkage: Double = 30.0, minDays: Int = 3): CalibrationModel {
+        val excluded = mutableMapOf<String, Int>()
+        val usable = observations.filter { o ->
+            val r = exclusionReason(o)
+            if (r != null) excluded[r] = (excluded[r] ?: 0) + 1
+            r == null
+        }
+        val days = usable.map { it.time.atZone(zone).toLocalDate() }.distinct().sorted()
+        if (usable.isEmpty()) return CalibrationModel.untrained(zone).copy(excluded = excluded)
+        val holdoutDays = if (days.size >= 7) days.takeLast(maxOf(2, days.size / 5)).toSet() else emptySet()
+        val train = usable.filter { it.time.atZone(zone).toLocalDate() !in holdoutDays }
+        val test = usable.filter { it.time.atZone(zone).toLocalDate() in holdoutDays }
+        val model = fit(train, zone, shrinkage, minDays, excluded)
+        val metrics = test.takeIf { it.size >= 20 }?.let { t ->
+            fun stats(pred: (CalibrationObservation) -> Double): Triple<Double, Double, Double> {
+                val e = t.map { pred(it) - it.realKw }
+                return Triple(e.map { abs(it) }.average(), kotlin.math.sqrt(e.map { it * it }.average()), e.average())
+            }
+            val before = stats { it.modelKw }
+            val after = stats { it.modelKw * model.factor(CalibrationContext(it.time, it.sunElevationDeg, it.condition)) }
+            CalibrationMetrics(t.size, before.first, after.first, before.second, after.second, before.third, after.third)
+        }
+        // Final model uses all usable days; the held-out metrics describe how it generalises.
+        return fit(usable, zone, shrinkage, minDays, excluded).copy(validation = metrics)
+    }
+
+    private fun fit(obs: List<CalibrationObservation>, zone: java.time.ZoneId, k: Double, minDays: Int, excluded: Map<String, Int>): CalibrationModel {
+        if (obs.isEmpty()) return CalibrationModel.untrained(zone).copy(excluded = excluded)
+        val ratios = obs.map { it.ratio }
+        val med = CalibrationEngine.median(ratios)
+        val mad = CalibrationEngine.median(ratios.map { abs(it - med) }).coerceAtLeast(0.01)
+        val kept = obs.filter { abs(it.ratio - med) <= 3.0 * 1.4826 * mad }
+        val global = CalibrationEngine.median(kept.map { it.ratio }).coerceIn(0.4, 1.3)
+        val buckets = kept.flatMap { o -> CalibrationModel.keys(o.time, o.sunElevationDeg, o.condition, zone).map { it to o.ratio } }
+            .groupBy({ it.first }, { it.second })
+            .map { (key, values) ->
+                val n = values.size
+                val raw = CalibrationEngine.median(values)
+                CalibrationBucket(key.first, key.second, global + (raw - global) * n / (n + k), n)
+            }
+        val days = kept.map { it.time.atZone(zone).toLocalDate() }.distinct().size
+        val spread = CalibrationEngine.median(kept.map { abs(it.ratio - global) }) * 1.4826 / global
+        val confidence = ((kept.size.toDouble() / minSamples).coerceAtMost(1.0) * (days.toDouble() / 14).coerceAtMost(1.0) *
+            (1.0 - spread * 2).coerceIn(0.0, 1.0)).coerceIn(0.0, 1.0)
+        return CalibrationModel(global, buckets, confidence, kept.size, days, excluded, null, kept.size >= minSamples && days >= minDays, zone)
     }
 
     fun evaluate(observations: List<CalibrationObservation>, forecast: AccuracyReport?, now: Instant): List<Correction> {

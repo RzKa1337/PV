@@ -1,5 +1,7 @@
 package com.solartracker.pro.core.forecast
 
+import com.solartracker.pro.core.analytics.CalibrationContext
+import com.solartracker.pro.core.analytics.CalibrationModel
 import com.solartracker.pro.core.pv.PvEstimator
 import com.solartracker.pro.core.pv.PvSystem
 import com.solartracker.pro.core.quality.DataKind
@@ -43,6 +45,8 @@ class PredictivePvEngine(
     private val calibrationConfidence: Double = 0.0,
     private val inverterLimitKw: Double? = null,
     private val mpptLimitKw: Double? = null,
+    /** Conditional calibration (AutoCalibration 3.0); when ready it replaces [calibrationFactor]. */
+    private val calibrationModel: CalibrationModel? = null,
 ) {
     private val estimator = PvEstimator(weather)
 
@@ -55,7 +59,10 @@ class PredictivePvEngine(
         val hour = weather.hourAt(time)
         val snow = WeatherEffects.snowCovered(hour, system.tiltDeg)
         val wind = WeatherEffects.windFactor(estimate.poa, estimate.irradiance.ambientTemperatureC, hour?.windSpeedMs)
-        val calibrated = if (snow) 0.0 else estimate.powerKw * calibrationFactor * wind
+        val factor = calibrationModel?.takeIf { it.ready }?.factor(
+            CalibrationContext(time, estimate.sun.position.elevationDeg, WeatherEffects.skyCondition(hour, estimate.sun.position, time)),
+        ) ?: calibrationFactor
+        val calibrated = if (snow) 0.0 else estimate.powerKw * factor * wind
         val shadeFactor = shading?.snapshot(system, time, estimate)?.powerFactor ?: 1.0
         val horizonMin = Duration.between(now, time).toMinutes().coerceAtLeast(0)
         val nowcastWeight = if (nowcastRatio == null) 0.0 else exp(-horizonMin / 60.0)
@@ -71,7 +78,8 @@ class PredictivePvEngine(
             WeatherSource.CLEAR_SKY -> 0.2
         }
         val shadingConfidence = shading?.confidence()?.score ?: 0.6
-        val confidence = (base * (0.6 + 0.4 * shadingConfidence) * (0.85 + 0.15 * calibrationConfidence) + 0.15 * nowcastWeight).coerceIn(0.05, 0.97)
+        val calConfidence = calibrationModel?.takeIf { it.ready }?.confidence ?: calibrationConfidence
+        val confidence = (base * (0.6 + 0.4 * shadingConfidence) * (0.85 + 0.15 * calConfidence) + 0.15 * nowcastWeight).coerceIn(0.05, 0.97)
         val band = (1 - confidence) * 0.9
         val kind = if (source == WeatherSource.FORECAST || nowcastWeight > 0.2) DataKind.FORECAST else DataKind.ESTIMATED
         return PvForecastPoint(

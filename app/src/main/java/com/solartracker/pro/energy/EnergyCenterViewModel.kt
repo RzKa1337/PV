@@ -28,6 +28,10 @@ import com.solartracker.pro.core.health.HealthReport
 import com.solartracker.pro.core.health.PredictiveFaultEngine
 import com.solartracker.pro.core.health.PvHealthEngine
 import com.solartracker.pro.core.analytics.Alert
+import com.solartracker.pro.core.analytics.AutoCalibrationEngine
+import com.solartracker.pro.core.analytics.CalibrationModel
+import com.solartracker.pro.core.analytics.CalibrationObservation
+import com.solartracker.pro.core.weather.WeatherEffects
 import com.solartracker.pro.core.analytics.AlertManager
 import com.solartracker.pro.core.analytics.AnomalyDetector
 import com.solartracker.pro.core.analytics.AnomalyInput
@@ -129,6 +133,8 @@ data class ModelState(
     val unshadedKw: Double? = null,
     val comparison: ModelComparisonResult? = null,
     val calibration: CalibrationResult? = null,
+    /** AutoCalibration 3.0 model (per sky condition, sun elevation, hour, month). */
+    val calibrationModel: CalibrationModel? = null,
 )
 
 data class ForecastState(
@@ -214,6 +220,10 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
     private var monitoring = false
     private val aggregator = TelemetryAggregator(Duration.ofSeconds(30))
     private val calibration = CalibrationEngine()
+    private val autoCalibration = AutoCalibrationEngine()
+    private var calibrationModel: CalibrationModel? = null
+    private var calibrationModelAt: Instant? = null
+    private var lastObservationAt: Instant? = null
     private val alertManager = AlertManager()
     private val lock = Mutex()
     private var previousTelemetry: InverterTelemetry? = null
@@ -332,12 +342,27 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
                 ),
             )
         }
-        if (realKw != null && comparison != null &&
-            calibration.offer(t.timestamp, realKw, modelKw, s.system.peakPowerKw, estimate.sun.elevationDeg, comparison.curtailed)
-        ) {
-            withContext(Dispatchers.IO) { runCatching { db.addCalibration(calibration.samples().last()) } }
+        if (realKw != null && comparison != null && estimate.sun.elevationDeg > 5 && modelKw > 0.05) {
+            val usable = calibration.offer(t.timestamp, realKw, modelKw, s.system.peakPowerKw, estimate.sun.elevationDeg, comparison.curtailed)
+            val last = lastObservationAt
+            // Usable samples are kept as before; others once a minute so exclusions can be counted.
+            if (usable || last == null || Duration.between(last, t.timestamp) >= Duration.ofMinutes(1)) {
+                lastObservationAt = t.timestamp
+                val hour = _weather.value.first?.at(t.timestamp)
+                val position = estimate.sun.position
+                val observation = CalibrationObservation(
+                    time = t.timestamp, realKw = realKw, modelKw = modelKw, cellTemperatureC = estimate.cellTemperatureC,
+                    nearLimit = comparison.curtailed, sunElevationDeg = position.elevationDeg, sunAzimuthDeg = position.azimuthDeg,
+                    cloudCoverPercent = hour?.cloudCoverPercent, irradianceWm2 = estimate.poa,
+                    clearSkyIndex = WeatherEffects.clearSkyIndex(hour, position, t.timestamp),
+                    condition = WeatherEffects.skyCondition(hour, position, t.timestamp), shadingFactor = shadeFactor,
+                    fault = t.inverter.faults.isNotEmpty(), linkOk = _live.value.connection.status == LinkStatus.ONLINE,
+                    invalidTelemetry = manager?.validation?.value?.invalidFields?.isNotEmpty() == true,
+                )
+                withContext(Dispatchers.IO) { runCatching { db.addObservation(observation, usable) } }
+            }
         }
-        _model.value = ModelState(modelKw, estimate.powerKw, comparison, calibration.result())
+        _model.value = ModelState(modelKw, estimate.powerKw, comparison, calibration.result(), calibrationModel)
 
         val anomalies = AnomalyDetector.detect(
             AnomalyInput(
@@ -392,10 +417,12 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
         val weather = WeatherAwareIrradianceModel(s.location, _weather.value.first, _weather.value.second)
         val cal = calibration.result()
         val inv = inverterConfig.value
+        val model = currentCalibrationModel(now)
         val pv = PredictivePvEngine(
             s.location, s.system, weather, _shading.value.engine,
             calibrationFactor = calibration.appliedFactor(), calibrationConfidence = if (cal.ready) cal.confidence else 0.0,
             inverterLimitKw = inv?.takeIf { it.enabled }?.ratedPowerW?.div(1000.0),
+            calibrationModel = model,
         )
         val load = LoadForecaster(history, zone, s.consumption.profile(), now).also { loadForecaster = it }
         val battery = s.activeBattery?.let { BatteryPredictor(it, zone) }
@@ -420,6 +447,18 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
         )
         storeForecasts(pv, now, nowcast)
         recomputeInsights(s, pv, load, nowcast, soc, now)
+    }
+
+    /** AutoCalibration 3.0 model from the last 60 days, rebuilt at most once an hour. */
+    private suspend fun currentCalibrationModel(now: Instant): CalibrationModel? {
+        val at = calibrationModelAt
+        if (calibrationModel != null && at != null && Duration.between(at, now) < Duration.ofHours(1)) return calibrationModel
+        val observations = withContext(Dispatchers.IO) { runCatching { db.observations(now.minus(Duration.ofDays(60))) }.getOrDefault(emptyList()) }
+        val built = withContext(Dispatchers.Default) { autoCalibration.buildModel(observations, zone) }
+        calibrationModel = built
+        calibrationModelAt = now
+        _model.value = _model.value.copy(calibrationModel = built)
+        return built
     }
 
     /** Hour-ahead (next hour) and day-ahead (all of tomorrow) PV energy, kept for accuracy tracking. */

@@ -5,7 +5,9 @@ import android.content.Context
 import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
+import com.solartracker.pro.core.analytics.CalibrationObservation
 import com.solartracker.pro.core.analytics.CalibrationSample
+import com.solartracker.pro.core.analytics.SkyCondition
 import com.solartracker.pro.core.analytics.ForecastHorizon
 import com.solartracker.pro.core.analytics.HistorySample
 import com.solartracker.pro.core.inverter.OperatingMode
@@ -28,11 +30,18 @@ class HistoryDatabase(context: Context) : SQLiteOpenHelper(context.applicationCo
             )
         }
         db.execSQL("CREATE TABLE $T_CALIB (time INTEGER PRIMARY KEY, real_kw REAL NOT NULL, model_kw REAL NOT NULL)")
+        addCalibrationContext(db)
         createForecastTable(db)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         if (oldVersion < 2) createForecastTable(db)
+        if (oldVersion < 3) addCalibrationContext(db)
+    }
+
+    /** v3: context of each calibration sample (AutoCalibration 3.0). Old rows keep NULL (= unknown). */
+    private fun addCalibrationContext(db: SQLiteDatabase) {
+        CALIB_CONTEXT_COLUMNS.forEach { (name, type) -> db.execSQL("ALTER TABLE $T_CALIB ADD COLUMN $name $type") }
     }
 
     private fun createForecastTable(db: SQLiteDatabase) {
@@ -73,8 +82,36 @@ class HistoryDatabase(context: Context) : SQLiteOpenHelper(context.applicationCo
         }, SQLiteDatabase.CONFLICT_REPLACE)
     }
 
-    fun calibration(since: Instant): List<CalibrationSample> =
+    /** Stores a calibration observation with its context; [usable] = accepted by the global calibration. */
+    fun addObservation(o: CalibrationObservation, usable: Boolean) {
+        writableDatabase.insertWithOnConflict(T_CALIB, null, ContentValues().apply {
+            put("time", o.time.toEpochMilli()); put("real_kw", o.realKw); put("model_kw", o.modelKw)
+            put("usable", if (usable) 1 else 0); put("cell_t", o.cellTemperatureC); put("near_limit", if (o.nearLimit) 1 else 0)
+            put("elev", o.sunElevationDeg); put("az", o.sunAzimuthDeg); put("cloud", o.cloudCoverPercent); put("poa", o.irradianceWm2)
+            put("csi", o.clearSkyIndex); put("cond", o.condition.name); put("shade", o.shadingFactor)
+            put("fault", if (o.fault) 1 else 0); put("link_ok", if (o.linkOk) 1 else 0); put("invalid", if (o.invalidTelemetry) 1 else 0)
+        }, SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    /** All observations with context (including those excluded from learning, so exclusions can be counted). */
+    fun observations(since: Instant): List<CalibrationObservation> =
         readableDatabase.query(T_CALIB, null, "time >= ?", arrayOf(since.toEpochMilli().toString()), null, null, "time").use { c ->
+            fun d(n: String) = c.getColumnIndexOrThrow(n).let { if (c.isNull(it)) null else c.getDouble(it) }
+            fun b(n: String, default: Boolean) = c.getColumnIndexOrThrow(n).let { if (c.isNull(it)) default else c.getInt(it) == 1 }
+            buildList {
+                while (c.moveToNext()) add(CalibrationObservation(
+                    time = Instant.ofEpochMilli(c.getLong(c.getColumnIndexOrThrow("time"))), realKw = d("real_kw") ?: 0.0, modelKw = d("model_kw") ?: 0.0,
+                    cellTemperatureC = d("cell_t"), nearLimit = b("near_limit", false), sunElevationDeg = d("elev"), sunAzimuthDeg = d("az"),
+                    cloudCoverPercent = d("cloud"), irradianceWm2 = d("poa"), clearSkyIndex = d("csi"),
+                    condition = c.getString(c.getColumnIndexOrThrow("cond"))?.let { n -> SkyCondition.entries.firstOrNull { it.name == n } } ?: SkyCondition.UNKNOWN,
+                    shadingFactor = d("shade"), fault = b("fault", false), linkOk = b("link_ok", true), invalidTelemetry = b("invalid", false),
+                ))
+            }
+        }
+
+    fun calibration(since: Instant): List<CalibrationSample> =
+        readableDatabase.query(T_CALIB, arrayOf("time", "real_kw", "model_kw"), "time >= ? AND (usable IS NULL OR usable = 1)",
+            arrayOf(since.toEpochMilli().toString()), null, null, "time").use { c ->
             buildList { while (c.moveToNext()) add(CalibrationSample(Instant.ofEpochMilli(c.getLong(0)), c.getDouble(1), c.getDouble(2))) }
         }
 
@@ -116,12 +153,16 @@ class HistoryDatabase(context: Context) : SQLiteOpenHelper(context.applicationCo
 
     companion object {
         const val NAME = "telemetry.db"
-        const val VERSION = 2
+        const val VERSION = 3
         const val HISTORY_DAYS = 30L
         const val SUMMARY_DAYS = 730L
         private const val T_HISTORY = "history"
         private const val T_SUMMARY = "summary"
         private const val T_CALIB = "calibration"
         private const val T_FORECAST = "forecast"
+        private val CALIB_CONTEXT_COLUMNS = listOf(
+            "usable" to "INTEGER", "cell_t" to "REAL", "near_limit" to "INTEGER", "elev" to "REAL", "az" to "REAL", "cloud" to "REAL",
+            "poa" to "REAL", "csi" to "REAL", "cond" to "TEXT", "shade" to "REAL", "fault" to "INTEGER", "link_ok" to "INTEGER", "invalid" to "INTEGER",
+        )
     }
 }

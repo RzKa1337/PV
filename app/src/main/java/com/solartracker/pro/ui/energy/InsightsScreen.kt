@@ -119,6 +119,28 @@ fun InsightsScreen(vm: EnergyCenterViewModel, onBack: () -> Unit, modifier: Modi
             if (reports.isNotEmpty()) KindBadge(DataKind.CALCULATED)
         }
 
+        // CALIBRATION 3.0
+        val modelState by vm.model.collectAsStateWithLifecycle()
+        modelState.calibrationModel?.let { cm ->
+            SectionCard(Modifier.testTag("calibration_card")) {
+                Text("KALIBRACJA PROGNOZ", fontWeight = FontWeight.Bold)
+                Text(cm.describe(), style = MaterialTheme.typography.bodyMedium)
+                cm.validation?.let { v ->
+                    Text("Sprawdzenie na ostatnich dniach (${v.samples} próbek): MAE ${f(v.maeBefore, 2)} → ${f(v.maeAfter, 2)} kW · " +
+                        "RMSE ${f(v.rmseBefore, 2)} → ${f(v.rmseAfter, 2)} kW · błąd syst. ${f(v.biasBefore, 2)} → ${f(v.biasAfter, 2)} kW",
+                        style = MaterialTheme.typography.bodySmall)
+                }
+                cm.buckets.filter { it.dimension == "condition" }.forEach { b ->
+                    val label = com.solartracker.pro.core.analytics.SkyCondition.entries.firstOrNull { it.name == b.key }?.label ?: b.key
+                    Text("$label: ×${f(b.factor, 2)} (${b.samples} próbek)", style = MaterialTheme.typography.bodySmall)
+                }
+                if (cm.excluded.isNotEmpty()) {
+                    Text("Pominięte w nauce: " + cm.excluded.entries.joinToString { "${it.key} (${it.value})" }, style = MaterialTheme.typography.bodySmall)
+                }
+                KindBadge(DataKind.CALCULATED)
+            }
+        }
+
         // EARLY WARNINGS
         SectionCard {
             Text("OSTRZEŻENIA PREDYKCYJNE", fontWeight = FontWeight.Bold)

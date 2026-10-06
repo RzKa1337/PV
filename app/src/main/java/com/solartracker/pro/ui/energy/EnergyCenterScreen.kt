@@ -163,6 +163,7 @@ private fun EnergyCenterMain(vm: EnergyCenterViewModel, onShading: () -> Unit, o
                 Text("• ${it.cause.label}: ${it.explanation}", style = MaterialTheme.typography.bodySmall)
             }
             model.calibration?.let { Text("Kalibracja modelu: ${it.reason}" + if (it.ready) " (×${"%.2f".format(it.factor)}, pewność ${Fmt.conf(it.confidence)})" else "", style = MaterialTheme.typography.bodySmall) }
+            model.calibrationModel?.let { Text("Kalibracja prognoz 3.0: ${it.describe()}", style = MaterialTheme.typography.bodySmall) }
         }
 
         // FORECAST

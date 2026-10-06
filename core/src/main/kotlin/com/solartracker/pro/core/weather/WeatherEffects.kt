@@ -1,6 +1,11 @@
 package com.solartracker.pro.core.weather
 
+import com.solartracker.pro.core.analytics.SkyClassifier
+import com.solartracker.pro.core.analytics.SkyCondition
+import com.solartracker.pro.core.pv.ClearSkyModel
 import com.solartracker.pro.core.pv.PvEstimator
+import com.solartracker.pro.core.solar.SolarPosition
+import java.time.Instant
 
 /**
  * Effects of forecast weather on PV output beyond irradiance. Each effect applies only when the
@@ -27,6 +32,19 @@ object WeatherEffects {
         val t = hour.temperatureC ?: return false
         return depth >= 0.02 && t <= 1.0 && tiltDeg < 60.0
     }
+
+    private val clearSky = ClearSkyModel()
+
+    /** Clear-sky index of a forecast hour: forecast GHI / clear-sky GHI (null at night or without GHI). */
+    fun clearSkyIndex(hour: HourlyWeather?, position: SolarPosition, time: Instant): Double? {
+        val ghi = hour?.ghi ?: return null
+        if (position.elevationDeg < 5) return null
+        val clear = clearSky.irradiance(position, time).ghi(position)
+        return if (clear > 50) (ghi / clear).coerceIn(0.0, 1.5) else null
+    }
+
+    fun skyCondition(hour: HourlyWeather?, position: SolarPosition, time: Instant): SkyCondition =
+        SkyClassifier.classify(hour?.cloudCoverPercent, hour?.precipitationMm, hour?.snowDepthM, hour?.temperatureC, clearSkyIndex(hour, position, time))
 
     /** Short Polish description of notable conditions for the forecast basis. */
     fun describe(hour: HourlyWeather?): String? {

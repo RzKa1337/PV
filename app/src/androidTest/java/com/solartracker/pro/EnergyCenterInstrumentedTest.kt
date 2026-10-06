@@ -123,6 +123,11 @@ class EnergyCenterInstrumentedTest {
         db.prune(now)
         assertEquals(0, db.history(now.minus(java.time.Duration.ofDays(60)), now.minus(java.time.Duration.ofDays(31))).size)
         assertEquals(1, db.calibration(now.minusSeconds(10)).size)
+        val obs = com.solartracker.pro.core.analytics.CalibrationObservation(now.truncatedTo(java.time.temporal.ChronoUnit.MILLIS).minusSeconds(5), 2.0, 2.5, 40.0, nearLimit = true,
+            sunElevationDeg = 45.0, condition = com.solartracker.pro.core.analytics.SkyCondition.CLEAR, invalidTelemetry = true)
+        db.addObservation(obs, usable = false)
+        assertEquals(obs, db.observations(now.minusSeconds(60)).single { it.time == obs.time })
+        assertTrue("not usable rows are not used by the global calibration", db.calibration(now.minusSeconds(60)).none { it.time == obs.time })
         val hour = now.truncatedTo(java.time.temporal.ChronoUnit.HOURS).plusSeconds(3600)
         db.putForecast(hour, ForecastHorizon.HOUR_AHEAD, 1.2, now)
         db.putForecast(hour, ForecastHorizon.HOUR_AHEAD, 1.5, now.plusSeconds(1)) // later issue replaces
