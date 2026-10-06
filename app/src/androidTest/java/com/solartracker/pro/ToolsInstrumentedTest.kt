@@ -41,7 +41,7 @@ class ToolsInstrumentedTest {
         ActivityScenario.launch(MainActivity::class.java).use {
             val tab = UiTestSupport.findDismissingAnr(device, By.desc("Narzędzia"), tag)
             assertNotNull("Narzędzia tab", tab)
-            tab.click()
+            tab!!.click()
             assertNotNull("designer chip", device.wait(Until.findObject(By.text("Projektant PV")), 10_000))
             val run = scrollTo(By.text("Zaprojektuj"))
             assertNotNull("design button", run)
@@ -71,7 +71,7 @@ class ToolsInstrumentedTest {
         ActivityScenario.launch(MainActivity::class.java).use {
             val tab = UiTestSupport.findDismissingAnr(device, By.desc("Centrum"), tag)
             assertNotNull("Centrum tab", tab)
-            tab.click()
+            tab!!.click()
             val open = scrollTo(By.textContains("Analizy: zdrowie"))
             assertNotNull("analyses button", open)
             open!!.click()

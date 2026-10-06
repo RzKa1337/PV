@@ -62,7 +62,7 @@ class EnergyCenterInstrumentedTest {
         ActivityScenario.launch(MainActivity::class.java).use {
             val tab = UiTestSupport.findDismissingAnr(device, By.desc("Centrum"), tag)
             assertNotNull("Centrum tab not found", tab)
-            tab.click()
+            tab!!.click()
             assertNotNull("simulator label", device.wait(Until.findObject(By.textContains("SYMULATOR – dane testowe")), 30_000))
             assertNotNull("status ONLINE", device.wait(Until.findObject(By.textContains(": ONLINE")), 30_000))
             assertNotNull("LIVE section", device.wait(Until.findObject(By.text("LIVE")), 15_000))
