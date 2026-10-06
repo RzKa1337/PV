@@ -40,7 +40,12 @@ data class BatteryPrediction(
  * SOC prediction: steps forward from the measured SOC with forecast PV and load, applying the same
  * battery limits and efficiencies as the simulation model (EnergyFlowSimulator.instantFlow).
  */
-class BatteryPredictor(private val battery: BatteryStorage, private val zone: ZoneId) {
+class BatteryPredictor(
+    private val battery: BatteryStorage,
+    private val zone: ZoneId,
+    /** DC→AC conversion efficiency of the inverter for AC loads (1.0 = ignored). */
+    private val inverterEfficiency: Double = 1.0,
+) {
     private val simulator = EnergyFlowSimulator()
 
     fun predict(
@@ -66,7 +71,7 @@ class BatteryPredictor(private val battery: BatteryStorage, private val zone: Zo
             val p = pv(t)
             val l = load(t)
             confidences += p.confidence * l.confidence
-            val flow = simulator.instantFlow(p.expectedKw, l.kw, battery, soc)
+            val flow = simulator.instantFlow(p.expectedKw, l.kw / inverterEfficiency.coerceIn(0.5, 1.0), battery, soc)
             rows += EnergyForecastRow(t, p.expectedKw, p.shadingLossKw, l.kw, flow.batteryKw, flow.gridImportKw - flow.exportKw, soc)
             val stored = battery.storedKwh(soc) + flow.chargeKw * h * battery.chargeEfficiency - flow.dischargeKw * h / battery.dischargeEfficiency
             val next = (stored / battery.usableCapacityKwh * 100.0).coerceIn(battery.minSocPercent.coerceAtMost(soc), battery.maxSocPercent.coerceAtLeast(soc))

@@ -4,7 +4,12 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.solartracker.pro.BuildConfig
+import com.solartracker.pro.core.analytics.AccuracyPeriod
 import com.solartracker.pro.core.analytics.AccuracyReport
+import com.solartracker.pro.core.analytics.ForecastComparison
+import com.solartracker.pro.core.forecast.DayOutlook
+import com.solartracker.pro.core.forecast.EnergySecurity
+import com.solartracker.pro.core.forecast.EnergySecurityAnalyzer
 import com.solartracker.pro.core.analytics.ForecastAccuracy
 import com.solartracker.pro.core.analytics.ForecastHorizon
 import com.solartracker.pro.core.analytics.HistoryPeriod
@@ -145,6 +150,12 @@ data class ForecastState(
     val timeline: List<EnergyForecastRow> = emptyList(),
     val producedTodayKwh: Double? = null,
     val updatedAt: Instant? = null,
+    /** Forecast PV power for this moment (with calibration and nowcast) [kW]. */
+    val nowForecastKw: Double? = null,
+    /** "Will there be enough energy?" (SOC milestones, time to minimum, risk). */
+    val security: EnergySecurity? = null,
+    /** Today, tomorrow, +2, +3 days. */
+    val outlook: List<DayOutlook> = emptyList(),
 )
 
 data class ShadingState(
@@ -172,6 +183,10 @@ data class InsightsState(
     val totals: Map<HistoryPeriod, List<PeriodTotals>> = emptyMap(),
     /** Stored PV forecasts vs measured energy over the last 30 days. */
     val accuracy: Map<ForecastHorizon, AccuracyReport> = emptyMap(),
+    /** Day-ahead forecast summed per day / week / month. */
+    val periodAccuracy: Map<AccuracyPeriod, AccuracyReport> = emptyMap(),
+    /** Today's complete hours (day-ahead forecast, else hour-ahead). */
+    val todayAccuracy: AccuracyReport? = null,
 )
 
 class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
@@ -224,6 +239,7 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
     private var calibrationModel: CalibrationModel? = null
     private var calibrationModelAt: Instant? = null
     private var lastObservationAt: Instant? = null
+    private var outlookComputedAt: Instant? = null
     private val alertManager = AlertManager()
     private val lock = Mutex()
     private var previousTelemetry: InverterTelemetry? = null
@@ -436,7 +452,22 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
             fresh -> DataKind.MEASURED
             else -> DataKind.LAST_KNOWN
         }
+        val gridAvailable = s.prices.backupSource == BackupSource.GRID
+        val security = EnergySecurityAnalyzer(s.activeBattery, zone)
+        val pvAt = { t: Instant -> pv.at(t, now, nowcast) }
+        val loadAt = { t: Instant -> load.at(t) }
+        val securityNow = withContext(Dispatchers.Default) { security.analyze(now, soc, socKind, pvAt, loadAt, gridAvailable) }
+        val outlookAt = outlookComputedAt
+        val outlook = if (outlookAt == null || Duration.between(outlookAt, now) >= Duration.ofMinutes(10) || _forecast.value.outlook.isEmpty()) {
+            outlookComputedAt = now
+            withContext(Dispatchers.Default) { security.outlook(now, soc, socKind, pvAt, loadAt) }
+        } else {
+            _forecast.value.outlook
+        }
         _forecast.value = ForecastState(
+            nowForecastKw = pvAt(now).expectedKw,
+            security = securityNow,
+            outlook = outlook,
             today = engine.day(today, now, producedToday, nowcast),
             tomorrow = engine.day(today.plusDays(1), now, null),
             shortTerm = engine.shortTerm(now, nowcast),
@@ -465,6 +496,12 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
     private suspend fun storeForecasts(pv: PredictivePvEngine, now: Instant, nowcast: Double?) = withContext(Dispatchers.IO) {
         fun hourKwh(start: Instant, ratio: Double?) = (0 until 6).sumOf { pv.at(start.plusSeconds(300L + it * 600L), now, ratio).expectedKw } / 6.0
         runCatching {
+            // Point forecasts on a 5-minute grid, 5 and 15 minutes ahead (the last issue before the target is kept).
+            for ((horizon, minutes) in listOf(ForecastHorizon.MIN5 to 5L, ForecastHorizon.MIN15 to 15L)) {
+                val ahead = now.plus(Duration.ofMinutes(minutes)).epochSecond
+                val target = Instant.ofEpochSecond((ahead + 299) / 300 * 300)
+                db.putForecast(target, horizon, pv.at(target, now, nowcast).expectedKw, now)
+            }
             val next = now.truncatedTo(ChronoUnit.HOURS).plus(Duration.ofHours(1))
             db.putForecast(next, ForecastHorizon.HOUR_AHEAD, hourKwh(next, nowcast), now)
             val tomorrow = now.atZone(zone).toLocalDate().plusDays(1).atStartOfDay(zone).toInstant()
@@ -524,9 +561,23 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
                 periods = EnergyOptimizationEngine.periods(slots.takeWhile { it.start.atZone(zone).toLocalDate() == now.atZone(zone).toLocalDate() }, zone),
                 week = EnergyOptimizationEngine.daily(slots, zone),
                 totals = HistoryPeriod.entries.associateWith { HistoryPeriods.totals(all, it, zone, now) },
-                accuracy = stored.mapValues { (_, f) ->
-                    // Night hours (0 vs 0) would flatter the score: compare only hours with production expected or measured.
-                    ForecastAccuracy.evaluate(ForecastAccuracy.pairHourly(f, all.filter { it.start >= monthAgo }).filter { it.forecast > 0.01 || it.actual > 0.01 })
+                accuracy = stored.mapValues { (h, f) ->
+                    // Night (0 vs 0) would flatter the score: compare only points with production expected or measured.
+                    val pairs = if (h.power) ForecastComparison.pairPower(f.filterKeys { it >= now.minus(Duration.ofDays(7)) }, week)
+                    else ForecastAccuracy.pairHourly(f, all.filter { it.start >= monthAgo })
+                    ForecastAccuracy.evaluate(pairs.filter { it.forecast > 0.01 || it.actual > 0.01 })
+                },
+                periodAccuracy = run {
+                    val hourly = ForecastAccuracy.pairHourly(stored[ForecastHorizon.DAY_AHEAD].orEmpty(), all.filter { it.start >= monthAgo })
+                    AccuracyPeriod.entries.associateWith { ForecastAccuracy.evaluate(ForecastComparison.aggregate(hourly, it, zone)) }
+                },
+                todayAccuracy = run {
+                    val dayStart = now.atZone(zone).toLocalDate().atStartOfDay(zone).toInstant()
+                    val rows = all.filter { it.start >= dayStart }
+                    listOf(ForecastHorizon.DAY_AHEAD, ForecastHorizon.HOUR_AHEAD).map { h ->
+                        ForecastAccuracy.evaluate(ForecastAccuracy.pairHourly(stored[h].orEmpty().filterKeys { it >= dayStart }, rows)
+                            .filter { it.forecast > 0.01 || it.actual > 0.01 })
+                    }.firstOrNull { it.count > 0 }
                 },
             )
         }

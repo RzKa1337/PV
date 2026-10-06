@@ -30,6 +30,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.solartracker.pro.core.analytics.HistoryPeriod
 import com.solartracker.pro.core.ems.WindowKind
@@ -102,9 +103,15 @@ fun InsightsScreen(vm: EnergyCenterViewModel, onBack: () -> Unit, modifier: Modi
             }
         }
 
+        val forecastState by vm.forecast.collectAsStateWithLifecycle()
+        OutlookCard(forecastState.outlook)
+
         // FORECAST ACCURACY
         SectionCard(Modifier.testTag("accuracy_card")) {
             Text("DOKŁADNOŚĆ PROGNOZ (30 DNI)", fontWeight = FontWeight.Bold)
+            insights.todayAccuracy?.accuracyPercent?.let { a ->
+                Text("Dzisiejsza trafność prognozy: ${f(a, 0)}%", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            }
             val reports = insights.accuracy.filterValues { it.count > 0 }
             if (reports.isEmpty()) {
                 Text("Brak danych: potrzebne są zapisane prognozy i pełne godziny pomiarów z falownika.", style = MaterialTheme.typography.bodyMedium)
@@ -114,7 +121,12 @@ fun InsightsScreen(vm: EnergyCenterViewModel, onBack: () -> Unit, modifier: Modi
                 Text("Prognoza ${horizon.label} · ${r.count} h", fontWeight = FontWeight.SemiBold)
                 Text(r.describe(), style = MaterialTheme.typography.bodyMedium)
                 Text("MAE ${f(r.mae, 2)} kWh · RMSE ${f(r.rmse, 2)} kWh" + (r.mapePercent?.let { " · MAPE ${f(it, 0)}%" } ?: "") +
-                    (r.biasPercent?.let { " · błąd systematyczny ${if (it >= 0) "+" else ""}${f(it)}%" } ?: ""), style = MaterialTheme.typography.bodySmall)
+                    (r.biasPercent?.let { " · błąd systematyczny ${if (it >= 0) "+" else ""}${f(it)}%" } ?: "") +
+                    (r.r2?.let { " · R² ${f(it, 2)}" } ?: ""), style = MaterialTheme.typography.bodySmall)
+            }
+            insights.periodAccuracy.filterValues { it.count > 0 }.forEach { (period, r) ->
+                Text("Suma na ${period.label} (prognoza dzień naprzód, ${r.count}): trafność ${r.accuracyPercent?.let { f(it, 0) + "%" } ?: "—"}" +
+                    (r.biasPercent?.let { " · błąd syst. ${if (it >= 0) "+" else ""}${f(it)}%" } ?: ""), style = MaterialTheme.typography.bodySmall)
             }
             if (reports.isNotEmpty()) KindBadge(DataKind.CALCULATED)
         }

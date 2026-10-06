@@ -33,6 +33,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.solartracker.pro.core.analytics.AlertSeverity
+import com.solartracker.pro.core.analytics.ForecastComparison
 import com.solartracker.pro.core.forecast.AdvisorAnswer
 import com.solartracker.pro.core.forecast.AdvisorQuestion
 import com.solartracker.pro.core.forecast.SolarAdvisor
@@ -147,6 +148,8 @@ private fun EnergyCenterMain(vm: EnergyCenterViewModel, onShading: () -> Unit, o
             OutlinedButton(onClick = onInsights, modifier = Modifier.fillMaxWidth().testTag("open_insights")) { Text("Analizy: zdrowie, EMS, historia, eksport") }
         }
 
+        EnergySecurityCard(forecast.security)
+
         LiveSection(vm)
         FlowSection(vm)
 
@@ -159,6 +162,12 @@ private fun EnergyCenterMain(vm: EnergyCenterViewModel, onShading: () -> Unit, o
             MetricRow("MODEL teraz (z zacienieniem)", Fmt.kwFromKw(model.modelKw), DataKind.ESTIMATED)
             MetricRow("REAL teraz (Anenji)", Fmt.kw(live.telemetry?.pv?.powerW?.takeIf { live.freshness == Freshness.LIVE }), DataKind.MEASURED, "brak bieżącego pomiaru")
             MetricRow("Różnica", Fmt.signedPct(model.comparison?.differencePercent?.takeIf { live.freshness == Freshness.LIVE }), DataKind.CALCULATED, "—")
+            val actualKw = live.telemetry?.pv?.powerW?.takeIf { live.freshness == Freshness.LIVE }?.div(1000.0)
+            forecast.nowForecastKw?.let { fk ->
+                MetricRow("Prognoza teraz", Fmt.kwFromKw(fk), DataKind.FORECAST)
+                MetricRow("Błąd prognozy", actualKw?.let { a -> ForecastComparison.relativeError(fk, a) }?.let { Fmt.signedPct(it * 100) },
+                    DataKind.CALCULATED, "brak bieżącego pomiaru lub prognoza bliska zeru")
+            }
             model.comparison?.takeIf { live.freshness == Freshness.LIVE }?.causes?.take(3)?.forEach {
                 Text("• ${it.cause.label}: ${it.explanation}", style = MaterialTheme.typography.bodySmall)
             }
