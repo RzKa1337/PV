@@ -88,6 +88,66 @@ object SmgRegisterMap {
     )
 }
 
+/** Validation state of a register definition. */
+enum class RegisterValidation(val label: String) {
+    /** From community documentation, never confirmed on the user's device. */
+    REAL_DEVICE_VALIDATION_REQUIRED("wymaga weryfikacji na urządzeniu"),
+    /** Confirmed against the inverter display / a reference meter. */
+    VERIFIED("zweryfikowany"),
+}
+
+/** One register as used by the mapper: address, scaling, sign and the telemetry field it feeds. */
+data class RegisterSpec(
+    val address: Int,
+    val name: String,
+    val scale: Double,
+    val signed: Boolean,
+    val unit: String,
+    val field: TelemetryField?,
+    val validation: RegisterValidation = RegisterValidation.REAL_DEVICE_VALIDATION_REQUIRED,
+)
+
+/** A raw register value that looks like "not supported" or a decoding problem. */
+data class RawRegisterIssue(val spec: RegisterSpec, val raw: Int, val reason: String)
+
+/** Register catalogue of the SMG live block (same addresses and scaling the mapper uses). */
+object SmgRegisters {
+    val LIVE: List<RegisterSpec> = listOf(
+        RegisterSpec(SmgRegisterMap.OPERATING_MODE, "Tryb pracy", 1.0, false, "", TelemetryField.OPERATING_MODE),
+        RegisterSpec(SmgRegisterMap.GRID_VOLTAGE, "Napięcie sieci", 0.1, false, "V", TelemetryField.GRID_VOLTAGE),
+        RegisterSpec(SmgRegisterMap.GRID_FREQUENCY, "Częstotliwość sieci", 0.01, false, "Hz", TelemetryField.GRID_FREQUENCY),
+        RegisterSpec(SmgRegisterMap.GRID_POWER, "Moc sieci", 1.0, true, "W", TelemetryField.GRID_POWER),
+        RegisterSpec(SmgRegisterMap.INVERTER_POWER, "Moc falownika", 1.0, true, "W", TelemetryField.INVERTER_POWER),
+        RegisterSpec(SmgRegisterMap.OUTPUT_VOLTAGE, "Napięcie wyjścia", 0.1, false, "V", TelemetryField.OUTPUT_VOLTAGE),
+        RegisterSpec(SmgRegisterMap.OUTPUT_CURRENT, "Prąd wyjścia", 0.1, false, "A", TelemetryField.OUTPUT_CURRENT),
+        RegisterSpec(SmgRegisterMap.OUTPUT_FREQUENCY, "Częstotliwość wyjścia", 0.01, false, "Hz", TelemetryField.OUTPUT_FREQUENCY),
+        RegisterSpec(SmgRegisterMap.OUTPUT_POWER, "Moc obciążenia", 1.0, true, "W", TelemetryField.LOAD_POWER),
+        RegisterSpec(SmgRegisterMap.OUTPUT_VA, "Moc pozorna obciążenia", 1.0, false, "VA", TelemetryField.LOAD_APPARENT_POWER),
+        RegisterSpec(SmgRegisterMap.BATTERY_VOLTAGE, "Napięcie baterii", 0.1, false, "V", TelemetryField.BATTERY_VOLTAGE),
+        RegisterSpec(SmgRegisterMap.BATTERY_AVERAGE_CURRENT, "Prąd baterii (średni)", 0.1, true, "A", TelemetryField.BATTERY_CURRENT),
+        RegisterSpec(SmgRegisterMap.BATTERY_AVERAGE_POWER, "Moc baterii (średnia)", 1.0, true, "W", TelemetryField.BATTERY_POWER),
+        RegisterSpec(SmgRegisterMap.PV_VOLTAGE, "Napięcie PV", 0.1, false, "V", TelemetryField.PV_VOLTAGE),
+        RegisterSpec(SmgRegisterMap.PV_CURRENT, "Prąd PV", 0.1, false, "A", TelemetryField.PV_CURRENT),
+        RegisterSpec(SmgRegisterMap.PV_POWER, "Moc PV", 1.0, true, "W", TelemetryField.PV_POWER),
+        RegisterSpec(SmgRegisterMap.PV_CHARGING_POWER, "Moc ładowania z PV", 1.0, true, "W", TelemetryField.PV_CHARGING_POWER),
+        RegisterSpec(SmgRegisterMap.LOAD_PERCENT, "Obciążenie", 1.0, false, "%", TelemetryField.LOAD_PERCENT),
+        RegisterSpec(SmgRegisterMap.DCDC_TEMPERATURE, "Temperatura DC/DC", 1.0, true, "°C", null),
+        RegisterSpec(SmgRegisterMap.INVERTER_TEMPERATURE, "Temperatura falownika", 1.0, true, "°C", TelemetryField.INVERTER_TEMPERATURE),
+        RegisterSpec(SmgRegisterMap.BATTERY_PERCENT, "SOC baterii", 1.0, false, "%", TelemetryField.BATTERY_SOC),
+    )
+
+    /** Raw checks independent of scaling: 0xFFFF / 0x8000 are typical "not supported" markers. */
+    fun checkRaw(blocks: SmgRawBlocks): List<RawRegisterIssue> = LIVE.mapNotNull { spec ->
+        val raw = blocks.live[spec.address - SmgRegisterMap.LIVE_START]
+        when {
+            raw == 0xFFFF && !spec.signed -> RawRegisterIssue(spec, raw, "0xFFFF – rejestr prawdopodobnie nieobsługiwany")
+            raw == 0x8000 && spec.signed -> RawRegisterIssue(spec, raw, "0x8000 – wartość nieobsługiwana / błąd odczytu")
+            raw !in 0..0xFFFF -> RawRegisterIssue(spec, raw, "wartość spoza 16 bitów")
+            else -> null
+        }
+    }
+}
+
 /** Converts raw register blocks to telemetry. */
 fun interface InverterDataMapper<R> {
     fun map(raw: R, timestamp: Instant): InverterTelemetry

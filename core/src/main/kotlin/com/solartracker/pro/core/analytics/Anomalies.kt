@@ -1,6 +1,8 @@
 package com.solartracker.pro.core.analytics
 
 import com.solartracker.pro.core.inverter.InverterTelemetry
+import com.solartracker.pro.core.inverter.IssueType
+import com.solartracker.pro.core.inverter.TelemetryIssue
 import com.solartracker.pro.core.inverter.LinkStatus
 import java.time.Duration
 import java.time.Instant
@@ -26,6 +28,8 @@ enum class AnomalyType(val title: String, val severity: AlertSeverity) {
     ABNORMAL_PRODUCTION("Nietypowa produkcja (model zaniża)", AlertSeverity.INFO),
     MISSING_BUILDING_HEIGHT("Brak wysokości przeszkody", AlertSeverity.INFO),
     LOW_CONFIDENCE_SHADING("Niska pewność modelu zacienienia", AlertSeverity.INFO),
+    INVALID_TELEMETRY("Błędne dane z falownika (odrzucone)", AlertSeverity.WARNING),
+    FROZEN_TELEMETRY("Dane z falownika nie zmieniają się", AlertSeverity.WARNING),
 }
 
 enum class AlertSeverity { INFO, WARNING, CRITICAL }
@@ -50,12 +54,25 @@ data class AnomalyInput(
     /** Previous reading to judge rates of change. */
     val previous: InverterTelemetry?,
     val batteryCapacityKwh: Double?,
+    /** Issues found by the telemetry validator for this reading. */
+    val validationIssues: List<TelemetryIssue> = emptyList(),
 )
 
 /** Rule-based (no ML) real-time anomaly detection. */
 object AnomalyDetector {
 
-    fun detect(i: AnomalyInput): List<Anomaly> {
+    fun detect(i: AnomalyInput): List<Anomaly> = detectReading(i) + validation(i.validationIssues)
+
+    private fun validation(issues: List<TelemetryIssue>): List<Anomaly> = issues.mapNotNull { issue ->
+        when (issue.type) {
+            IssueType.OUT_OF_RANGE, IssueType.INCONSISTENT, IssueType.JUMP ->
+                Anomaly(AnomalyType.INVALID_TELEMETRY, "${issue.type.label}: ${issue.detail}", "invalid-${issue.field ?: "x"}")
+            IssueType.FROZEN -> Anomaly(AnomalyType.FROZEN_TELEMETRY, issue.detail)
+            else -> null
+        }
+    }
+
+    private fun detectReading(i: AnomalyInput): List<Anomaly> {
         val out = mutableListOf<Anomaly>()
         when (i.link) {
             LinkStatus.OFFLINE -> return listOf(Anomaly(AnomalyType.INVERTER_OFFLINE, "Falownik nie odpowiada"))

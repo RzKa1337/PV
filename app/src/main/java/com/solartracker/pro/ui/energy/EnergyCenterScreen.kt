@@ -128,6 +128,17 @@ private fun EnergyCenterMain(vm: EnergyCenterViewModel, onShading: () -> Unit, o
                 }
                 Text("Jakość łącza: ${Fmt.conf(live.connection.quality)}" + (live.connection.lastLatencyMs?.let { " · odpowiedź $it ms" } ?: ""), style = MaterialTheme.typography.bodySmall)
                 live.connection.lastError?.let { Text("Ostatni błąd: $it", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                val c = live.connection
+                if (c.readsOk + c.readsFailed > 0) {
+                    Text("Odczyty: ${c.readsOk} OK / ${c.readsFailed} błędów · ponowne połączenia: ${c.reconnects}" +
+                        c.errorCounts.entries.joinToString("") { " · ${it.key.label}: ${it.value}" }, style = MaterialTheme.typography.bodySmall)
+                }
+                live.validation?.issues?.takeIf { it.isNotEmpty() }?.let { issues ->
+                    Text("JAKOŚĆ DANYCH", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error)
+                    issues.forEach { Text("• ${it.type.label}: ${it.detail}", style = MaterialTheme.typography.bodySmall) }
+                }
+                live.diagnostics.forEach { Text("• $it", style = MaterialTheme.typography.bodySmall) }
+                Text("Mapa rejestrów: REAL DEVICE VALIDATION REQUIRED – porównaj wartości z wyświetlaczem falownika.", style = MaterialTheme.typography.bodySmall)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (enabled) FilledTonalButton(onClick = vm::refreshNow) { Text("Odśwież") }
@@ -240,7 +251,10 @@ private fun LiveSection(vm: EnergyCenterViewModel) {
     val t = live.telemetry
     val kind = freshnessKind(live.freshness)
     val caps = live.capabilities
-    fun na(field: TelemetryField) = if (field !in caps && caps.isNotEmpty()) "niedostępne w tym protokole" else "brak danych"
+    val checked = live.validation?.values.orEmpty()
+    fun k(field: TelemetryField) = if (checked[field]?.kind == DataKind.INVALID) DataKind.INVALID else kind
+    fun na(field: TelemetryField) = checked[field]?.takeIf { it.kind == DataKind.INVALID }?.let { "odrzucone: ${it.reason ?: it.validity.label}" }
+        ?: if (field !in caps && caps.isNotEmpty()) "niedostępne w tym protokole" else "brak danych"
     SectionCard {
         Text(if (live.freshness == Freshness.LIVE) "LIVE" else "LIVE – ${kind.label}", fontWeight = FontWeight.Bold,
             color = if (live.freshness == Freshness.LIVE) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
@@ -249,12 +263,12 @@ private fun LiveSection(vm: EnergyCenterViewModel) {
             return@SectionCard
         }
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            BigMetric("PV", Fmt.kw(t.pv.powerW) ?: "N/A", kind)
-            BigMetric("LOAD", Fmt.kw(t.load.powerW) ?: "N/A", kind)
-            BigMetric("BATTERY", Fmt.v(t.battery.voltageV) ?: "N/A", kind)
-            BigMetric("SOC", Fmt.pct(t.battery.socPercent) ?: "N/A", kind)
-            BigMetric("BATTERY FLOW", Fmt.signedKw(t.battery.powerW) ?: "N/A", kind)
-            BigMetric("GRID", Fmt.signedKw(t.grid.powerW) ?: "N/A", kind)
+            BigMetric("PV", Fmt.kw(t.pv.powerW) ?: "N/A", k(TelemetryField.PV_POWER))
+            BigMetric("LOAD", Fmt.kw(t.load.powerW) ?: "N/A", k(TelemetryField.LOAD_POWER))
+            BigMetric("BATTERY", Fmt.v(t.battery.voltageV) ?: "N/A", k(TelemetryField.BATTERY_VOLTAGE))
+            BigMetric("SOC", Fmt.pct(t.battery.socPercent) ?: "N/A", k(TelemetryField.BATTERY_SOC))
+            BigMetric("BATTERY FLOW", Fmt.signedKw(t.battery.powerW) ?: "N/A", k(TelemetryField.BATTERY_POWER))
+            BigMetric("GRID", Fmt.signedKw(t.grid.powerW) ?: "N/A", k(TelemetryField.GRID_POWER))
         }
         Text("Falownik: ${t.inverter.mode.name}" + (t.inverter.rawMode?.let { " (kod $it)" } ?: ""), fontWeight = FontWeight.SemiBold)
         Text(
@@ -269,30 +283,30 @@ private fun LiveSection(vm: EnergyCenterViewModel) {
         var details by rememberSaveable { mutableStateOf(false) }
         TextButton(onClick = { details = !details }) { Text(if (details) "Ukryj szczegóły" else "Wszystkie parametry") }
         if (details) {
-            MetricRow("PV napięcie", Fmt.v(t.pv.voltageV), kind, na(TelemetryField.PV_VOLTAGE))
-            MetricRow("PV prąd", Fmt.a(t.pv.currentA), kind, na(TelemetryField.PV_CURRENT))
-            MetricRow("PV moc ładowania", Fmt.kw(t.pv.chargingPowerW), kind, na(TelemetryField.PV_CHARGING_POWER))
-            MetricRow("PV energia dziś", Fmt.kwh(t.pv.energyTodayKwh), kind, na(TelemetryField.PV_ENERGY_TODAY))
-            MetricRow("PV energia całkowita", Fmt.kwh(t.pv.energyTotalKwh), kind, na(TelemetryField.PV_ENERGY_TOTAL))
-            MetricRow("Bateria prąd", Fmt.a(t.battery.currentA), kind, na(TelemetryField.BATTERY_CURRENT))
-            MetricRow("Bateria temperatura", Fmt.c(t.battery.temperatureC), kind, na(TelemetryField.BATTERY_TEMPERATURE))
-            MetricRow("Moc ładowania", Fmt.kw(t.battery.chargePowerW), kind, na(TelemetryField.BATTERY_POWER))
-            MetricRow("Moc rozładowania", Fmt.kw(t.battery.dischargePowerW), kind, na(TelemetryField.BATTERY_POWER))
-            MetricRow("Sieć napięcie", Fmt.v(t.grid.voltageV), kind, na(TelemetryField.GRID_VOLTAGE))
-            MetricRow("Sieć prąd", Fmt.a(t.grid.currentA), kind, na(TelemetryField.GRID_CURRENT))
-            MetricRow("Sieć częstotliwość", Fmt.hz(t.grid.frequencyHz), kind, na(TelemetryField.GRID_FREQUENCY))
-            MetricRow("Import z sieci", Fmt.kw(t.grid.importPowerW), kind, na(TelemetryField.GRID_POWER))
-            MetricRow("Eksport do sieci", Fmt.kw(t.grid.exportPowerW), kind, na(TelemetryField.GRID_POWER))
-            MetricRow("Energia import/eksport", t.grid.importEnergyKwh?.let { "${Fmt.kwh(it)} / ${Fmt.kwh(t.grid.exportEnergyKwh)}" }, kind, na(TelemetryField.GRID_IMPORT_ENERGY))
-            MetricRow("Obciążenie", Fmt.pct(t.load.percent), kind, na(TelemetryField.LOAD_PERCENT))
-            MetricRow("Moc pozorna", t.load.apparentPowerVa?.let { "%.0f VA".format(it) }, kind, na(TelemetryField.LOAD_APPARENT_POWER))
-            MetricRow("Energia odbiorów", Fmt.kwh(t.load.energyTodayKwh), kind, na(TelemetryField.LOAD_ENERGY))
-            MetricRow("Moc falownika", Fmt.kw(t.inverter.powerW), kind, na(TelemetryField.INVERTER_POWER))
-            MetricRow("Napięcie wyjścia", Fmt.v(t.inverter.outputVoltageV), kind, na(TelemetryField.OUTPUT_VOLTAGE))
-            MetricRow("Częstotliwość wyjścia", Fmt.hz(t.inverter.outputFrequencyHz), kind, na(TelemetryField.OUTPUT_FREQUENCY))
-            MetricRow("Temperatura falownika", Fmt.c(t.inverter.temperatureC), kind, na(TelemetryField.INVERTER_TEMPERATURE))
-            MetricRow("Temperatura DC/DC", Fmt.c(t.inverter.auxTemperatureC), kind, na(TelemetryField.INVERTER_TEMPERATURE))
-            if (t.mppts.isEmpty()) MetricRow("MPPT / stringi", null, kind, na(TelemetryField.MPPT_DETAILS))
+            MetricRow("PV napięcie", Fmt.v(t.pv.voltageV), k(TelemetryField.PV_VOLTAGE), na(TelemetryField.PV_VOLTAGE))
+            MetricRow("PV prąd", Fmt.a(t.pv.currentA), k(TelemetryField.PV_CURRENT), na(TelemetryField.PV_CURRENT))
+            MetricRow("PV moc ładowania", Fmt.kw(t.pv.chargingPowerW), k(TelemetryField.PV_CHARGING_POWER), na(TelemetryField.PV_CHARGING_POWER))
+            MetricRow("PV energia dziś", Fmt.kwh(t.pv.energyTodayKwh), k(TelemetryField.PV_ENERGY_TODAY), na(TelemetryField.PV_ENERGY_TODAY))
+            MetricRow("PV energia całkowita", Fmt.kwh(t.pv.energyTotalKwh), k(TelemetryField.PV_ENERGY_TOTAL), na(TelemetryField.PV_ENERGY_TOTAL))
+            MetricRow("Bateria prąd", Fmt.a(t.battery.currentA), k(TelemetryField.BATTERY_CURRENT), na(TelemetryField.BATTERY_CURRENT))
+            MetricRow("Bateria temperatura", Fmt.c(t.battery.temperatureC), k(TelemetryField.BATTERY_TEMPERATURE), na(TelemetryField.BATTERY_TEMPERATURE))
+            MetricRow("Moc ładowania", Fmt.kw(t.battery.chargePowerW), k(TelemetryField.BATTERY_POWER), na(TelemetryField.BATTERY_POWER))
+            MetricRow("Moc rozładowania", Fmt.kw(t.battery.dischargePowerW), k(TelemetryField.BATTERY_POWER), na(TelemetryField.BATTERY_POWER))
+            MetricRow("Sieć napięcie", Fmt.v(t.grid.voltageV), k(TelemetryField.GRID_VOLTAGE), na(TelemetryField.GRID_VOLTAGE))
+            MetricRow("Sieć prąd", Fmt.a(t.grid.currentA), k(TelemetryField.GRID_CURRENT), na(TelemetryField.GRID_CURRENT))
+            MetricRow("Sieć częstotliwość", Fmt.hz(t.grid.frequencyHz), k(TelemetryField.GRID_FREQUENCY), na(TelemetryField.GRID_FREQUENCY))
+            MetricRow("Import z sieci", Fmt.kw(t.grid.importPowerW), k(TelemetryField.GRID_POWER), na(TelemetryField.GRID_POWER))
+            MetricRow("Eksport do sieci", Fmt.kw(t.grid.exportPowerW), k(TelemetryField.GRID_POWER), na(TelemetryField.GRID_POWER))
+            MetricRow("Energia import/eksport", t.grid.importEnergyKwh?.let { "${Fmt.kwh(it)} / ${Fmt.kwh(t.grid.exportEnergyKwh)}" }, k(TelemetryField.GRID_IMPORT_ENERGY), na(TelemetryField.GRID_IMPORT_ENERGY))
+            MetricRow("Obciążenie", Fmt.pct(t.load.percent), k(TelemetryField.LOAD_PERCENT), na(TelemetryField.LOAD_PERCENT))
+            MetricRow("Moc pozorna", t.load.apparentPowerVa?.let { "%.0f VA".format(it) }, k(TelemetryField.LOAD_APPARENT_POWER), na(TelemetryField.LOAD_APPARENT_POWER))
+            MetricRow("Energia odbiorów", Fmt.kwh(t.load.energyTodayKwh), k(TelemetryField.LOAD_ENERGY), na(TelemetryField.LOAD_ENERGY))
+            MetricRow("Moc falownika", Fmt.kw(t.inverter.powerW), k(TelemetryField.INVERTER_POWER), na(TelemetryField.INVERTER_POWER))
+            MetricRow("Napięcie wyjścia", Fmt.v(t.inverter.outputVoltageV), k(TelemetryField.OUTPUT_VOLTAGE), na(TelemetryField.OUTPUT_VOLTAGE))
+            MetricRow("Częstotliwość wyjścia", Fmt.hz(t.inverter.outputFrequencyHz), k(TelemetryField.OUTPUT_FREQUENCY), na(TelemetryField.OUTPUT_FREQUENCY))
+            MetricRow("Temperatura falownika", Fmt.c(t.inverter.temperatureC), k(TelemetryField.INVERTER_TEMPERATURE), na(TelemetryField.INVERTER_TEMPERATURE))
+            MetricRow("Temperatura DC/DC", Fmt.c(t.inverter.auxTemperatureC), k(TelemetryField.INVERTER_TEMPERATURE), na(TelemetryField.INVERTER_TEMPERATURE))
+            if (t.mppts.isEmpty()) MetricRow("MPPT / stringi", null, k(TelemetryField.MPPT_DETAILS), na(TelemetryField.MPPT_DETAILS))
             t.mppts.forEach { m -> MetricRow("MPPT${m.index}", "${Fmt.v(m.voltageV)} ${Fmt.a(m.currentA)} ${Fmt.kw(m.powerW)}", kind) }
             Text("Ostrzeżenia: ${t.inverter.warnings.joinToString { it.description }.ifEmpty { "brak" }}", style = MaterialTheme.typography.bodySmall)
             Text("Błędy: ${t.inverter.faults.joinToString { "${it.code}: ${it.description}" }.ifEmpty { "brak" }}", style = MaterialTheme.typography.bodySmall)

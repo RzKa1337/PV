@@ -20,13 +20,15 @@ enum class DataKind(val label: String) {
     STALE("NIEAKTUALNE"),
     /** The newest value from a device that is no longer connected. */
     LAST_KNOWN("OSTATNIA ZNANA"),
+    /** Read from the device but rejected by validation (out of range, impossible jump, inconsistent). */
+    INVALID("BŁĘDNE"),
     /** The source cannot provide this value (e.g. not in the protocol). */
     UNAVAILABLE("N/A"),
     /** Value not determined (missing data). */
     UNKNOWN("NIEZNANE"),
     ;
 
-    val hasValue: Boolean get() = this != UNAVAILABLE && this != UNKNOWN
+    val hasValue: Boolean get() = this != UNAVAILABLE && this != UNKNOWN && this != INVALID
 }
 
 /**

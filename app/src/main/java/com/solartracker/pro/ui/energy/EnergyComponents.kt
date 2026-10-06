@@ -35,7 +35,7 @@ private fun kindColors(kind: DataKind): Pair<Color, Color> {
         DataKind.MEASURED -> c.primary.copy(alpha = 0.18f) to c.primary
         DataKind.CALCULATED -> c.secondary.copy(alpha = 0.18f) to c.secondary
         DataKind.ESTIMATED, DataKind.FORECAST -> c.tertiary.copy(alpha = 0.18f) to c.tertiary
-        DataKind.STALE, DataKind.LAST_KNOWN -> c.error.copy(alpha = 0.15f) to c.error
+        DataKind.STALE, DataKind.LAST_KNOWN, DataKind.INVALID -> c.error.copy(alpha = 0.15f) to c.error
         DataKind.UNAVAILABLE, DataKind.UNKNOWN -> c.outline.copy(alpha = 0.18f) to c.outline
     }
 }

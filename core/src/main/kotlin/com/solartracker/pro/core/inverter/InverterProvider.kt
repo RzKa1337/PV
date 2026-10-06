@@ -25,6 +25,9 @@ interface InverterProvider : AutoCloseable {
     /** Fields the protocol can deliver; others are shown as N/A with an explanation. */
     val capabilities: Set<TelemetryField>
 
+    /** Protocol-level notes about the last read (e.g. registers that look unsupported). */
+    val diagnostics: List<String> get() = emptyList()
+
     @Throws(IOException::class)
     fun connect()
 
@@ -58,10 +61,15 @@ class AnenjiSmgModbusProvider(
 
     override fun connect() = transport.open()
 
+    override var diagnostics: List<String> = emptyList()
+        private set
+
     override fun read(now: Instant): InverterTelemetry {
         val live = client.readRegisters(SmgRegisterMap.LIVE_START, SmgRegisterMap.LIVE_COUNT)
         val status = client.readRegisters(SmgRegisterMap.STATUS_START, SmgRegisterMap.STATUS_COUNT)
-        return mapper.map(SmgRawBlocks(status, live), now)
+        val blocks = SmgRawBlocks(status, live)
+        diagnostics = SmgRegisters.checkRaw(blocks).map { "Rejestr ${it.spec.address} (${it.spec.name}): ${it.reason}" }
+        return mapper.map(blocks, now)
     }
 
     override fun disconnect() = transport.close()

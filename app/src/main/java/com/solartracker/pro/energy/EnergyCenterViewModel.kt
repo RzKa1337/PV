@@ -60,6 +60,7 @@ import com.solartracker.pro.core.inverter.InverterRepository
 import com.solartracker.pro.core.inverter.InverterTelemetry
 import com.solartracker.pro.core.inverter.LinkStatus
 import com.solartracker.pro.core.inverter.TelemetryField
+import com.solartracker.pro.core.inverter.TelemetryValidation
 import com.solartracker.pro.core.pv.PvEstimator
 import com.solartracker.pro.core.quality.DataKind
 import com.solartracker.pro.core.shading.DayShading
@@ -117,6 +118,10 @@ data class LiveState(
     val freshness: Freshness = Freshness.NONE,
     val flow: RealEnergyFlow? = null,
     val now: Instant = Instant.now(),
+    /** Validation of the newest reading (rejected values, issues). */
+    val validation: TelemetryValidation? = null,
+    /** Protocol diagnostics of the last read (e.g. unsupported registers). */
+    val diagnostics: List<String> = emptyList(),
 )
 
 data class ModelState(
@@ -277,13 +282,24 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
             provider, config.pollSettings,
             onTelemetry = { t -> viewModelScope.launch(Dispatchers.Default) { onTelemetry(t) } },
             onEvent = { e -> _events.value = (listOf("${java.time.LocalTime.now().withNano(0)} $e") + _events.value).take(50) },
+            expectedPvW = { time -> expectedPvW(time) },
         )
         manager = m
         _live.value = LiveState(info = provider.info, capabilities = provider.capabilities)
         monitorJob = viewModelScope.launch {
             launch { m.state.collect { s -> _live.value = _live.value.copy(connection = s); if (s.status == LinkStatus.OFFLINE) onTelemetryMissing() } }
+            launch { m.validation.collect { v -> _live.value = _live.value.copy(validation = v, diagnostics = provider.diagnostics) } }
             m.run()
         }
+    }
+
+    /** Model PV expectation [W] (weather, shading, calibration) used by the zero-PV check. */
+    private fun expectedPvW(time: Instant): Double? {
+        val s = settings.value ?: return null
+        val weather = WeatherAwareIrradianceModel(s.location, _weather.value.first, _weather.value.second)
+        val e = PvEstimator(weather).pointEstimate(s.system, s.location, time)
+        val shade = _shading.value.engine?.snapshot(s.system, time, e)?.powerFactor ?: 1.0
+        return e.powerKw * 1000 * shade * calibration.appliedFactor()
     }
 
     fun refreshNow() {
@@ -330,6 +346,7 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
                 poaWm2 = estimate.poa, curtailed = comparison?.curtailed ?: false, batteryMinSocPercent = battery?.minSocPercent,
                 batteryNominalVoltage = site?.batteryVoltage ?: 48.0, typicalLoadKw = loadForecaster?.typicalKw(t.timestamp),
                 previous = previousTelemetry, batteryCapacityKwh = battery?.usableCapacityKwh,
+                validationIssues = manager?.validation?.value?.issues.orEmpty(),
             ),
         ) + shadingAnomalies()
         previousTelemetry = t
