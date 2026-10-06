@@ -29,7 +29,7 @@ data class ShortTermForecast(val horizon: ShortHorizon, val point: PvForecastPoi
  */
 class EnergyForecastEngine(
     private val pv: PredictivePvEngine,
-    private val load: LoadForecaster,
+    private val load: LoadModel,
     private val battery: BatteryPredictor?,
     private val zone: ZoneId,
     private val step: Duration = Duration.ofMinutes(15),

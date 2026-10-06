@@ -17,6 +17,29 @@ data class LoadForecastPoint(val time: Instant, val kw: Double, val kind: DataKi
  * (recent weeks count more), with outlier hours (sudden anomalies) removed using the median.
  * Without enough history the user's configured consumption profile is used (ESTIMATED).
  */
+/** Anything that forecasts the household/site load. */
+fun interface LoadModel {
+    fun at(t: Instant): LoadForecastPoint
+}
+
+/**
+ * Adds a modelled cooling load ([CoolingLoadProfile]) to a base load forecast, using the forecast air
+ * temperature for the compressor duty. Use it only when the base forecast does not already contain
+ * the cold room (i.e. no measured load history).
+ */
+class CoolingAwareLoad(
+    private val base: LoadModel,
+    private val cooling: com.solartracker.pro.core.energy.CoolingLoadProfile,
+    private val zone: ZoneId,
+    private val ambientC: (Instant) -> Double?,
+) : LoadModel {
+    override fun at(t: Instant): LoadForecastPoint {
+        val b = base.at(t)
+        val c = cooling.averagePowerKw(t, zone, ambientC(t))
+        return b.copy(kw = b.kw + c, kind = DataKind.ESTIMATED, basis = b.basis + " + ${cooling.name} (model cyklu sprężarki)")
+    }
+}
+
 class LoadForecaster(
     history: List<HistorySample>,
     private val zone: ZoneId,
@@ -24,7 +47,7 @@ class LoadForecaster(
     private val now: Instant,
     private val halfLifeDays: Double = 14.0,
     private val minDays: Int = 3,
-) {
+) : LoadModel {
     private data class HourValue(val kw: Double, val weight: Double)
 
     private val profiles: Map<Pair<Boolean, Int>, Double>
@@ -59,7 +82,7 @@ class LoadForecaster(
 
     val usesHistory: Boolean get() = historyDays >= minDays
 
-    fun at(t: Instant): LoadForecastPoint {
+    override fun at(t: Instant): LoadForecastPoint {
         val k = key(t)
         val learned = profiles[k] ?: profiles[(!k.first) to k.second]
         if (usesHistory && learned != null) {

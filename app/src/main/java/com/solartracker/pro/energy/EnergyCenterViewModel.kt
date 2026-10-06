@@ -20,6 +20,7 @@ import com.solartracker.pro.core.ems.EmsInput
 import com.solartracker.pro.core.ems.EmsPlan
 import com.solartracker.pro.core.ems.EnergyOptimizationEngine
 import com.solartracker.pro.core.ems.EnergySlot
+import com.solartracker.pro.core.energy.CoolingLoadProfile
 import com.solartracker.pro.core.ems.FlexibleLoad
 import com.solartracker.pro.core.ems.GeneratorConfig
 import com.solartracker.pro.core.ems.PeriodBalance
@@ -56,7 +57,9 @@ import com.solartracker.pro.core.forecast.BatteryPredictor
 import com.solartracker.pro.core.forecast.DayProductionForecast
 import com.solartracker.pro.core.forecast.EnergyForecastEngine
 import com.solartracker.pro.core.forecast.EnergyForecastRow
+import com.solartracker.pro.core.forecast.CoolingAwareLoad
 import com.solartracker.pro.core.forecast.LoadForecaster
+import com.solartracker.pro.core.forecast.LoadModel
 import com.solartracker.pro.core.forecast.PredictivePvEngine
 import com.solartracker.pro.core.forecast.ShortTermForecast
 import com.solartracker.pro.core.forecast.SolarAdvisor
@@ -203,6 +206,7 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
     val siteConfig: StateFlow<SiteConfig?> = store.site.stateIn(viewModelScope, SharingStarted.Eagerly, null)
     val flexibleLoads: StateFlow<List<FlexibleLoad>> = store.flexibleLoads.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val generator: StateFlow<GeneratorConfig?> = store.generator.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    val cooling: StateFlow<CoolingLoadProfile?> = store.cooling.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     private val _mapData = MutableStateFlow<MapDataCache?>(null)
     val mapData: StateFlow<MapDataCache?> = _mapData.asStateFlow()
@@ -440,7 +444,11 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
             inverterLimitKw = inv?.takeIf { it.enabled }?.ratedPowerW?.div(1000.0),
             calibrationModel = model,
         )
-        val load = LoadForecaster(history, zone, s.consumption.profile(), now).also { loadForecaster = it }
+        val base = LoadForecaster(history, zone, s.consumption.profile(), now).also { loadForecaster = it }
+        // The cold room is added only while there is no measured load history (history already contains it).
+        val coolingProfile = store.cooling.first()?.takeIf { !base.usesHistory }
+        val forecastWeather = _weather.value.first
+        val load = if (coolingProfile == null) base else CoolingAwareLoad(base, coolingProfile, zone) { t -> forecastWeather?.at(t)?.temperatureC }
         val battery = s.activeBattery?.let { BatteryPredictor(it, zone) }
         val engine = EnergyForecastEngine(pv, load, battery, zone)
         val live = _live.value
@@ -512,7 +520,7 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private suspend fun recomputeInsights(s: AppSettings, pv: PredictivePvEngine, load: LoadForecaster, nowcast: Double?, soc: Double?, now: Instant) {
+    private suspend fun recomputeInsights(s: AppSettings, pv: PredictivePvEngine, load: LoadModel, nowcast: Double?, soc: Double?, now: Instant) {
         val week = withContext(Dispatchers.IO) { runCatching { db.history(now.minus(Duration.ofDays(7)), now) }.getOrDefault(emptyList()) }
         val all = withContext(Dispatchers.IO) { runCatching { db.history(Instant.EPOCH, now, summary = true) }.getOrDefault(emptyList()) }
         val monthAgo = now.minus(Duration.ofDays(30))
@@ -614,6 +622,10 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
 
     fun saveFlexibleLoads(loads: List<FlexibleLoad>) {
         viewModelScope.launch { store.setFlexibleLoads(loads); recomputeForecast() }
+    }
+
+    fun saveCooling(c: CoolingLoadProfile?) {
+        viewModelScope.launch { store.setCooling(c); recomputeForecast() }
     }
 
     fun saveGenerator(g: GeneratorConfig?) {

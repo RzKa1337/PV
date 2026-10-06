@@ -34,6 +34,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.solartracker.pro.core.ems.FlexibleLoad
+import com.solartracker.pro.core.energy.CoolingLoadProfile
+import com.solartracker.pro.core.energy.CoolingMode
 import com.solartracker.pro.core.ems.GeneratorConfig
 import com.solartracker.pro.core.ems.validate
 import com.solartracker.pro.core.inverter.InverterConfig
@@ -286,6 +288,93 @@ private fun EmsSection(vm: EnergyCenterViewModel) {
         }) { Text("Dodaj odbiornik") }
     }
     GeneratorForm(generator, vm::saveGenerator)
+    val cooling by vm.cooling.collectAsStateWithLifecycle()
+    CoolingForm(cooling, vm::saveCooling)
+}
+
+/** Optional cold room: modelled as a compressor duty cycle, not as constant nominal power. */
+@Composable
+private fun CoolingForm(current: CoolingLoadProfile?, onSave: (CoolingLoadProfile?) -> Unit) {
+    var enabled by remember(current) { mutableStateOf(current != null) }
+    var name by remember(current) { mutableStateOf(current?.name ?: "Chłodnia") }
+    var nominal by remember(current) { mutableStateOf(current?.nominalPowerW?.toInt()?.toString() ?: "") }
+    var minimum by remember(current) { mutableStateOf(current?.minimumPowerW?.toInt()?.toString() ?: "") }
+    var mode by remember(current) { mutableStateOf(current?.mode?.takeIf { it != CoolingMode.SCHEDULE } ?: CoolingMode.AVERAGE) }
+    var average by remember(current) { mutableStateOf(current?.averagePowerW?.toInt()?.toString() ?: "") }
+    var duty by remember(current) { mutableStateOf(current?.dutyAtReference?.let { (it * 100).toInt().toString() } ?: "") }
+    var target by remember(current) { mutableStateOf(current?.targetTemperatureC?.toString() ?: "") }
+    var reference by remember(current) { mutableStateOf((current?.referenceAmbientC ?: 25.0).toString()) }
+    var open by remember(current) { mutableStateOf(current?.let { c -> c.operatingStart.takeIf { it != c.operatingEnd }?.toString() } ?: "") }
+    var close by remember(current) { mutableStateOf(current?.let { c -> c.operatingEnd.takeIf { it != c.operatingStart }?.toString() } ?: "") }
+    var idle by remember(current) { mutableStateOf(((current?.idleDutyFactor ?: 1.0) * 100).toInt().toString()) }
+    var pre by remember(current) { mutableStateOf(current?.preCoolingEnabled ?: false) }
+    var preTarget by remember(current) { mutableStateOf(current?.preCoolingTargetC?.toString() ?: "") }
+    var preHours by remember(current) { mutableStateOf((current?.preCoolingHours ?: 2.0).toString()) }
+    var errors by remember(current) { mutableStateOf(emptyList<String>()) }
+    var saved by remember(current) { mutableStateOf(false) }
+    SectionCard {
+        Text("Chłodnia (duży odbiornik)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Mam chłodnię", Modifier.weight(1f))
+            Switch(checked = enabled, onCheckedChange = { enabled = it })
+        }
+        Text("Sprężarka pracuje cyklicznie – średni pobór zależy od temperatury otoczenia. Wpisz dane z tabliczki, licznika lub sterownika. " +
+            "Model jest dodawany do prognozy zużycia, dopóki aplikacja nie ma własnej historii pomiarów (potem chłodnia jest już w pomiarach).",
+            style = MaterialTheme.typography.bodySmall)
+        if (enabled) {
+            OutlinedTextField(name, { name = it.take(40) }, label = { Text("Nazwa") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                NumberField("Moc nominalna [W]", nominal, { nominal = it }, Modifier.weight(1f))
+                NumberField("Moc w spoczynku [W]", minimum, { minimum = it }, Modifier.weight(1f))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = mode == CoolingMode.AVERAGE, onClick = { mode = CoolingMode.AVERAGE }, label = { Text("Znam średnią moc") })
+                FilterChip(selected = mode == CoolingMode.DUTY_CYCLE, onClick = { mode = CoolingMode.DUTY_CYCLE }, label = { Text("Znam cykl pracy") })
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (mode == CoolingMode.AVERAGE) NumberField("Średnia moc [W]", average, { average = it }, Modifier.weight(1f))
+                else NumberField("Praca sprężarki [%]", duty, { duty = it }, Modifier.weight(1f))
+                NumberField("Przy temp. otoczenia [°C]", reference, { reference = it }, Modifier.weight(1f))
+            }
+            NumberField("Temperatura w chłodni [°C]", target, { target = it }, Modifier.fillMaxWidth())
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(open, { open = it.take(5) }, label = { Text("Otwarte od (GG:MM)") }, singleLine = true, modifier = Modifier.weight(1f))
+                OutlinedTextField(close, { close = it.take(5) }, label = { Text("do (GG:MM)") }, singleLine = true, modifier = Modifier.weight(1f))
+            }
+            NumberField("Poza godzinami otwarcia: praca [% normalnej]", idle, { idle = it }, Modifier.fillMaxWidth())
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Wychładzanie przed otwarciem", Modifier.weight(1f))
+                Switch(checked = pre, onCheckedChange = { pre = it })
+            }
+            if (pre) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                NumberField("Do temperatury [°C]", preTarget, { preTarget = it }, Modifier.weight(1f))
+                NumberField("Przez [h]", preHours, { preHours = it }, Modifier.weight(1f))
+            }
+        }
+        errors.forEach { Text(it, color = MaterialTheme.colorScheme.error) }
+        current?.let { c ->
+            val day = c.dailyEnergyKwh(java.time.LocalDate.now(), java.time.ZoneId.systemDefault(), c.referenceAmbientC)
+            Text(String.format(Locale.ROOT, "Szacowane zużycie przy %.0f °C: %.1f kWh/dobę", c.referenceAmbientC, day), style = MaterialTheme.typography.bodySmall)
+        }
+        if (saved) Text("Zapisano", color = MaterialTheme.colorScheme.primary)
+        Button(onClick = {
+            saved = false
+            if (!enabled) { onSave(null); saved = true; errors = emptyList(); return@Button }
+            val o = open.time(); val c = close.time()
+            val p = CoolingLoadProfile(
+                name = name.trim().ifEmpty { "Chłodnia" }, nominalPowerW = nominal.num() ?: -1.0, minimumPowerW = minimum.num() ?: -1.0, mode = mode,
+                averagePowerW = average.num().takeIf { mode == CoolingMode.AVERAGE }, dutyAtReference = duty.num()?.div(100).takeIf { mode == CoolingMode.DUTY_CYCLE },
+                targetTemperatureC = target.num() ?: 99.0, referenceAmbientC = reference.num() ?: 25.0,
+                operatingStart = o ?: LocalTime.MIDNIGHT, operatingEnd = c ?: LocalTime.MIDNIGHT, idleDutyFactor = (idle.num() ?: 100.0) / 100,
+                preCoolingEnabled = pre, preCoolingTargetC = preTarget.num(), preCoolingHours = preHours.num() ?: 2.0,
+            )
+            errors = p.validate() + buildList {
+                if (open.isNotBlank() && o == null) add("Niepoprawna godzina otwarcia")
+                if (close.isNotBlank() && c == null) add("Niepoprawna godzina zamknięcia")
+            }
+            if (errors.isEmpty()) { onSave(p); saved = true }
+        }) { Text("Zapisz chłodnię") }
+    }
 }
 
 @Composable

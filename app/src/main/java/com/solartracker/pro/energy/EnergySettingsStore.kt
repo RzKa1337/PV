@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.solartracker.pro.core.ems.EmsCodec
+import com.solartracker.pro.core.energy.CoolingLoadProfile
 import com.solartracker.pro.core.ems.FlexibleLoad
 import com.solartracker.pro.core.ems.GeneratorConfig
 import com.solartracker.pro.core.ems.validate
@@ -106,6 +107,13 @@ class EnergySettingsStore(private val dataStore: DataStore<Preferences>) {
     val flexibleLoads: Flow<List<FlexibleLoad>> = prefs.map { EmsCodec.decodeLoads(it[K.EMS_LOADS]) }
     val generator: Flow<GeneratorConfig?> = prefs.map { EmsCodec.decodeGenerator(it[K.EMS_GENERATOR]) }
 
+    /** Optional large cooling load (cold room); added to the load forecast while there is no measured history. */
+    val cooling: Flow<CoolingLoadProfile?> = prefs.map { EmsCodec.decodeCooling(it[K.COOLING]) }
+
+    suspend fun setCooling(c: CoolingLoadProfile?) {
+        dataStore.edit { it[K.COOLING] = EmsCodec.encodeCooling(c?.takeIf { p -> p.validate().isEmpty() }) }
+    }
+
     suspend fun setFlexibleLoads(loads: List<FlexibleLoad>) {
         dataStore.edit { it[K.EMS_LOADS] = EmsCodec.encodeLoads(loads.filter { l -> l.validate().isEmpty() }.take(20)) }
     }
@@ -162,5 +170,6 @@ class EnergySettingsStore(private val dataStore: DataStore<Preferences>) {
         val EXPORT = booleanPreferencesKey("site_export")
         val EMS_LOADS = stringPreferencesKey("ems_loads")
         val EMS_GENERATOR = stringPreferencesKey("ems_generator")
+        val COOLING = stringPreferencesKey("cooling_profile")
     }
 }

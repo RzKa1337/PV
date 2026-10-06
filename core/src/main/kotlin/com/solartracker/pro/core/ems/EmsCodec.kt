@@ -1,5 +1,8 @@
 package com.solartracker.pro.core.ems
 
+import com.solartracker.pro.core.energy.CoolingLoadProfile
+import com.solartracker.pro.core.energy.CoolingMode
+import com.solartracker.pro.core.energy.CoolingScheduleEntry
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
@@ -75,6 +78,39 @@ object EmsCodec {
             GeneratorConfig(
                 o["kw"]!!.jsonPrimitive.doubleOrNull!!, o["start"]!!.jsonPrimitive.doubleOrNull!!, o["stop"]!!.jsonPrimitive.doubleOrNull!!,
                 o["minH"]?.jsonPrimitive?.doubleOrNull ?: 1.0, o["lpk"]?.takeIf { it !is JsonNull }?.jsonPrimitive?.doubleOrNull,
+            ).takeIf { it.validate().isEmpty() }
+        }.getOrNull()
+    }
+
+    fun encodeCooling(c: CoolingLoadProfile?): String = c?.let {
+        JsonObject(mapOf(
+            "name" to JsonPrimitive(it.name), "nominal" to JsonPrimitive(it.nominalPowerW), "min" to JsonPrimitive(it.minimumPowerW),
+            "mode" to JsonPrimitive(it.mode.name), "avg" to (it.averagePowerW?.let { v -> JsonPrimitive(v) } ?: JsonNull),
+            "duty" to (it.dutyAtReference?.let { v -> JsonPrimitive(v) } ?: JsonNull),
+            "schedule" to JsonArray(it.schedule.map { e -> JsonObject(mapOf("from" to JsonPrimitive(e.start.toString()), "to" to JsonPrimitive(e.end.toString()), "w" to JsonPrimitive(e.powerW))) }),
+            "target" to JsonPrimitive(it.targetTemperatureC), "ref" to JsonPrimitive(it.referenceAmbientC),
+            "open" to JsonPrimitive(it.operatingStart.toString()), "close" to JsonPrimitive(it.operatingEnd.toString()), "idle" to JsonPrimitive(it.idleDutyFactor),
+            "pre" to JsonPrimitive(it.preCoolingEnabled), "preTarget" to (it.preCoolingTargetC?.let { v -> JsonPrimitive(v) } ?: JsonNull), "preH" to JsonPrimitive(it.preCoolingHours),
+        )).toString()
+    } ?: ""
+
+    fun decodeCooling(text: String?): CoolingLoadProfile? {
+        if (text.isNullOrBlank()) return null
+        return runCatching {
+            val o = json.parseToJsonElement(text).jsonObject
+            fun d(k: String) = o[k]?.takeIf { it !is JsonNull }?.jsonPrimitive?.doubleOrNull
+            fun s(k: String) = o[k]?.takeIf { it !is JsonNull }?.jsonPrimitive?.content
+            CoolingLoadProfile(
+                name = s("name") ?: "Chłodnia", nominalPowerW = d("nominal")!!, minimumPowerW = d("min")!!,
+                mode = CoolingMode.valueOf(s("mode")!!), averagePowerW = d("avg"), dutyAtReference = d("duty"),
+                schedule = o["schedule"]?.jsonArray?.map { e ->
+                    val x = e.jsonObject
+                    CoolingScheduleEntry(LocalTime.parse(x["from"]!!.jsonPrimitive.content), LocalTime.parse(x["to"]!!.jsonPrimitive.content), x["w"]!!.jsonPrimitive.doubleOrNull!!)
+                }.orEmpty(),
+                targetTemperatureC = d("target")!!, referenceAmbientC = d("ref") ?: 25.0,
+                operatingStart = s("open")?.let(LocalTime::parse) ?: LocalTime.MIDNIGHT, operatingEnd = s("close")?.let(LocalTime::parse) ?: LocalTime.MIDNIGHT,
+                idleDutyFactor = d("idle") ?: 1.0, preCoolingEnabled = o["pre"]?.jsonPrimitive?.booleanOrNull ?: false,
+                preCoolingTargetC = d("preTarget"), preCoolingHours = d("preH") ?: 2.0,
             ).takeIf { it.validate().isEmpty() }
         }.getOrNull()
     }

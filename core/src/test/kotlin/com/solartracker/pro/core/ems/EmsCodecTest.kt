@@ -37,3 +37,19 @@ class EmsCodecTest {
         assertNull(EmsCodec.decodeGenerator(EmsCodec.encodeGenerator(GeneratorConfig(500.0))))
     }
 }
+
+class CoolingCodecTest {
+    @Test
+    fun coolingRoundTrip() {
+        val c = com.solartracker.pro.core.energy.CoolingLoadProfile(
+            nominalPowerW = 3000.0, minimumPowerW = 150.0, mode = com.solartracker.pro.core.energy.CoolingMode.DUTY_CYCLE, dutyAtReference = 0.45,
+            targetTemperatureC = 2.0, operatingStart = LocalTime.of(8, 0), operatingEnd = LocalTime.of(20, 0), idleDutyFactor = 0.7,
+            preCoolingEnabled = true, preCoolingTargetC = -1.0,
+            schedule = listOf(com.solartracker.pro.core.energy.CoolingScheduleEntry(LocalTime.of(1, 0), LocalTime.of(2, 0), 500.0)),
+        )
+        assertEquals(c, EmsCodec.decodeCooling(EmsCodec.encodeCooling(c)))
+        assertEquals("", EmsCodec.encodeCooling(null))
+        assertNull(EmsCodec.decodeCooling("{}"))
+        assertNull(EmsCodec.decodeCooling(EmsCodec.encodeCooling(c.copy(dutyAtReference = 3.0))))
+    }
+}
