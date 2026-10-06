@@ -5,6 +5,8 @@ Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie 
 
 ## [Unreleased]
 
+## [v0.10.0] - 2026-10-06
+
 ### Added
 - **Anenji read-only telemetry validation**: physical ranges, P≈U×I consistency, SOC/voltage jump detection, zero PV in sunshine, stale and frozen data; rejected values shown as BŁĘDNE (INVALID) and kept out of history, calibration and forecasts; link error classes (timeout, CRC/frame, device rejected, connection), reconnects and read statistics; SMG register catalogue (REAL_DEVICE_VALIDATION_REQUIRED) with raw register checks
 - **AutoCalibration 3.0**: learned per sky condition (clear/partly/overcast/rain/snow), sun elevation, hour and month with shrinkage and confidence; excludes faults, link loss, invalid data, clipping, PV off, low sun, heavy shading; MAE/RMSE/bias before vs after on held-out days; used by the PV forecast

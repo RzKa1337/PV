@@ -1,6 +1,6 @@
 # AUTOPILOT STATUS — Solar Tracker PRO
 
-Ostatnia aktualizacja: 2026-10-05 · gałąź `ccr-81f74041-r3omte` · ostatnie wydanie: v0.9.0
+Ostatnia aktualizacja: 2026-10-05 · gałąź `ccr-81f74041-r3omte` · ostatnie wydanie: v0.10.0
 
 ## Audyt repozytorium (faza 0)
 
