@@ -94,3 +94,10 @@ PI30 (wariant): `QPIGS` (napięcia, prądy, moc wyjściowa, SOC, PV), `QMOD` (tr
 `InverterCommandService` (tylko odczyt), `ByteTransport` (TCP, USB). Kolejne marki (Victron, Deye, Growatt, Huawei,
 Fronius, SMA, Solis, EPEVER) dodaje się nową implementacją `InverterProvider` – UI i analityka się nie zmieniają.
 Testy: `FakeAnenjiProvider`, `ScriptedTransport`, prawdziwy socket TCP w testach JVM.
+
+
+## Validation and diagnostics (read-only)
+Every reading is validated before use (see CALCULATIONS.md → Telemetry validation). Rejected values are shown as **BŁĘDNE** with the reason and never enter history, calibration or forecasts.
+The connection card shows read statistics, reconnects and error classes (timeout, CRC/frame, device rejected, connection).
+Registers that return 0xFFFF / 0x8000 are listed as possibly unsupported. Every register in `SmgRegisters.LIVE` is marked **REAL_DEVICE_VALIDATION_REQUIRED** until compared with the inverter display.
+The app never writes to the inverter (no settings, charging voltage, battery mode, grid settings or start/stop).

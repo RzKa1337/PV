@@ -9,6 +9,11 @@
 - `shading/*`: geometry, horizon, obstacle shadows, forecasts — with fake map/terrain/building providers.
 - `health/*`, `energy/BatteryChemistryTest`, `economics/EconomicsTest`, `ems/EnergyOptimizationEngineTest` (incl. energy conservation per slot), `design/PvDesignerTest`, `vehicle/VehicleSolarTest`, `export/HistoryExportTest`, `access/FeatureAccessTest`.
 
+## Fixtures (no physical inverter needed)
+- `fixtures/AnenjiFixtures`: SMG register snapshots – clear summer, cloudy summer, winter, zero PV, battery low, battery full, high load, garbage. Synthetic, built with the community register map.
+- `fixtures/EnergyFixtures`: day profiles (PV and load) – clear/cloudy/partly cloudy summer, winter, zero PV, high load, cooling load.
+- Used by `TelemetryValidationTest`, `EnergySecurityTest`, `PredictiveAlertsTest`, `DigitalTwinTest`.
+
 ## App unit tests
 `./gradlew :app:testDebugUnitTest` — settings store, update recovery.
 

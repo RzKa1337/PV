@@ -79,3 +79,24 @@ Legenda: ✅ REAL (działa na prawdziwych danych / obliczeniach) · 🟡 częśc
 | Eksport CSV/JSON/PDF | `core/export`, `app/energy/PdfReport` | ✅ zapis przez systemowy wybór pliku |
 | SubscriptionManager / FeatureAccessManager | `core/access` | ✅ warstwa gotowa; brak płatności (wszystko odblokowane, komunikat w UI) |
 | WeatherProvider (wiatr, wilgotność, opady, śnieg, mgła) | — | 🟡 łańcuch strat obsługuje wiatr i śnieg; pobieranie tych pól — ROADMAP |
+
+
+## Audyt PRO (2026-10-06, przed rozbudową „Energy Management + Predictive Monitoring PRO”)
+
+Stan wyjściowy: v0.9.0, `:core` 239 testów. Mapa przed pracą → po pracy:
+
+| Obszar | Przed | Po |
+|---|---|---|
+| Anenji read-only (Modbus SMG / PI30) | DONE (parser, CRC, transporty) · brak walidacji wartości | DONE: walidacja zakresów, U×I, skoki, zero PV, dane zamrożone, klasy błędów łącza, statystyki, katalog rejestrów · **NEEDS REAL DEVICE VALIDATION** |
+| AutoCalibration | PARTIAL (globalny współczynnik + korekty 2.0, nieużywane w aplikacji) | DONE 3.0: warunki nieba, wysokość Słońca, godzina, miesiąc, wykluczenia, walidacja na ostatnich dniach, użyte w prognozie |
+| Forecast vs actual | PARTIAL (godzina / dzień naprzód, MAE/RMSE/MAPE/bias) | DONE: 5 min, 15 min, 1 h, dzień/tydzień/miesiąc, R², błąd na żywo, trafność dnia |
+| Energy security | PARTIAL (BatteryPredictor: kamienie milowe 1 h/3 h/21/00/07) | DONE: 21/00/03/06/08 z zakresem, czas do minimum, % bezpieczeństwa, ryzyko, sprawność falownika |
+| Prognoza 24–72 h | PARTIAL (dziś/jutro PV, bilans 7 dni bez baterii) | DONE: dziś/jutro/+2/+3 z baterią, SOC min/max, ryzykiem, pewnością |
+| Chłodnia | MISSING | DONE: model cyklu sprężarki, średnia / cykl / harmonogram, wychładzanie |
+| Mobile PV | PARTIAL (jedna grupa paneli, kurs co 15°) | DONE: wymiary pojazdu, panele z pozycją, walidacja dachu, profil 0–359°, kąt × kurs |
+| Optymalizator kąta | PARTIAL (optymalny kąt roczny w porównaniu lokalizacji) | DONE: dziennie/miesięcznie/rocznie, model ruchomego stelaża (bez sterowania) |
+| PV performance | PARTIAL (zdrowie dzienne) | DONE: oczekiwana vs rzeczywista z podziałem strat |
+| Predictive alerts | PARTIAL (trendy dzienne) | DONE: 10 typów alertów z dowodami i zaleceniem |
+| Raport dzienny | MISSING | DONE: karta + powiadomienie wieczorne |
+| Digital twin | MISSING | DONE: Słońce → PV → falownik → bateria → odbiorniki z istniejących modeli |
+| BROKEN | — | nie znaleziono; flaky test emulatora (okno ANR systemu) naprawiony w testach |

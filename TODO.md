@@ -125,6 +125,16 @@ Zaimplementowane, kompiluje się i przechodzi lint w CI — **czeka na ręczny t
 - [x] Dodatkowe pola pogody (wiatr, wilgotność, opady, śnieg, widoczność) – v0.9.0
 - [x] Panel dokładności prognoz (zapis prognoz) – v0.9.0
 
+## PRO: Energy Management + Predictive Monitoring
+- [x] Walidacja telemetrii Anenji (tylko odczyt), diagnostyka łącza, katalog rejestrów
+- [x] AutoCalibration 3.0
+- [x] Prognoza vs pomiar (5 min … miesiąc), R²
+- [x] Bezpieczeństwo energetyczne, prognoza 72 h
+- [x] Chłodnia, mobile PV, optymalizator kąta
+- [x] Wydajność PV, alerty predykcyjne, raport dzienny, cyfrowy bliźniak, pulpit
+- [ ] **REAL DEVICE VALIDATION REQUIRED** – rejestry SMG, znaki mocy, temperatury, kody błędów
+- [ ] Edytor harmonogramu chłodni w UI
+
 ## Później (pomysły)
 - [x] Śnieg na panelach z `snow_depth` w prognozie – v0.9.0
 - [ ] Wpływ temperatury na pojemność i moc ładowania baterii

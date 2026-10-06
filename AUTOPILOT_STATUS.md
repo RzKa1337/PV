@@ -111,3 +111,7 @@ Wymaga walidacji w terenie: falownik Anenji (REAL DEVICE VALIDATION REQUIRED), d
 ## v0.9.0
 Odbiorniki elastyczne i agregat dla EMS, dodatkowe dane pogodowe (wiatr, śnieg, opady, wilgotność, widoczność) w prognozie i na pulpicie,
 śledzenie dokładności prognoz (godzina/dzień naprzód). Testy `:core` 239/239; CI 37358388435 zielone (unit, lint, APK, emulator).
+
+## PRO: Energy Management + Predictive Monitoring (2026-10-06)
+Audyt → `PROJECT_AUDIT.md` (sekcja „Audyt PRO”). Zrealizowane P0.1–P0.5 i P1.1–P1.7 oraz pulpit; testy `:core` 274/274.
+Integracja z falownikiem pozostaje TYLKO DO ODCZYTU. Wymaga walidacji na urządzeniu: mapa rejestrów SMG, znaki mocy, kody błędów.

@@ -47,3 +47,20 @@ Annual yield: 12 simulated clear-sky days (15th of each month) × month length �
 
 ## History
 Energy per bucket is integrated from measured power (no bridging across link gaps). Self-consumption = (PV − export)/PV, autarky = 1 − import/load, completeness = recorded time / period time.
+
+
+## Telemetry validation (Anenji, read-only)
+Generic physical bounds for a 48 V hybrid inverter (not vendor data): PV ≤ 600 V, ≤ 40 A; battery voltage 0.7–1.4 × nominal; |P| ≤ 2 × rated; SOC 0–100%; temperatures −40…120 °C; frequency 40–70 Hz.
+Consistency: |U×I − P| ≤ 35% of P when P > 300 W. Jumps: SOC > 5%/min, battery voltage > 6 V (48 V system) within 2 min. Zero PV is reported when the model expects > 300 W. Rejected values become INVALID and are removed before any further use.
+
+## AutoCalibration 3.0
+Global factor g = median(real/model) after MAD outlier rejection. For each bucket b (sky condition, elevation band, hour, month): f_b = g + (median_b − g)·n_b/(n_b + 30). Applied factor = g·Π(f_b/g)^w (w = 1 for condition and elevation, 0.5 for hour and month), clamped 0.5–1.3, then 1 + (f − 1)·confidence with confidence = min(1, n/60)·min(1, days/14)·(1 − 2·spread).
+
+## Energy security
+Three runs of the battery predictor: expected, pessimistic (lower PV band, load × (1 + 0.10 + 0.25·(1 − load confidence))) and optimistic. Security % = usable stored energy above minimum SOC / maximum cumulative energy the battery must deliver before PV covers the load again (charging and discharging efficiencies, load ÷ inverter efficiency). Risk: HIGH if the expected run reaches minimum SOC, MEDIUM if only the pessimistic one does.
+
+## Cold room
+Average power = P_min + duty·(P_nom − P_min); duty = duty_ref·(T_amb − T_target)/(T_ref − T_target)·(idle factor outside opening hours), limited to 0–1. Pre-cooling uses the lower target before opening.
+
+## PV performance
+Expected = ideal DC power at the weather-based plane-of-array irradiance (25 °C, no losses). Each modelled loss is shown as a share of expected (ESTIMATED; soiling/mismatch/wiring from the loss profile); unknown = (model output − actual)/expected. Performance = actual/expected.

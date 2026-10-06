@@ -5,6 +5,21 @@ Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie 
 
 ## [Unreleased]
 
+### Added
+- **Anenji read-only telemetry validation**: physical ranges, P≈U×I consistency, SOC/voltage jump detection, zero PV in sunshine, stale and frozen data; rejected values shown as BŁĘDNE (INVALID) and kept out of history, calibration and forecasts; link error classes (timeout, CRC/frame, device rejected, connection), reconnects and read statistics; SMG register catalogue (REAL_DEVICE_VALIDATION_REQUIRED) with raw register checks
+- **AutoCalibration 3.0**: learned per sky condition (clear/partly/overcast/rain/snow), sun elevation, hour and month with shrinkage and confidence; excludes faults, link loss, invalid data, clipping, PV off, low sun, heavy shading; MAE/RMSE/bias before vs after on held-out days; used by the PV forecast
+- **Forecast vs actual**: 5 min / 15 min / 1 h / day-ahead and day/week/month aggregation, R², today's accuracy, live forecast/actual/error
+- **Energy security** ("czy wystarczy energii?"): SOC at 21:00, 00:00, 03:00, 06:00, 08:00 with range, time to minimum SOC, security %, risk and shortage warning
+- **72 h outlook**: today/tomorrow/+2/+3 with PV, load, battery, balance, SOC min/max, risk and confidence
+- **Cold room** (cooling load) model with compressor duty cycle; added to the load forecast until measured history exists
+- **Mobile PV**: vehicle dimensions, panel layout validation, energy for headings 0–359°, best parking heading, tilt × heading
+- **Tilt optimizer** (Narzędzia → Kąt paneli): best static, daily and monthly tilt; movable-rack model (no actuator control)
+- **PV performance**: expected vs actual with estimated loss shares
+- **Predictive alerts**: battery depletion, over-temperature, communication loss, forecast deterioration, unexpected load, clipping, charging and voltage anomalies, unusually low PV
+- **Daily report** (Analizy + evening notification) and **digital twin**
+- Dashboard: energy security, PV now/today, load, SOC, forecast accuracy, Anenji status
+- Synthetic fixtures for Anenji registers and day profiles
+
 ## [v0.9.0] - 2026-10-05
 
 ### Added
