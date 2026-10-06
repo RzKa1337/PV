@@ -156,10 +156,9 @@ private fun EnergyCenterMain(vm: EnergyCenterViewModel, onShading: () -> Unit, o
             OutlinedButton(onClick = onInsights, modifier = Modifier.fillMaxWidth().testTag("open_insights")) { Text("Analizy: zdrowie, EMS, historia, eksport") }
         }
 
-        EnergySecurityCard(forecast.security)
-
         LiveSection(vm)
         FlowSection(vm)
+        EnergySecurityCard(forecast.security)
 
         // PRODUCTION
         SectionCard {
