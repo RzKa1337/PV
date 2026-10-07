@@ -28,6 +28,9 @@ data class HourlyWeather(
     val cloudLowPercent: Double? = null,
     val cloudMidPercent: Double? = null,
     val cloudHighPercent: Double? = null,
+    /** UV index forecast (with clouds) and for a cloudless sky. */
+    val uvIndex: Double? = null,
+    val uvIndexClearSky: Double? = null,
 ) {
     val startTime: Instant get() = endTime.minus(Duration.ofHours(1))
     val hasIrradiance: Boolean get() = dni != null && dhi != null

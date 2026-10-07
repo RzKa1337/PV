@@ -28,7 +28,7 @@ object OpenMeteo {
     private const val HOURLY_VARIABLES =
         "temperature_2m,cloud_cover,shortwave_radiation,direct_normal_irradiance,diffuse_radiation," +
             "wind_speed_10m,relative_humidity_2m,precipitation,snow_depth,visibility," +
-            "cloud_cover_low,cloud_cover_mid,cloud_cover_high"
+            "cloud_cover_low,cloud_cover_mid,cloud_cover_high,uv_index,uv_index_clear_sky"
 
     fun forecastUrl(location: GeoLocation, forecastDays: Int = 16, pastDays: Int = 2): String =
         "https://api.open-meteo.com/v1/forecast?latitude=${coord(location.latitude)}" +
@@ -60,6 +60,8 @@ object OpenMeteo {
         val cloudLow = hourly.doubles("cloud_cover_low", time.size)
         val cloudMid = hourly.doubles("cloud_cover_mid", time.size)
         val cloudHigh = hourly.doubles("cloud_cover_high", time.size)
+        val uv = hourly.doubles("uv_index", time.size)
+        val uvClear = hourly.doubles("uv_index_clear_sky", time.size)
         val hours = time.mapIndexedNotNull { i, t ->
             t ?: return@mapIndexedNotNull null
             HourlyWeather(
@@ -77,6 +79,8 @@ object OpenMeteo {
                 cloudLowPercent = cloudLow[i]?.coerceIn(0.0, 100.0),
                 cloudMidPercent = cloudMid[i]?.coerceIn(0.0, 100.0),
                 cloudHighPercent = cloudHigh[i]?.coerceIn(0.0, 100.0),
+                uvIndex = uv[i]?.coerceAtLeast(0.0),
+                uvIndexClearSky = uvClear[i]?.coerceAtLeast(0.0),
             )
         }
         require(hours.isNotEmpty()) { "Empty forecast" }

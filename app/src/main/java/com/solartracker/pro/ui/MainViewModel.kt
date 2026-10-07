@@ -28,6 +28,8 @@ import com.solartracker.pro.core.weather.MonthlyClimate
 import com.solartracker.pro.core.weather.WeatherAwareIrradianceModel
 import com.solartracker.pro.core.weather.WeatherForecast
 import com.solartracker.pro.core.weather.CloudImpact
+import com.solartracker.pro.core.weather.UvIndex
+import com.solartracker.pro.core.weather.UvSummary
 import com.solartracker.pro.core.weather.CloudImpactCalculator
 import com.solartracker.pro.core.weather.HourlyWeather
 import com.solartracker.pro.core.weather.WeatherEffects
@@ -107,6 +109,8 @@ data class WeatherNow(
     val hour: HourlyWeather? = null,
     /** Forecast snow on the panels (≥ 2 cm, ≤ +1 °C, tilt < 60°). */
     val snowOnPanels: Boolean = false,
+    /** UV index now and today's maximum (forecast). */
+    val uv: UvSummary? = null,
     /** Forecast irradiance / clear-sky irradiance for this hour (what the PV estimate really uses). */
     val clearSkyIndex: Double? = null,
     /** Today's and tomorrow's production vs a cloudless sky. */
@@ -457,6 +461,7 @@ class MainViewModel(
                     hour = hour,
                     snowOnPanels = WeatherEffects.snowCovered(hour, s.system.tiltDeg),
                     clearSkyIndex = WeatherEffects.clearSkyIndex(hour, SolarCalculator.position(s.location, now), now),
+                    uv = UvIndex.summary(e.weather.forecast, now, zone),
                     cloudToday = CloudImpactCalculator.day(s.system, s.location, date, zone, e.model),
                     cloudTomorrow = CloudImpactCalculator.day(s.system, s.location, date.plusDays(1), zone, e.model),
                 )

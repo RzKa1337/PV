@@ -34,6 +34,7 @@ import com.solartracker.pro.ui.DashboardState
 import com.solartracker.pro.ui.WeatherNow
 import com.solartracker.pro.ui.describeSources
 import com.solartracker.pro.core.weather.OpenMeteo
+import com.solartracker.pro.core.weather.UvLevel
 import com.solartracker.pro.core.weather.WeatherEffects
 import com.solartracker.pro.core.weather.WeatherSource
 import androidx.compose.material.icons.outlined.Refresh
@@ -301,6 +302,19 @@ private fun WeatherCard(w: WeatherNow, onRefresh: () -> Unit) {
                         h.visibilityM?.takeIf { it < 5000 }?.let { "widoczność ${Format.decimal(it / 1000, 1)} km" },
                     )
                     if (details.isNotEmpty()) Text(details.joinToString(" · "), style = MaterialTheme.typography.bodySmall)
+                }
+                w.uv?.let { uv ->
+                    val now = uv.now?.let { "UV teraz ${Format.decimal(it, 1)} (${UvLevel.of(it).label})" }
+                    val max = uv.todayMax?.let { m ->
+                        "maks. dziś ${Format.decimal(m, 1)} (${UvLevel.of(m).label})" +
+                            (uv.todayMaxAt?.let { " ok. ${Format.time(it.minusSeconds(1800), java.time.ZoneId.systemDefault())}" } ?: "")
+                    }
+                    val line = listOfNotNull(now, max).joinToString(" · ")
+                    if (line.isNotEmpty()) {
+                        Text("☀ $line", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold,
+                            color = if ((uv.todayMax ?: 0.0) >= 6) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
+                        (uv.levelMax ?: uv.levelNow)?.takeIf { it != UvLevel.LOW }?.let { Text(it.advice, style = MaterialTheme.typography.bodySmall) }
+                    }
                 }
                 w.hour?.takeIf { w.source == WeatherSource.FORECAST }?.let { h ->
                     if (h.cloudLowPercent != null || h.cloudMidPercent != null || h.cloudHighPercent != null) {
