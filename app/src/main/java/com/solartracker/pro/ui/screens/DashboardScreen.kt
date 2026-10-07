@@ -362,10 +362,10 @@ private fun WeatherCard(w: WeatherNow, onRefresh: () -> Unit) {
             if (forecastHour.cloudLowPercent != null || forecastHour.cloudMidPercent != null || forecastHour.cloudHighPercent != null) {
                 Text(
                     stringResource(R.string.w_clouds) + ": " + listOf(
-                        R.string.w_cloud_low to forecastHour.cloudLowPercent,
-                        R.string.w_cloud_mid to forecastHour.cloudMidPercent,
-                        R.string.w_cloud_high to forecastHour.cloudHighPercent,
-                    ).joinToString(" · ") { (label, v) -> "${stringResource(label)} ${v?.let { Format.percent(it) } ?: "—"}" },
+                        stringResource(R.string.w_cloud_low) to forecastHour.cloudLowPercent,
+                        stringResource(R.string.w_cloud_mid) to forecastHour.cloudMidPercent,
+                        stringResource(R.string.w_cloud_high) to forecastHour.cloudHighPercent,
+                    ).joinToString(" · ") { (label, v) -> "$label ${v?.let { Format.percent(it) } ?: "—"}" },
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
