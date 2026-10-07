@@ -521,6 +521,7 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
         val socKind = when {
             soc == null -> DataKind.UNKNOWN
             socQ?.kind == DataKind.ESTIMATED -> DataKind.ESTIMATED
+            fresh && live.info?.simulated == true -> DataKind.SIMULATED
             fresh -> DataKind.MEASURED
             else -> DataKind.LAST_KNOWN
         }

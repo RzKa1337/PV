@@ -20,6 +20,7 @@ fun dataKindLabel(kind: DataKind): String = when (kind) {
     DataKind.CALCULATED -> tr(kind.label, "CALCULATED")
     DataKind.ESTIMATED -> tr(kind.label, "ESTIMATE")
     DataKind.FORECAST -> tr(kind.label, "FORECAST")
+    DataKind.SIMULATED -> tr(kind.label, "SIMULATED")
     DataKind.STALE -> tr(kind.label, "STALE")
     DataKind.LAST_KNOWN -> tr(kind.label, "LAST KNOWN")
     DataKind.INVALID -> tr(kind.label, "INVALID")
@@ -90,6 +91,7 @@ val SubscriptionSource.uiLabel: String
 
 val LossCause.uiLabel: String
     get() = when (this) {
+        LossCause.AOI -> tr(label, "Angle of incidence (AOI)")
         LossCause.TEMPERATURE -> tr(label, "Temperature")
         LossCause.SHADING -> tr(label, "Shading")
         LossCause.SOILING -> tr(label, "Soiling")
@@ -97,6 +99,7 @@ val LossCause.uiLabel: String
         LossCause.SNOW -> tr(label, "Snow")
         LossCause.DEGRADATION -> tr(label, "Degradation")
         LossCause.WIRING -> tr(label, "Wiring")
+        LossCause.MPPT -> label
         LossCause.INVERTER -> tr(label, "Inverter (efficiency)")
         LossCause.CLIPPING -> tr(label, "Power limiting (clipping)")
         LossCause.UNKNOWN -> tr(label, "Unknown")

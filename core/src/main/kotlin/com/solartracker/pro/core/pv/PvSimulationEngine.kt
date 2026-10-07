@@ -33,6 +33,8 @@ data class PvArrayConfig(
     val bifacialGain: Double = 0.0,
     val tracker: TrackerType = TrackerType.FIXED,
     val trackerMaxRotationDeg: Double = 60.0,
+    /** ASHRAE incidence-angle coefficient b₀ of the front glass (0.05 typical; 0 = no reflection loss). */
+    val iamB0: Double = DEFAULT_IAM_B0,
 ) {
     val peakPowerW: Double get() = panelCount * panelPowerW
 
@@ -43,6 +45,11 @@ data class PvArrayConfig(
         if (temperatureCoefficient !in -0.01..0.0) add("Współczynnik temperaturowy −1…0 %/°C")
         if (albedo !in 0.0..1.0) add("Albedo 0–1")
         if (bifacialGain !in 0.0..0.3) add("Zysk bifacial 0–30%")
+        if (iamB0 !in 0.0..0.2) add("Współczynnik IAM b₀ 0–0,2")
+    }
+
+    companion object {
+        const val DEFAULT_IAM_B0 = 0.05
     }
 }
 
@@ -62,12 +69,20 @@ data class LossProfile(
     val inverterLimitW: Double? = null,
     /** Inverter rated power used for self consumption; defaults to the limit or the array peak. */
     val inverterRatedW: Double? = null,
+    /** MPPT tracking efficiency (share of the available DC power the tracker actually extracts). */
+    val mpptEfficiency: Double = DEFAULT_MPPT_EFFICIENCY,
 ) {
     fun validate(): List<String> = buildList {
         listOf(soiling, mismatch, dcWiring, acWiring).forEach { if (it !in 0.0..0.5) add("Straty 0–50%") }
+        if (mpptEfficiency !in 0.8..1.0) add("Sprawność MPPT 80–100%")
         if (degradationPerYear !in 0.0..0.05) add("Degradacja 0–5%/rok")
         if (ageYears !in 0.0..60.0) add("Wiek 0–60 lat")
         if (inverterPeakEfficiency !in 0.5..1.0) add("Sprawność falownika 50–100%")
+    }
+
+    companion object {
+        /** Typical datasheet MPPT efficiency (≥ 99.5 %); user-editable. */
+        const val DEFAULT_MPPT_EFFICIENCY = 0.995
     }
 }
 
@@ -98,6 +113,10 @@ data class PvLossBreakdown(
     val clippingLossW: Double,
     val acWiringLossW: Double,
     val acOutputW: Double,
+    /** Reflection loss of the beam component at oblique incidence (IAM) [W]. */
+    val aoiLossW: Double = 0.0,
+    /** Power the MPP tracker does not extract [W]. */
+    val mpptLossW: Double = 0.0,
 ) {
     val totalLossW: Double get() = idealDcW + bifacialGainW - acOutputW
     val performanceRatio: Double? get() = if (idealDcW > 1.0) acOutputW / idealDcW else null
@@ -105,9 +124,9 @@ data class PvLossBreakdown(
     /** Named, non-zero losses in the order they occur. */
     val steps: List<Pair<String, Double>>
         get() = listOf(
-            "Temperatura" to temperatureLossW, "Śnieg" to snowLossW, "Zabrudzenie" to soilingLossW, "Zacienienie" to shadingLossW,
+            "Kąt padania (AOI)" to aoiLossW, "Temperatura" to temperatureLossW, "Śnieg" to snowLossW, "Zabrudzenie" to soilingLossW, "Zacienienie" to shadingLossW,
             "Mismatch" to mismatchLossW, "Degradacja" to degradationLossW, "Okablowanie DC" to dcWiringLossW,
-            "Falownik" to inverterLossW, "Clipping" to clippingLossW, "Okablowanie AC" to acWiringLossW,
+            "MPPT" to mpptLossW, "Falownik" to inverterLossW, "Clipping" to clippingLossW, "Okablowanie AC" to acWiringLossW,
         )
 }
 
@@ -127,9 +146,9 @@ data class PvSimulationPoint(
  * Deterministic, UI-independent PV model with an explicit loss chain. Works offline: irradiance comes
  * from any [IrradianceModel] (clear sky, climate, forecast) or directly as [PvConditions].
  *
- * Order: POA (+ bifacial rear) → temperature (Faiman with wind, NOCT otherwise) → snow → soiling →
- * shading → mismatch → degradation → DC wiring → inverter (peak efficiency + self consumption) →
- * clipping at the inverter limit → AC wiring.
+ * Order: POA (+ bifacial rear) → AOI reflection (ASHRAE IAM, beam only) → temperature (Faiman with
+ * wind, NOCT otherwise) → snow → soiling → shading → mismatch → degradation → DC wiring → MPPT →
+ * inverter (peak efficiency + self consumption) → clipping at the inverter limit → AC wiring.
  */
 class PvSimulationEngine {
 
@@ -147,15 +166,18 @@ class PvSimulationEngine {
         if (!sun.isAboveHorizon) {
             return PvSimulationPoint(instant, sun, tilt, azimuth, c.ambientC, false, zero())
         }
-        val poa = planeOfArrayIrradiance(c.irradiance, sun, tilt, azimuth, array.albedo)
+        val components = poaComponents(c.irradiance, sun, tilt, azimuth, array.albedo)
+        val poa = components.total
         val ghi = c.irradiance.ghi(sun)
         val ideal = array.peakPowerW * poa / PvEstimator.STC_IRRADIANCE
+        val iam = ashraeIam(cosIncidence(sun, tilt, azimuth), array.iamB0)
+        val aoiLoss = array.peakPowerW * components.beam * (1 - iam) / PvEstimator.STC_IRRADIANCE
         // Rear side sees mostly ground-reflected and diffuse light.
         val bifacial = array.peakPowerW * array.bifacialGain * (ghi * array.albedo + c.irradiance.dhi * 0.5) / PvEstimator.STC_IRRADIANCE
 
         val cell = c.ambientC?.let { cellTemperature(poa, it, c.windMs) }
         val tempFactor = cell?.let { (1.0 + array.temperatureCoefficient * (it - 25.0)).coerceIn(0.5, 1.2) } ?: TYPICAL_TEMPERATURE_FACTOR
-        var p = ideal + bifacial
+        var p = ideal + bifacial - aoiLoss
         val tempLoss = p * (1 - tempFactor); p -= tempLoss
         val covered = isSnowCovered(c, tilt)
         val snowLoss = if (covered) p else 0.0; p -= snowLoss
@@ -165,6 +187,7 @@ class PvSimulationEngine {
         val degradation = (losses.degradationPerYear * losses.ageYears).coerceIn(0.0, 0.5)
         val degradationLoss = p * degradation; p -= degradationLoss
         val dcWiringLoss = p * losses.dcWiring; p -= dcWiringLoss
+        val mpptLoss = p * (1 - losses.mpptEfficiency.coerceIn(0.0, 1.0)); p -= mpptLoss
         val dcInput = p
 
         val rated = losses.inverterRatedW ?: losses.inverterLimitW ?: array.peakPowerW
@@ -178,7 +201,7 @@ class PvSimulationEngine {
         return PvSimulationPoint(
             instant, sun, tilt, azimuth, cell, covered,
             PvLossBreakdown(poa, ideal, bifacial, tempLoss, snowLoss, soilingLoss, shadingLoss, mismatchLoss, degradationLoss,
-                dcWiringLoss, dcInput, inverterLoss, clippingLoss, acWiringLoss, ac),
+                dcWiringLoss, dcInput, inverterLoss, clippingLoss, acWiringLoss, ac, aoiLoss, mpptLoss),
         )
     }
 
@@ -234,11 +257,18 @@ class PvSimulationEngine {
          * Snow cover (ESTIMATED): panels are covered when ≥ 2 cm of snow lies and the air is at or below
          * +1 °C; steep panels (≥ 60°) shed snow. Unknown snow depth = not covered.
          */
-        fun isSnowCovered(c: PvConditions, tiltDeg: Double): Boolean {
-            val depth = c.snowDepthM ?: return false
-            val air = c.ambientC ?: return false
-            return depth >= 0.02 && air <= 1.0 && tiltDeg < 60.0
+        fun isSnowCovered(c: PvConditions, tiltDeg: Double): Boolean = snowCovered(c.snowDepthM, c.ambientC, tiltDeg)
+
+        /** Single snow rule shared with the weather layer (unknown depth or temperature = not covered). */
+        fun snowCovered(snowDepthM: Double?, ambientC: Double?, tiltDeg: Double): Boolean {
+            val depth = snowDepthM ?: return false
+            val air = ambientC ?: return false
+            return depth >= SNOW_MIN_DEPTH_M && air <= SNOW_MAX_AIR_C && tiltDeg < SNOW_SHED_TILT_DEG
         }
+
+        const val SNOW_MIN_DEPTH_M = 0.02
+        const val SNOW_MAX_AIR_C = 1.0
+        const val SNOW_SHED_TILT_DEG = 60.0
 
         private fun zero() = PvLossBreakdown(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
 
@@ -248,6 +278,7 @@ class PvSimulationEngine {
             a.shadingLossW + b.shadingLossW * h, a.mismatchLossW + b.mismatchLossW * h, a.degradationLossW + b.degradationLossW * h,
             a.dcWiringLossW + b.dcWiringLossW * h, a.dcInputW + b.dcInputW * h, a.inverterLossW + b.inverterLossW * h,
             a.clippingLossW + b.clippingLossW * h, a.acWiringLossW + b.acWiringLossW * h, a.acOutputW + b.acOutputW * h,
+            a.aoiLossW + b.aoiLossW * h, a.mpptLossW + b.mpptLossW * h,
         )
     }
 }

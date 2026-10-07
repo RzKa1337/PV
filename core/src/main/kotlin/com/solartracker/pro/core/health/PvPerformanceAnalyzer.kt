@@ -10,6 +10,7 @@ import java.time.Instant
 
 /** Possible reason for a gap between expected and actual PV power. */
 enum class LossCause(val label: String) {
+    AOI("Kąt padania (AOI)"),
     TEMPERATURE("Temperatura"),
     SHADING("Zacienienie"),
     SOILING("Zabrudzenie"),
@@ -17,6 +18,7 @@ enum class LossCause(val label: String) {
     SNOW("Śnieg"),
     DEGRADATION("Degradacja"),
     WIRING("Okablowanie"),
+    MPPT("MPPT"),
     INVERTER("Falownik (sprawność)"),
     CLIPPING("Ograniczenie mocy (clipping)"),
     UNKNOWN("Nieznane"),
@@ -84,6 +86,7 @@ object PvPerformanceAnalyzer {
         val assumed = "założenie z profilu strat"
         val model = "model"
         val shares = buildList {
+            add(LossShare(LossCause.AOI, pct(b.aoiLossW), DataKind.ESTIMATED, "$model (odbicie od szyby, IAM)"))
             add(LossShare(LossCause.TEMPERATURE, pct(b.temperatureLossW), DataKind.ESTIMATED, "$model (temperatura ogniw)"))
             add(LossShare(LossCause.SHADING, pct(b.shadingLossW), DataKind.ESTIMATED, "$model zacienienia"))
             add(LossShare(LossCause.SOILING, pct(b.soilingLossW), DataKind.ESTIMATED, assumed))
@@ -91,9 +94,10 @@ object PvPerformanceAnalyzer {
             add(LossShare(LossCause.SNOW, pct(b.snowLossW), DataKind.ESTIMATED, model))
             add(LossShare(LossCause.DEGRADATION, pct(b.degradationLossW), DataKind.ESTIMATED, assumed))
             add(LossShare(LossCause.WIRING, pct(b.dcWiringLossW + b.acWiringLossW), DataKind.ESTIMATED, assumed))
+            add(LossShare(LossCause.MPPT, pct(b.mpptLossW), DataKind.ESTIMATED, assumed))
             add(LossShare(LossCause.INVERTER, pct(b.inverterLossW), DataKind.ESTIMATED, model))
             add(LossShare(LossCause.CLIPPING, pct(b.clippingLossW), DataKind.ESTIMATED, "limit falownika"))
-        }.filter { it.percent > 0.05 }
+        }.filter { it.percent > 1e-6 } // keep small shares: the breakdown must add up to the gap
         // Remainder between the model output and the measurement (may be negative: better than the model).
         val unknown = pct(b.acOutputW - actualW)
         val all = shares + LossShare(LossCause.UNKNOWN, unknown, DataKind.CALCULATED, "pomiar − model po stratach")

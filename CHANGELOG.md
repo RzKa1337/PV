@@ -4,6 +4,13 @@ Wszystkie istotne zmiany w projekcie Solar Tracker PRO.
 Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie [SemVer](https://semver.org/).
 
 ## [Unreleased]
+### Added
+- PV Reality & Diagnostics (`core/diagnostics`): `PvRealityEngine` (teoretyczna → straty → oczekiwana → rzeczywista + niewyjaśniona, pewność), `PvDiagnosticEngine` (PV Doctor: 14 typów diagnoz z ważnością, pewnością, dowodami, wpływem i zaleceniem), `SoilingDetector` (dni pogodne + poprawa po deszczu), `DegradationAnalyzer` (metoda rok-do-roku), `MpptAnalyzer` (porównanie z modelem i z pozostałymi MPPT), `ConversionEfficiency`.
+- Łańcuch strat: krok AOI (ASHRAE IAM, b₀ = 0,05) i MPPT (`LossProfile.mpptEfficiency`).
+- `DataKind.SIMULATED` – dane symulatora nie są już oznaczane jako pomiar.
+### Fixed
+- `PvPerformanceAnalyzer`: małe straty (< 0,05%) były pomijane, przez co suma rozkładu nie równała się różnicy (test regresyjny).
+- Reguła śniegu zduplikowana w `WeatherEffects` i `PvSimulationEngine` – jedna wspólna funkcja.
 
 ## [v0.12.0] - 2026-10-07
 ### Security

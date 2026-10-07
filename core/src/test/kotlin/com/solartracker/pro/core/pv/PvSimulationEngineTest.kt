@@ -13,7 +13,7 @@ class PvSimulationEngineTest {
     private val warsaw = GeoLocation(52.23, 21.01, 100.0)
     private val zone = ZoneId.of("Europe/Warsaw")
     private val noon = LocalDate.of(2026, 6, 21).atTime(13, 0).atZone(zone).toInstant()
-    private val noLoss = LossProfile(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, null)
+    private val noLoss = LossProfile(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, null, mpptEfficiency = 1.0)
     private fun array(n: Int = 10, w: Double = 400.0, tilt: Double = 35.0) = PvArrayConfig(n, w, tilt, 180.0)
 
     /** Irradiance chosen so that POA ≈ 1000 W/m² is not needed: compare relative values instead. */
@@ -40,7 +40,9 @@ class PvSimulationEngineTest {
         assertTrue("clipped at the limit", b.clippingLossW > 0)
         assertEquals(2500.0 * (1 - 0.01), b.acOutputW, 1e-6)
         assertTrue(b.temperatureLossW > 0) // cell hotter than 25 °C
-        assertEquals(b.dcInputW, b.idealDcW - b.temperatureLossW - b.soilingLossW - b.mismatchLossW - b.degradationLossW - b.dcWiringLossW, 1e-6)
+        assertEquals(b.dcInputW, b.idealDcW - b.aoiLossW - b.temperatureLossW - b.soilingLossW - b.mismatchLossW - b.degradationLossW - b.dcWiringLossW - b.mpptLossW, 1e-6)
+        assertTrue("oblique beam reflects", b.aoiLossW > 0)
+        assertTrue(b.mpptLossW > 0)
         assertTrue(b.performanceRatio!! < 1.0)
     }
 
@@ -50,7 +52,7 @@ class PvSimulationEngineTest {
         val windy = engine.simulate(array(), noLoss, warsaw, noon, { PvConditions(Irradiance(850.0, 120.0), 30.0, 8.0) })
         assertTrue(windy.cellTemperatureC!! < calm.cellTemperatureC!!)
         assertTrue(windy.acPowerW > calm.acPowerW)
-        val loss = calm.losses.temperatureLossW / calm.losses.idealDcW
+        val loss = calm.losses.temperatureLossW / (calm.losses.idealDcW - calm.losses.aoiLossW)
         assertEquals(0.0035 * (calm.cellTemperatureC!! - 25.0), loss, 1e-9)
     }
 

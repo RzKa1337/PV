@@ -27,11 +27,8 @@ object WeatherEffects {
     }
 
     /** Panels considered covered: ≥ 2 cm of snow, air ≤ +1 °C, tilt below 60° (snow slides off steeper panels). */
-    fun snowCovered(hour: HourlyWeather?, tiltDeg: Double): Boolean {
-        val depth = hour?.snowDepthM ?: return false
-        val t = hour.temperatureC ?: return false
-        return depth >= 0.02 && t <= 1.0 && tiltDeg < 60.0
-    }
+    fun snowCovered(hour: HourlyWeather?, tiltDeg: Double): Boolean =
+        com.solartracker.pro.core.pv.PvSimulationEngine.snowCovered(hour?.snowDepthM, hour?.temperatureC, tiltDeg)
 
     private val clearSky = ClearSkyModel()
 

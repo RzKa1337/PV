@@ -40,7 +40,7 @@ fun EnergyOverview(vm: EnergyCenterViewModel, weather: WeatherState, modifier: M
     val forecast by vm.forecast.collectAsStateWithLifecycle()
     val insights by vm.insights.collectAsStateWithLifecycle()
     val config by vm.inverterConfig.collectAsStateWithLifecycle()
-    val kind = freshnessKind(live.freshness)
+    val kind = freshnessKind(live.freshness, live.info?.simulated == true)
     val t = live.telemetry
     Column(modifier.testTag("energy_overview"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         val settings by vm.settings.collectAsStateWithLifecycle()

@@ -174,7 +174,7 @@ private fun EnergyCenterMain(vm: EnergyCenterViewModel, onShading: () -> Unit, o
             MetricRow(stringResource(R.string.ec_expected_today), Fmt.kwh(forecast.today?.expectedKwh), DataKind.FORECAST)
             MetricRow(stringResource(R.string.ec_shading_loss_today), Fmt.kwh(shading.today?.lossKwh), DataKind.CALCULATED, shading.reason)
             MetricRow(stringResource(R.string.ec_model_now), Fmt.kwFromKw(model.modelKw), DataKind.ESTIMATED)
-            MetricRow(stringResource(R.string.ec_real_now), Fmt.kw(live.telemetry?.pv?.powerW?.takeIf { live.freshness == Freshness.LIVE }), DataKind.MEASURED, stringResource(R.string.ec_no_current_reading))
+            MetricRow(stringResource(R.string.ec_real_now), Fmt.kw(live.telemetry?.pv?.powerW?.takeIf { live.freshness == Freshness.LIVE }), freshnessKind(live.freshness, live.info?.simulated == true), stringResource(R.string.ec_no_current_reading))
             MetricRow(stringResource(R.string.ec_difference), Fmt.signedPct(model.comparison?.differencePercent?.takeIf { live.freshness == Freshness.LIVE }), DataKind.CALCULATED, "—")
             val actualKw = live.telemetry?.pv?.powerW?.takeIf { live.freshness == Freshness.LIVE }?.div(1000.0)
             forecast.nowForecastKw?.let { fk ->
@@ -275,7 +275,7 @@ private fun EnergyCenterMain(vm: EnergyCenterViewModel, onShading: () -> Unit, o
 private fun LiveSection(vm: EnergyCenterViewModel) {
     val live by vm.live.collectAsStateWithLifecycle()
     val t = live.telemetry
-    val kind = freshnessKind(live.freshness)
+    val kind = freshnessKind(live.freshness, live.info?.simulated == true)
     val caps = live.capabilities
     val checked = live.validation?.values.orEmpty()
     fun k(field: TelemetryField) = if (checked[field]?.kind == DataKind.INVALID) DataKind.INVALID else kind
@@ -351,7 +351,7 @@ private fun FlowSection(vm: EnergyCenterViewModel) {
         Text(stringResource(R.string.ec_energy_flow), fontWeight = FontWeight.Bold)
         Text(stringResource(R.string.ec_flow_hint), style = MaterialTheme.typography.bodySmall)
         if (flow.active.isEmpty()) Text(stringResource(R.string.ec_no_flows))
-        flow.active.forEach { (name, w) -> MetricRow(name, Fmt.kw(w), if (live.freshness == Freshness.LIVE) DataKind.CALCULATED else freshnessKind(live.freshness)) }
+        flow.active.forEach { (name, w) -> MetricRow(name, Fmt.kw(w), if (live.freshness == Freshness.LIVE) DataKind.CALCULATED else freshnessKind(live.freshness, live.info?.simulated == true)) }
         if (!flow.consistent) {
             Text(
                 if (flow.missing.isNotEmpty()) stringResource(R.string.ec_flow_missing, flow.missing.joinToString())

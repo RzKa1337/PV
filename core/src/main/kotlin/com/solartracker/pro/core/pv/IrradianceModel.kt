@@ -60,23 +60,51 @@ class ClearSkyModel : IrradianceModel {
     }
 }
 
+/** Plane-of-array irradiance split into its components [W/m²]. */
+data class PoaComponents(val beam: Double, val skyDiffuse: Double, val groundReflected: Double) {
+    val total: Double get() = beam + skyDiffuse + groundReflected
+
+    companion object {
+        val ZERO = PoaComponents(0.0, 0.0, 0.0)
+    }
+}
+
 /**
- * Plane-of-array irradiance [W/m²] for a tilted surface: beam + isotropic sky diffuse
+ * Components of the plane-of-array irradiance for a tilted surface: beam + isotropic sky diffuse
  * + ground reflected.
  */
+fun poaComponents(
+    irradiance: Irradiance,
+    position: SolarPosition,
+    tiltDeg: Double,
+    panelAzimuthDeg: Double,
+    albedo: Double = 0.2,
+): PoaComponents {
+    if (!position.isAboveHorizon) return PoaComponents.ZERO
+    val tilt = Math.toRadians(tiltDeg)
+    return PoaComponents(
+        beam = irradiance.dni * max(0.0, cosIncidence(position, tiltDeg, panelAzimuthDeg)),
+        skyDiffuse = irradiance.dhi * (1.0 + cos(tilt)) / 2.0,
+        groundReflected = irradiance.ghi(position) * albedo * (1.0 - cos(tilt)) / 2.0,
+    )
+}
+
+/** Plane-of-array irradiance [W/m²] for a tilted surface (sum of [poaComponents]). */
 fun planeOfArrayIrradiance(
     irradiance: Irradiance,
     position: SolarPosition,
     tiltDeg: Double,
     panelAzimuthDeg: Double,
     albedo: Double = 0.2,
-): Double {
-    if (!position.isAboveHorizon) return 0.0
-    val tilt = Math.toRadians(tiltDeg)
-    val beam = irradiance.dni * max(0.0, cosIncidence(position, tiltDeg, panelAzimuthDeg))
-    val skyDiffuse = irradiance.dhi * (1.0 + cos(tilt)) / 2.0
-    val groundReflected = irradiance.ghi(position) * albedo * (1.0 - cos(tilt)) / 2.0
-    return beam + skyDiffuse + groundReflected
+): Double = poaComponents(irradiance, position, tiltDeg, panelAzimuthDeg, albedo).total
+
+/**
+ * ASHRAE incidence angle modifier for the beam component: 1 − b₀·(1/cos θ − 1), 0 at θ ≥ 90°.
+ * b₀ ≈ 0.05 for glass-covered crystalline modules (front-glass reflection grows at oblique angles).
+ */
+fun ashraeIam(cosAoi: Double, b0: Double): Double {
+    if (cosAoi <= 0.0) return 0.0
+    return (1.0 - b0 * (1.0 / cosAoi - 1.0)).coerceIn(0.0, 1.0)
 }
 
 /** Cosine of the angle between the sun's rays and the panel normal (may be negative = behind). */

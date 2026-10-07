@@ -16,6 +16,8 @@ enum class DataKind(val label: String) {
     ESTIMATED("SZACUNEK"),
     /** Prediction of the future. */
     FORECAST("PROGNOZA"),
+    /** Produced by a simulator / demo provider – never a measurement of a real device. */
+    SIMULATED("SYMULACJA"),
     /** A measurement older than its freshness limit while the device is still connected. */
     STALE("NIEAKTUALNE"),
     /** The newest value from a device that is no longer connected. */

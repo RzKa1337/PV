@@ -36,13 +36,15 @@ private fun kindColors(kind: DataKind): Pair<Color, Color> {
         DataKind.MEASURED -> c.primary.copy(alpha = 0.18f) to c.primary
         DataKind.CALCULATED -> c.secondary.copy(alpha = 0.18f) to c.secondary
         DataKind.ESTIMATED, DataKind.FORECAST -> c.tertiary.copy(alpha = 0.18f) to c.tertiary
+        DataKind.SIMULATED -> c.outline.copy(alpha = 0.25f) to c.onSurfaceVariant
         DataKind.STALE, DataKind.LAST_KNOWN, DataKind.INVALID -> c.error.copy(alpha = 0.15f) to c.error
         DataKind.UNAVAILABLE, DataKind.UNKNOWN -> c.outline.copy(alpha = 0.18f) to c.outline
     }
 }
 
-fun freshnessKind(f: Freshness): DataKind = when (f) {
-    Freshness.LIVE -> DataKind.MEASURED
+/** Data kind of a live value; simulator data is never labelled as a measurement. */
+fun freshnessKind(f: Freshness, simulated: Boolean = false): DataKind = when (f) {
+    Freshness.LIVE -> if (simulated) DataKind.SIMULATED else DataKind.MEASURED
     Freshness.STALE -> DataKind.STALE
     Freshness.LAST_KNOWN -> DataKind.LAST_KNOWN
     Freshness.NONE -> DataKind.UNKNOWN
