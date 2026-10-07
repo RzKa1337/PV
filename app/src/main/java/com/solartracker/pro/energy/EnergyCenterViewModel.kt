@@ -89,6 +89,8 @@ import com.solartracker.pro.core.inverter.TelemetryValidation
 import com.solartracker.pro.core.inverter.TelemetryValidator
 import com.solartracker.pro.core.pv.PvEstimator
 import com.solartracker.pro.core.quality.DataKind
+import com.solartracker.pro.core.quality.Quantity
+import com.solartracker.pro.core.energy.SocEstimator
 import com.solartracker.pro.core.shading.DayShading
 import com.solartracker.pro.core.shading.GeocodeResult
 import com.solartracker.pro.core.shading.LatLon
@@ -149,6 +151,8 @@ data class LiveState(
     val validation: TelemetryValidation? = null,
     /** Protocol diagnostics of the last read (e.g. unsupported registers). */
     val diagnostics: List<String> = emptyList(),
+    /** SOC from the inverter (MEASURED) or from the resting voltage (ESTIMATED), else UNKNOWN. */
+    val soc: Quantity? = null,
 )
 
 data class ModelState(
@@ -375,7 +379,10 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
 
     private suspend fun onTelemetry(t: InverterTelemetry) = lock.withLock {
         val flow = RealEnergyFlow.from(t)
-        _live.value = _live.value.copy(telemetry = t, flow = flow)
+        val socQuantity = settings.value?.let { st ->
+            SocEstimator.estimate(t, synchronized(recentTelemetry) { recentTelemetry.toList() }, st.battery.type, siteConfig.value?.batteryVoltage ?: 48.0)
+        }
+        _live.value = _live.value.copy(telemetry = t, flow = flow, soc = socQuantity)
         aggregator.add(t).forEach { withContext(Dispatchers.IO) { persist(it) } }
 
         val s = settings.value ?: return@withLock
@@ -508,9 +515,12 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
         val live = _live.value
         val fresh = live.freshness == Freshness.LIVE
         val nowcast = _model.value.comparison?.takeIf { fresh && !it.curtailed && it.modelKw > 0.2 }?.let { it.realKw / it.modelKw }
-        val soc = live.telemetry?.battery?.socPercent
+        // Inverter SOC when reported, otherwise the resting-voltage estimate (never a guess under load).
+        val socQ = live.soc
+        val soc = socQ?.value
         val socKind = when {
             soc == null -> DataKind.UNKNOWN
+            socQ?.kind == DataKind.ESTIMATED -> DataKind.ESTIMATED
             fresh -> DataKind.MEASURED
             else -> DataKind.LAST_KNOWN
         }

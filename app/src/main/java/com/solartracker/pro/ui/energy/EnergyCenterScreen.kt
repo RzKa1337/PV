@@ -285,7 +285,9 @@ private fun LiveSection(vm: EnergyCenterViewModel) {
             BigMetric("PV", Fmt.kw(t.pv.powerW) ?: "N/A", k(TelemetryField.PV_POWER))
             BigMetric("LOAD", Fmt.kw(t.load.powerW) ?: "N/A", k(TelemetryField.LOAD_POWER))
             BigMetric("BATTERY", Fmt.v(t.battery.voltageV) ?: "N/A", k(TelemetryField.BATTERY_VOLTAGE))
-            BigMetric("SOC", Fmt.pct(t.battery.socPercent) ?: "N/A", k(TelemetryField.BATTERY_SOC))
+            val socEst = live.soc?.takeIf { t.battery.socPercent == null && it.kind == DataKind.ESTIMATED }
+            if (socEst != null) BigMetric("SOC (z napięcia)", "~${Fmt.pct(socEst.value)} ±${socEst.uncertainty?.toInt() ?: "?"}", DataKind.ESTIMATED)
+            else BigMetric("SOC", Fmt.pct(t.battery.socPercent) ?: "N/A", k(TelemetryField.BATTERY_SOC))
             BigMetric("BATTERY FLOW", Fmt.signedKw(t.battery.powerW) ?: "N/A", k(TelemetryField.BATTERY_POWER))
             BigMetric("GRID", Fmt.signedKw(t.grid.powerW) ?: "N/A", k(TelemetryField.GRID_POWER))
         }
