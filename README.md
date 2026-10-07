@@ -106,6 +106,9 @@ Centrum → **Diagnostyka PV** odpowiada na pytanie „ile instalacja powinna te
 - MPPT (gdy falownik je raportuje; Anenji SMG – N/A), PV Radar (teraz … +6 h), misje dla baterii,
 - log surowych rejestrów z jakością VERIFIED/UNVERIFIED/SUSPECTED/INVALID i eksportem CSV/JSON – do weryfikacji mapy rejestrów na prawdziwym urządzeniu (tylko odczyt).
 
+## Analiza Anenji (Deep Analyzer)
+Centrum → **Analiza Anenji** analizuje całą zapisaną historię albo zaimportowany log (CSV/JSON/TXT) i odpowiada: co było nie tak, kiedy, jak często, jakie były prawdopodobne przyczyny, ile energii to kosztowało i co sprawdzić. Zawiera: wynik zdrowia systemu z wyjaśnionymi potrąceniami, ostrzeżenia z dowodami i pewnością, analizę alarmów (częstotliwość, okno godzinowe, warunki przed zdarzeniem), komunikację, trendy, „Co się stało?” dla wybranej chwili, pytania „Dlaczego…?”, snapshoty ustawień z porównaniem oraz eksport raportu JSON/CSV/PDF. **Tylko odczyt** – aplikacja nie zmienia ustawień falownika. Status: **IMPLEMENTED — WAITING FOR REAL ANENJI LOG**.
+
 ## Automatyczna aktualizacja
 
 Ustawienia → **Aktualizacje**: aplikacja sprawdza wydania GitHub (kanał stabilny/beta, wybrana częstotliwość),

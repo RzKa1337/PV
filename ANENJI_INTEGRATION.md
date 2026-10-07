@@ -101,3 +101,6 @@ Every reading is validated before use (see CALCULATIONS.md → Telemetry validat
 The connection card shows read statistics, reconnects and error classes (timeout, CRC/frame, device rejected, connection).
 Registers that return 0xFFFF / 0x8000 are listed as possibly unsupported. Every register in `SmgRegisters.LIVE` is marked **REAL_DEVICE_VALIDATION_REQUIRED** until compared with the inverter display.
 The app never writes to the inverter (no settings, charging voltage, battery mode, grid settings or start/stop).
+
+## Anenji Deep Analyzer (read-only)
+Centrum → **Analiza Anenji** analyses the stored history or an imported log. To validate the analyzer on a real device: record the register log in Diagnostyka PV (or export the history CSV/JSON) and import it here – the register log is pivoted back into samples. Settings are **NOT_AVAILABLE** from the device until settings registers are verified; values entered in the app or present in an imported log are shown as **UNVERIFIED**. Status: **IMPLEMENTED — WAITING FOR REAL ANENJI LOG**.

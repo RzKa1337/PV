@@ -43,3 +43,21 @@ External network APIs used by the app (all optional, cached): Open-Meteo (foreca
 | `design.TiltScheduleOptimizer.optimize / seasonal` | array, mount constraints, objective, conditions, load | `TiltSchedule` (moves, gain vs static, worth it) |
 | `design.PvWindSafetyEngine.assess / worstAhead` | `WindPanelSetup`, gust/mean wind, forecast | `WindAssessment` (SAFE … STOW_IMMEDIATELY, recommended tilt) |
 | `economics.WhatIfSimulator.compare` | `WhatIfBase`, `WhatIfChange`, tariff | `WhatIfResult` (annual PV, autarky, backup energy, cost delta, payback) |
+
+## Anenji Deep Analyzer (read-only)
+
+| Entry point | Input | Output |
+|---|---|---|
+| `anenji.LogImporter.import` | text, zone, file name | `ImportedLog` (format, layout, columns, samples, comm, settings, issues, origin) |
+| `anenji.AnenjiSettingsSnapshot.build / format` | device registers (verified only), imported/app values | snapshot with VERIFIED / UNVERIFIED / NOT_AVAILABLE per `SettingKey` |
+| `anenji.AnenjiSettingsDiff.between / timeline` | snapshots | changes with time window, or "Nie wykryto zmian konfiguracji" |
+| `anenji.SnapshotCodec` | snapshots / imported settings | JSON storage, snapshot timeline from a log |
+| `anenji.AnenjiEventLog.build / patterns` | samples, comm, setting changes | `AnenjiEvent`s; `EventPattern`s (frequency, duration, dominant window, preceding conditions, likely cause, confidence) |
+| `anenji.AnenjiCommunicationAnalyzer.analyze` | samples, `CommRecord`s | `CommunicationReport` (score with penalties, timeouts, CRC, frames, gaps, longest outage) |
+| `anenji.TrendAnalyzer.analyze` | samples, now | `ChannelStats` per channel × window (min, max, avg, median, P95, slope, direction, robust anomalies) |
+| `anenji.AnenjiConfigurationAdvisor.analyze` | samples, snapshot, battery, PV limit, expected PV | `Finding`s (reason, evidence, confidence, impact) – never writes |
+| `anenji.IncidentAnalyzer.analyze` | moment, samples, events, context | `IncidentReport` (timeline, conclusion, evidence, confidence) |
+| `anenji.WhyAnalyzer.parse / answer` | question text or `WhyQuestion`, date | `WhyAnswer` (findings, conclusion, confidence) |
+| `anenji.SystemHealthEngine.assess` | `HealthEvidence` | `SystemHealth` (overall + 8 categories with deductions; N/A when not assessable) |
+| `anenji.AnenjiDeepAnalyzer.analyze` | `DeepAnalysisInput` | `DeepAnalysisReport` (REAL/SIMULATED separated) |
+| `export.DeepReportExport.json / csv / lines` | report | `ANENJI_FULL_DIAGNOSTIC_REPORT` |

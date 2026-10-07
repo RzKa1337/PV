@@ -151,6 +151,27 @@ Zaimplementowane, kompiluje się i przechodzi lint w CI — **czeka na ręczny t
 - [ ] Historia opadów (archiwum) dla potwierdzania zabrudzenia starszych dni
 - [ ] **REAL DEVICE VALIDATION** – nagrać log rejestrów z prawdziwego Anenji i oznaczyć zweryfikowane rejestry jako VERIFIED
 
+## 24. Anenji Deep Analyzer — status: IMPLEMENTED — WAITING FOR REAL ANENJI LOG
+- [x] można zaimportować log (CSV/JSON/TXT; testy na syntetycznych próbkach i na własnym logu rejestrów)
+- [x] można przeanalizować historię (baza aplikacji lub import)
+- [x] wykrywanie anomalii (walidator, restarty, PV poniżej modelu, zamrożone wartości)
+- [x] analiza ustawień (snapshot; z urządzenia NOT_AVAILABLE – brak zweryfikowanych rejestrów ustawień)
+- [x] porównywanie snapshotów (diff z oknem czasowym zmiany)
+- [x] analiza alarmów (dziennik zdarzeń, wzorce, przyczyny)
+- [x] analiza komunikacji
+- [x] analiza trendów (1 h … 1 rok)
+- [x] korelacja z PV/pogodą/baterią/obciążeniem (model PV i prognoza; starsze dni bez pogody → N/A)
+- [x] raport JSON/CSV/PDF
+- [x] każdy wynik ma pewność
+- [x] dane REAL/SIMULATED rozdzielone (historia v5)
+- [x] brak automatycznego zapisu ustawień (tylko odczyt)
+- [x] testy jednostkowe, parsera, anomalii, brakujących danych
+- [x] `:core:test` lokalnie; `test` + `lint` aplikacji w CI
+- [ ] **Rzeczywisty log Anenji** – do dostarczenia; dopiero wtedy „FULLY VALIDATED”
+- [ ] Zweryfikowana mapa rejestrów ustawień (odczyt ustawień z urządzenia)
+- [ ] Historia pogody dla starszych dni (korelacja z zachmurzeniem w całym okresie)
+- [ ] Czas odpowiedzi łącza w zapisie komunikacji (dziś brak opóźnień w historii)
+
 ## Język angielski i nawigacja wstecz
 - [x] Przycisk Wstecz: podstrony → poprzednia zakładka → wyjście po 2. naciśnięciu (test instrumentalny)
 - [x] Ustawienie języka (Polski domyślnie / English / Systemowy), zasoby `values` + `values-en`, widget

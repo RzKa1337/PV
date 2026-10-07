@@ -14,6 +14,10 @@
 - `forecast/RadarAndMissionTest`: radar horizons, cumulative energy, cloud event vs sunset, missions (survive, empty battery, protect, self-consumption, cost, generator, cold room, no battery/SOC).
 - `design/MobileAndTiltTest`: 4290 × 2290 mm roof with 2 × 590 W + 2 × 455 W, margins/gaps/load, rotation, invalid input; tilt schedule (moves, interval, cost, objectives, wind stow), wind levels, seasonal tilts, what-if.
 
+- `anenji/LogImporterTest` (parser): CSV with units and local time, semicolon + decimal comma + epoch + duplicates + bad time, JSON array and our history export, TXT key=value with inline units and whitespace tables, our register log CSV/JSON round trip incl. timeouts and simulator flag, unknown format, missing time column, kW suspicion.
+- `anenji/DeepAnalyzerTest`: event log and low-battery pattern with cause, communication score and gaps, settings snapshot/diff/NOT_AVAILABLE, trends and coverage, advisor (clipping energy, capacity ≈ 230 Ah, charge voltage, wrong capacity), incident reconstruction, why-questions (parse + answers), full report with REAL/SIMULATED separation and JSON/CSV/text export, simulator-only and empty input, missing data and impossible values, MPPT health, snapshot storage.
+- `fixtures/AnalyzerFixtures`: synthetic 30-day history with known ground truth (not a device recording).
+
 ## Fixtures (no physical inverter needed)
 - `fixtures/AnenjiFixtures`: SMG register snapshots – clear summer, cloudy summer, winter, zero PV, battery low, battery full, high load, garbage. Synthetic, built with the community register map.
 - `fixtures/EnergyFixtures`: day profiles (PV and load) – clear/cloudy/partly cloudy summer, winter, zero PV, high load, cooling load.
@@ -26,7 +30,7 @@
 `scripts/run-live-ui-test.sh` runs `connectedDebugAndroidTest` on an API 30 emulator:
 - `LiveSolarInstrumentedTest`: 1-second live values, UI lag ≤ 3 s for ≥ 95 % of seconds.
 - `UpdateVerificationInstrumentedTest`: APK identity/signature checks.
-- `EnergyCenterInstrumentedTest`: simulator shown as SYMULATOR and ONLINE, advisor, Diagnostyka PV (status, recommendation, simulator has no registers), Keystore encryption, SQLite history.
+- `EnergyCenterInstrumentedTest`: simulator shown as SYMULATOR and ONLINE, advisor, Diagnostyka PV (status, recommendation, simulator has no registers), Analiza Anenji (analysis on history shows SYSTEM HEALTH), Keystore encryption, SQLite history.
 - `WidgetInstrumentedTest`, `ToolsInstrumentedTest` (designer validation, location comparison, analyses page).
 
 ## What is NOT covered by tests

@@ -9,6 +9,9 @@ Read-only telemetry validation, AutoCalibration 3.0, multi-horizon forecast accu
 ## Done (PV Reality & Diagnostics, 0.13.0)
 Loss chain with AOI and MPPT steps, `PvRealityEngine` (theoretical → losses → expected vs actual, unexplained, confidence), PV Doctor (`PvDiagnosticEngine`), soiling detection with rain recovery, year-over-year degradation, MPPT analysis, per-register quality + raw register log (CSV/JSON), PV radar (NOW…+6 h, cloud events), energy missions, `DataKind.SIMULATED`, Centrum → Diagnostyka PV. Core-only (API + tests, no screen yet): panel layout optimizer, dynamic tilt schedule, wind safety, what-if simulator.
 
+## Done (Anenji Deep Analyzer) — IMPLEMENTED, WAITING FOR REAL ANENJI LOG
+Log import (CSV/JSON/TXT), settings snapshots and diff, event log with patterns, communication, trends, configuration advisor, incident ("what happened?") and "why?" analysis, explainable system health, full JSON/CSV/PDF report, Centrum → Analiza Anenji. Read-only.
+
 ## Next
 1. Real-device validation of the Anenji register map with a user's inverter – record the log in Centrum → Diagnostyka PV and export CSV/JSON.
 2. Screens in Narzędzia for the layout optimizer, tilt schedule, wind safety and what-if (core is ready and tested).

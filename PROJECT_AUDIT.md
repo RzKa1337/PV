@@ -104,5 +104,8 @@ Stan wyjściowy: v0.9.0, `:core` 239 testów. Mapa przed pracą → po pracy:
 ## PV Reality & Diagnostics (2026-10-07)
 Pełny audyt i architektura: [docs/PV_DIAGNOSTICS.md](docs/PV_DIAGNOSTICS.md). Najważniejsze ustalenia: łańcuch strat istniał (rozbudowany o AOI/MPPT zamiast drugiej implementacji); zabrudzenie i mismatch były tylko założeniami; symulator był oznaczany jako pomiar (naprawione); zduplikowana reguła śniegu (ujednolicona); `PvPerformanceAnalyzer` gubił małe straty (naprawione, test regresyjny). Pozostałe duplikaty pozostawione świadomie: `ModelComparison` obok `PvPerformanceAnalyzer`, dwa silniki kalibracji, dwa modele temperatury (PR vs łańcuch).
 
+## Anenji Deep Analyzer (2026-10-07)
+Nowy pakiet `core/anenji` (analiza całej historii, tylko odczyt). Ograniczenia ujawnione w audycie: brak zweryfikowanych rejestrów ustawień (snapshot z urządzenia = NOT_AVAILABLE), brak historii pogody poza ~2 dniami (korelacja z chmurami tylko dla świeżych danych), wiersze historii sprzed v5 nie mają oznaczenia pochodzenia (traktowane jako dane urządzenia).
+
 ## Bezpieczeństwo
 Pełny audyt bezpieczeństwa: [docs/SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md).

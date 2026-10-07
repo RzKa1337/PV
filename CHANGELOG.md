@@ -4,6 +4,11 @@ Wszystkie istotne zmiany w projekcie Solar Tracker PRO.
 Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie [SemVer](https://semver.org/).
 
 ## [Unreleased]
+### Added – Anenji Deep Analyzer (tylko odczyt)
+- `core/anenji`: import logów CSV/JSON/TXT (`LogImporter` – format, kolumny, jednostki, znaczniki czasu, duplikaty, brakujące dane, podejrzenie kW), snapshot ustawień (`AnenjiSettingsSnapshot`, NOT_AVAILABLE bez zweryfikowanych rejestrów, UNVERIFIED z logu/aplikacji) i porównanie w czasie (`AnenjiSettingsDiff`), dziennik zdarzeń z analizą powtarzalności i przyczyn (`AnenjiEventLog`), komunikacja (`AnenjiCommunicationAnalyzer`), trendy 1 h…1 rok (`TrendAnalyzer`), doradca konfiguracji (`AnenjiConfigurationAdvisor`), „co się stało?” (`IncidentAnalyzer`), „dlaczego?” (`WhyAnalyzer`, deterministyczny), `SystemHealthEngine` (wyjaśnialne potrącenia), raport `ANENJI_FULL_DIAGNOSTIC_REPORT` (JSON/CSV/PDF).
+- Ekran **Centrum → Analiza Anenji**; snapshoty przechowywane w telefonie; historia v5 oznacza wiersze z symulatora (dane REAL/SIMULATED rozdzielone w analizie).
+### Fixed
+- Wykrywanie separatora CSV liczyło przecinki w cudzysłowach (log rejestrów z nazwą „Kod błędu (u32, …)”).
 ### Added
 - PV Reality & Diagnostics (`core/diagnostics`): `PvRealityEngine` (teoretyczna → straty → oczekiwana → rzeczywista + niewyjaśniona, pewność), `PvDiagnosticEngine` (PV Doctor: 14 typów diagnoz z ważnością, pewnością, dowodami, wpływem i zaleceniem), `SoilingDetector` (dni pogodne + poprawa po deszczu), `DegradationAnalyzer` (metoda rok-do-roku), `MpptAnalyzer` (porównanie z modelem i z pozostałymi MPPT), `ConversionEfficiency`.
 - Łańcuch strat: krok AOI (ASHRAE IAM, b₀ = 0,05) i MPPT (`LossProfile.mpptEfficiency`).

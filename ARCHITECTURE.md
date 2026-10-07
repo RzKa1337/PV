@@ -22,6 +22,7 @@ The rule is simple: **`:core` decides, `:app` shows and stores.** Anything that 
 | `shading` | Obstacles, horizon, geometry, ray-traced shading per panel/bypass group, shading forecasts, map/terrain providers |
 | `forecast` | Predictive PV, load forecast, battery SOC prediction, energy forecast, rule-based advisor |
 | `health` | Daily statistics, PV Health Score, predictive fault warnings, PV performance (loss shares) |
+| `anenji` | Anenji Deep Analyzer: log import, settings snapshots/diff, event log, communication, trends, configuration advisor, incident and "why" analysis, system health, full report (read-only) |
 | `diagnostics` | PV Reality engine, PV Doctor, soiling and degradation detection, MPPT analysis, performance history |
 | `ems` | `EnergyOptimizationEngine`: dispatch simulation, windows, load scheduling, explanations (no device control) |
 | `economics` | Payback, NPV, ROI, LCOE, storage cost, what-if simulator |
