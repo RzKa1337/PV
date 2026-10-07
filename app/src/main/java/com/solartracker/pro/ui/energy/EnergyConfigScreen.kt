@@ -1,5 +1,6 @@
 package com.solartracker.pro.ui.energy
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -143,6 +144,7 @@ private fun LocationSection(vm: EnergyCenterViewModel, site: SiteConfig) {
     val busy by vm.busy.collectAsStateWithLifecycle()
     var query by rememberSaveable { mutableStateOf("") }
     var pickOnMap by rememberSaveable { mutableStateOf(false) }
+    BackHandler(enabled = pickOnMap) { pickOnMap = false }
     val location = settings?.location ?: return
     val point = LatLon(location.latitude, location.longitude)
     SectionCard {

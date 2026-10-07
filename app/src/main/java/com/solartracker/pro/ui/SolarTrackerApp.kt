@@ -1,6 +1,10 @@
 package com.solartracker.pro.ui
 
 import android.Manifest
+import android.app.Activity
+import android.os.SystemClock
+import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.padding
@@ -26,6 +30,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -33,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.solartracker.pro.core.energy.BatteryStorage
 import com.solartracker.pro.core.energy.EnergyPrices
@@ -67,8 +75,35 @@ private enum class Tab(val label: String, val icon: ImageVector) {
 @Composable
 fun SolarTrackerApp(viewModel: MainViewModel, openSettingsRequest: Int = 0) {
     var tab by rememberSaveable { mutableIntStateOf(Tab.DASHBOARD.ordinal) }
+    // Previously visited tabs: the system Back button walks back through them instead of closing the app.
+    var history by rememberSaveable(stateSaver = listSaver<List<Int>, Int>(save = { it }, restore = { it })) {
+        mutableStateOf(emptyList<Int>())
+    }
+    fun select(next: Int) {
+        history = TabHistory.push(history, tab, next)
+        tab = next
+    }
     // A tap on an update notification opens the settings tab (where the update section is).
-    LaunchedEffect(openSettingsRequest) { if (openSettingsRequest > 0) tab = Tab.SETTINGS.ordinal }
+    LaunchedEffect(openSettingsRequest) { if (openSettingsRequest > 0) select(Tab.SETTINGS.ordinal) }
+
+    // Registered before the screens' own handlers, so a sub-page inside a tab closes first.
+    val context = LocalContext.current
+    var lastExitPress by remember { mutableLongStateOf(0L) }
+    BackHandler {
+        val previous = TabHistory.back(history, tab, Tab.DASHBOARD.ordinal)
+        if (previous != null) {
+            tab = previous.first
+            history = previous.second
+        } else {
+            val now = SystemClock.elapsedRealtime()
+            if (now - lastExitPress < EXIT_CONFIRM_MS) {
+                (context as? Activity)?.finish()
+            } else {
+                lastExitPress = now
+                Toast.makeText(context, "Naciśnij ponownie, aby wyjść", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
@@ -114,7 +149,7 @@ fun SolarTrackerApp(viewModel: MainViewModel, openSettingsRequest: Int = 0) {
                 Tab.entries.forEach { t ->
                     NavigationBarItem(
                         selected = tab == t.ordinal,
-                        onClick = { tab = t.ordinal },
+                        onClick = { select(t.ordinal) },
                         icon = { Icon(t.icon, contentDescription = t.label) },
                         label = { Text(t.label, maxLines = 1) },
                         alwaysShowLabel = false,
@@ -171,3 +206,5 @@ fun SolarTrackerApp(viewModel: MainViewModel, openSettingsRequest: Int = 0) {
         }
     }
 }
+
+private const val EXIT_CONFIRM_MS = 2_000L

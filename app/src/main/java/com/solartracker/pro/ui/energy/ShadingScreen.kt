@@ -1,5 +1,6 @@
 package com.solartracker.pro.ui.energy
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -76,6 +77,8 @@ fun ShadingScreen(vm: EnergyCenterViewModel, onBack: () -> Unit, modifier: Modif
     var layers by rememberSaveable { mutableStateOf(setOf("buildings", "trees", "manual", "current", "forecast", "uncertainty")) }
     var drawMode by rememberSaveable { mutableStateOf(DrawMode.NONE) }
     val draft = remember { mutableStateListOf<LatLon>() }
+    // System Back cancels drawing on the map before leaving the page.
+    BackHandler(enabled = drawMode != DrawMode.NONE) { drawMode = DrawMode.NONE; draft.clear() }
     var editing by remember { mutableStateOf<Obstacle?>(null) }
     var lossBefore by remember { mutableStateOf<Double?>(null) }
 

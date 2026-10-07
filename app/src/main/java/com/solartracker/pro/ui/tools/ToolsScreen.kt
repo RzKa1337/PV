@@ -1,5 +1,6 @@
 package com.solartracker.pro.ui.tools
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -82,6 +83,8 @@ private enum class Tool(val label: String, val feature: Feature) {
 @Composable
 fun ToolsScreen(settings: AppSettings, access: FeatureAccessManager, subscription: SubscriptionState, modifier: Modifier = Modifier) {
     var tool by rememberSaveable { mutableIntStateOf(0) }
+    // System Back returns to the first tool before leaving the tab.
+    BackHandler(enabled = tool != 0) { tool = 0 }
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ScreenTitle("Narzędzia", "Projekt, ekonomia, porównanie lokalizacji, pojazd")
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

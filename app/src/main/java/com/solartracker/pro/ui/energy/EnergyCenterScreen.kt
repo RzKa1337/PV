@@ -1,5 +1,6 @@
 package com.solartracker.pro.ui.energy
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -82,6 +83,8 @@ fun MonitorWhileVisible(vm: EnergyCenterViewModel, weather: WeatherState) {
 fun EnergyCenterScreen(weather: WeatherState, modifier: Modifier = Modifier, vm: EnergyCenterViewModel = viewModel()) {
     MonitorWhileVisible(vm, weather)
     var page by rememberSaveable { mutableStateOf("main") }
+    // System Back closes a sub-page first (instead of leaving the tab or the app).
+    BackHandler(enabled = page != "main") { page = "main" }
     when (page) {
         "shading" -> ShadingScreen(vm, onBack = { page = "main" }, modifier = modifier)
         "config" -> EnergyConfigScreen(vm, onBack = { page = "main" }, modifier = modifier)
