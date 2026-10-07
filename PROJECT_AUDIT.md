@@ -100,3 +100,6 @@ Stan wyjściowy: v0.9.0, `:core` 239 testów. Mapa przed pracą → po pracy:
 | Raport dzienny | MISSING | DONE: karta + powiadomienie wieczorne |
 | Digital twin | MISSING | DONE: Słońce → PV → falownik → bateria → odbiorniki z istniejących modeli |
 | BROKEN | — | nie znaleziono; flaky test emulatora (okno ANR systemu) naprawiony w testach |
+
+## Bezpieczeństwo
+Pełny audyt bezpieczeństwa: [docs/SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md).

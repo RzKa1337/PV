@@ -4,6 +4,8 @@ Wszystkie istotne zmiany w projekcie Solar Tracker PRO.
 Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie [SemVer](https://semver.org/).
 
 ## [Unreleased]
+### Security
+- Audyt bezpieczeństwa (`docs/SECURITY_AUDIT.md`): CI z minimalnymi uprawnieniami (zapis tylko w zadaniu `build`), akcja emulatora przypięta do SHA, generator klucza podpisu blokowany w publicznym repozytorium, test regresyjny odrzucania poleceń zapisu do falownika (Modbus i PI30).
 ### Changed
 - Pulpit: przebudowana karta pogody – nagłówek z dużą temperaturą, kompaktowe „pigułki” (wiatr, wilgotność, opady, UV w kolorach WHO z nazwą poziomu), pasek „Słońce wg prognozy”, warstwy chmur i paski produkcji dziś/jutro względem czystego nieba; czas prognozy i atrybucja w jednej stopce.
 - Pulpit: gdy falownik nie jest podłączony, zamiast sześciu pustych kafelków pokazywana jest jedna podpowiedź konfiguracji + szacunki modelu; karta bezpieczeństwa energetycznego tylko przy skonfigurowanej baterii lub falowniku.

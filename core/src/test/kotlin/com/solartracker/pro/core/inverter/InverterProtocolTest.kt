@@ -40,6 +40,18 @@ fun rtuResponse(slave: Int, registers: IntArray, function: Int = 3): ByteArray {
 class InverterProtocolTest {
 
     @Test
+    fun modbusWriteFunctionsAreRefused() {
+        // Read-only safety: write coil/register function codes must never be encoded (RTU or TCP).
+        listOf(0x05, 0x06, 0x0F, 0x10, 0x16, 0x17).forEach { fn ->
+            expect<IllegalArgumentException>("only read") { ModbusCodec.rtuReadRequest(1, fn, 0, 1) }
+            expect<IllegalArgumentException>("only read") { ModbusCodec.tcpReadRequest(1, 1, fn, 0, 1) }
+        }
+        listOf("PBCV48.0", "PCP00", "MCHGC010", "F50").forEach { cmd ->
+            expect<IllegalArgumentException>("query") { Pi30Protocol.command(cmd) }
+        }
+    }
+
+    @Test
     fun modbusRtuRequestMatchesKnownVector() {
         assertArrayEquals(hex("01 03 00 00 00 0A C5 CD"), ModbusCodec.rtuReadRequest(1, 3, 0, 10))
         val req = ModbusCodec.rtuReadRequest(1, 3, 201, 34)

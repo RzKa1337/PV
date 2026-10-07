@@ -12,12 +12,15 @@ on:
         required: false
         default: ""
 
+# Least privilege: read-only by default; only the build job (which attaches release assets) may write.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v6
 
@@ -131,7 +134,7 @@ jobs:
 
       - name: Live Solar test on emulator
         timeout-minutes: 25
-        uses: reactivecircus/android-emulator-runner@v2
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2 (pinned third-party action)
         with:
           api-level: 30
           arch: x86_64

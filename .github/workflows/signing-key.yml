@@ -25,6 +25,13 @@ jobs:
           echo "Not confirmed"
           exit 1
 
+      # Artifacts of a public repository can be downloaded by any GitHub user: never publish a key there.
+      - name: Refuse on a public repository
+        if: github.event.repository.private != true
+        run: |
+          echo "::error::Repozytorium jest publiczne - artefakt z kluczem bylby dostepny dla kazdego. Wygeneruj klucz lokalnie (docs/RELEASE_SIGNING.md)."
+          exit 1
+
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
