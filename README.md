@@ -98,6 +98,14 @@ widoczność w prognozie i na pulpicie, dokładność prognoz (godzina i dzień 
 Dokumentacja techniczna: [ARCHITECTURE.md](ARCHITECTURE.md), [CALCULATIONS.md](CALCULATIONS.md), [TESTING.md](TESTING.md),
 [API.md](API.md), [ROADMAP.md](ROADMAP.md).
 
+## Diagnostyka PV (v0.13.0)
+Centrum → **Diagnostyka PV** odpowiada na pytanie „ile instalacja powinna teraz produkować, ile produkuje i dlaczego jest różnica”:
+- moc teoretyczna → straty (AOI, temperatura, śnieg, zabrudzenie, zacienienie, mismatch, degradacja, okablowanie, MPPT, falownik, clipping) → oczekiwana → rzeczywista, niewyjaśniona reszta i pewność,
+- PV Doctor: diagnoza z dowodami, wpływem i jednym zaleceniem (pełna bateria w off-grid to nie awaria),
+- wykrywanie zabrudzenia (dni pogodne, poprawa po deszczu) i degradacji (rok do roku, po 2 latach danych),
+- MPPT (gdy falownik je raportuje; Anenji SMG – N/A), PV Radar (teraz … +6 h), misje dla baterii,
+- log surowych rejestrów z jakością VERIFIED/UNVERIFIED/SUSPECTED/INVALID i eksportem CSV/JSON – do weryfikacji mapy rejestrów na prawdziwym urządzeniu (tylko odczyt).
+
 ## Automatyczna aktualizacja
 
 Ustawienia → **Aktualizacje**: aplikacja sprawdza wydania GitHub (kanał stabilny/beta, wybrana częstotliwość),

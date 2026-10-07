@@ -8,6 +8,11 @@ Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie 
 - PV Reality & Diagnostics (`core/diagnostics`): `PvRealityEngine` (teoretyczna → straty → oczekiwana → rzeczywista + niewyjaśniona, pewność), `PvDiagnosticEngine` (PV Doctor: 14 typów diagnoz z ważnością, pewnością, dowodami, wpływem i zaleceniem), `SoilingDetector` (dni pogodne + poprawa po deszczu), `DegradationAnalyzer` (metoda rok-do-roku), `MpptAnalyzer` (porównanie z modelem i z pozostałymi MPPT), `ConversionEfficiency`.
 - Łańcuch strat: krok AOI (ASHRAE IAM, b₀ = 0,05) i MPPT (`LossProfile.mpptEfficiency`).
 - `DataKind.SIMULATED` – dane symulatora nie są już oznaczane jako pomiar.
+- Jakość każdego rejestru (VERIFIED/UNVERIFIED/SUSPECTED/INVALID, zakresy fizyczne) i log surowych rejestrów z każdego odczytu (także przekroczeń czasu) z eksportem CSV/JSON – tylko odczyt.
+- PV Radar (`PvRadarBuilder`): TERAZ, +5, +15, +30 min, +1, +2, +3, +6 h z pewnością, wpływem chmur i energią; wykrywanie spadków przez chmury (bez mylenia z zachodem), z jawną rozdzielczością godzinową.
+- Misje energetyczne (`EnergyMissionPlanner`) na scenariuszach bezpieczeństwa energetycznego: przetrwaj noc, autokonsumpcja, ochrona baterii, chłodnia, agregat, koszt sieci.
+- Rdzeń + testy (bez ekranu): optymalizator rozmieszczenia paneli na dachu (`PanelLayoutOptimizer`), harmonogram kąta z ograniczeniami (`TiltScheduleOptimizer`), bezpieczeństwo wiatrowe (`PvWindSafetyEngine`), symulator „co jeśli” (`WhatIfSimulator`); porywy wiatru z Open-Meteo.
+- Ekran **Centrum → Diagnostyka PV**; baza historii v4 (miesięczny wskaźnik wydajności do analizy degradacji).
 ### Fixed
 - `PvPerformanceAnalyzer`: małe straty (< 0,05%) były pomijane, przez co suma rozkładu nie równała się różnicy (test regresyjny).
 - Reguła śniegu zduplikowana w `WeatherEffects` i `PvSimulationEngine` – jedna wspólna funkcja.

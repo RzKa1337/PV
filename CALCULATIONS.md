@@ -64,3 +64,34 @@ Average power = P_min + duty·(P_nom − P_min); duty = duty_ref·(T_amb − T_t
 
 ## PV performance
 Expected = ideal DC power at the weather-based plane-of-array irradiance (25 °C, no losses). Each modelled loss is shown as a share of expected (ESTIMATED; soiling/mismatch/wiring from the loss profile); unknown = (model output − actual)/expected. Performance = actual/expected.
+
+## AOI and MPPT steps (0.13.0)
+- Beam reflection: ASHRAE IAM = 1 − b₀·(1/cos θ − 1), b₀ = 0.05 (editable `PvArrayConfig.iamB0`), applied to the beam component of the POA only (diffuse/ground reflection loss is not modelled). AOI loss = Wp · beam · (1 − IAM) / 1000.
+- MPPT: `LossProfile.mpptEfficiency` (default 0.995, typical datasheet value) applied after DC wiring.
+- `PvEstimator` (forecasts, dashboard) keeps its PR model (PR 0.80 includes these losses implicitly); the explicit chain is used for diagnostics, design and vehicle mode.
+
+## PV reality (`PvRealityEngine`)
+theoretical = Wp·POA/1000 (+ bifacial) → minus each loss of the chain → expected; unexplained = expected − actual.
+Uncertainty (± fraction of expected): 1 − base(irradiance source: sensor 0.95, forecast 0.65, climate 0.30, clear sky 0.20) + 0.15 for broken clouds (clear-sky index 0.3–0.85) + 0.08·(1 − shading confidence), reduced by up to 30 % with calibration; at least 5 %. A deviation inside the band is OK. Confidence = 1 − uncertainty (× 0.5 for simulator data). The learned AutoCalibration factor belongs to the PR model and is not applied to the loss chain.
+
+## PV Doctor (`PvDiagnosticEngine`)
+Rules (each with severity, confidence, evidence, impact, action): link offline/stale → COMMUNICATION; rejected PV readings → SENSOR; forecast snow + output < 20 % → SNOW; SOC ≥ max − 3 % without export and output below the band → CURTAILMENT (not a fault); low output for ≥ 70 % of ≥ 3 samples in 30 min beyond max(band, 15 %) and no other explanation → UNEXPECTED_LOW (CRITICAL below −40 %); same above → UNEXPECTED_HIGH (info); clear-sky hours with a repeatable deficit (< 0.8 of model on ≥ 2 days) while ≥ 2 other hours match (≥ 0.93) → SHADING; temperature loss ≥ 10 % → TEMPERATURE (info); soiling/degradation/MPPT from their analyses; conversion efficiency median < 80 % over ≥ 10 readings → INVERTER_EFFICIENCY (info, low confidence).
+
+## Soiling (`SoilingDetector`)
+Clear clean days only (≥ 3 h with clear-sky index ≥ 0.85, link OK, no fault, not near the limit, sun ≥ 15°, modelled shading ≥ 0.8). PI = Σ real / Σ model. Reference = P90 of PI (60 days, reset at a shading change). SUSPECTED: last days ≥ 4 % below the reference on ≥ 3 consecutive clear days. CONFIRMED: rain ≥ 2 mm improves the deficit by ≥ 3 p.p. (last 3 clear days before vs first 3 after). Rain comes from the Open-Meteo data (only ~2 past days are fetched, older days = unknown).
+
+## Degradation (`DegradationAnalyzer`)
+Monthly PI = P90 of the month's clear days (stored in `perf_month`, kept for years). Year-over-year ratio for each month pair 12 months apart; rate = −median, confidence from the number of pairs (12 = full) and IQR. Needs ≥ 24 months and ≥ 6 pairs. Trend: < 0.3 %/yr stable, ≤ 0.8 normal, above elevated. Projection: Wp·(1 − d)^(year − base).
+
+## MPPT (`MpptAnalyzer`)
+Deviation vs expected per MPPT and vs the median of the other inputs (power per configured Wp). ABNORMAL when below −15 % against both (or −22.5 % vs model without peers). Voltage spread > 10 % between inputs with the same module count → string mismatch. Causes are listed, never asserted.
+
+## PV radar and missions
+Radar points from `PredictivePvEngine` at NOW, +5, +15, +30 min, +1, +2, +3, +6 h; cloud impact = 1 − forecast/clear sky (same engine without weather); cloud event = cloud factor and power both fall ≥ 30 % within 3 h while the clear sky is ≥ 5 % of peak (sunset excluded). Timing resolution = weather data (hourly).
+Missions reuse the three `EnergySecurityAnalyzer` scenarios: probability estimate = 0.5 + (base − 0.5)·confidence with base 0.97 (pessimistic OK), 0.7 (expected OK), 0.25 (optimistic OK), 0.03; safety margin = stored energy above the floor at the lowest SOC × discharge efficiency.
+
+## Layout, tilt schedule, wind, what-if
+- Layout: all count combinations sorted by Wp (ties: mass, area); exact bottom-left placement with rotation, margins and gaps; load limit only when all weights are known.
+- Tilt schedule: dynamic programme over slots × tilts × moves used × time since last move; value per slot = PV (energy), min(PV, load) (self-consumption) or min(PV, load + charge limit) (battery); each move costs `moveEnergyWh`; wind limits force the stow tilt even without free moves. "Worth it" only when the net gain is > 0 and ≥ 2 %.
+- Wind: q = ½·1.225·v², F = q·A·Cn, Cn = max(0.3, 1.2·sin tilt); ratio to the force at the rated gust/tilt: < 0.6 SAFE, < 0.8 CAUTION, < 1 LOWER, ≥ 1 STOW. Without gusts: mean × 1.5 (estimate). Default rating (20 m/s at 30°) is labelled low confidence.
+- What-if: one year of `EnergyFlowSimulator` (hourly) for base and variant; cost via `EconomicsEngine.periodCost`; payback = extra investment / yearly saving.

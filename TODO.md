@@ -135,6 +135,22 @@ Zaimplementowane, kompiluje się i przechodzi lint w CI — **czeka na ręczny t
 - [ ] **REAL DEVICE VALIDATION REQUIRED** – rejestry SMG, znaki mocy, temperatury, kody błędów
 - [x] Edytor harmonogramu chłodni w UI
 
+## PV Reality & Diagnostics (0.13.0)
+- [x] Łańcuch strat z krokami AOI i MPPT, `PvRealityEngine` (teoretyczna → straty → oczekiwana → rzeczywista + niewyjaśniona)
+- [x] PV Doctor (`PvDiagnosticEngine`) – 14 typów diagnoz z ważnością, pewnością, dowodami, wpływem i zaleceniem
+- [x] Zabrudzenie bez czujnika (dni pogodne + poprawa po deszczu), degradacja metodą rok-do-roku, miesięczny wskaźnik w bazie (v4)
+- [x] MPPT: porównanie z modelem i z pozostałymi wejściami (SMG nie raportuje MPPT → N/A)
+- [x] Jakość rejestrów VERIFIED/UNVERIFIED/SUSPECTED/INVALID + log rejestrów CSV/JSON (tylko odczyt)
+- [x] PV Radar (TERAZ … +6 h, zdarzenia chmur), misje energetyczne
+- [x] `DataKind.SIMULATED` – symulator nigdy jako pomiar
+- [x] Ekran Centrum → Diagnostyka PV + test instrumentalny
+- [x] Rdzeń + testy: optymalizator rozmieszczenia paneli, harmonogram kąta, bezpieczeństwo wiatrowe, symulator „co jeśli”
+- [ ] Ekrany w Narzędziach dla: rozmieszczenia paneli, harmonogramu kąta, wiatru, „co jeśli”
+- [ ] Konfiguracja MPPT (Wp, liczba modułów, orientacja) zamiast równego podziału
+- [ ] Prognoza 15-minutowa Open-Meteo (`minutely_15`) dla radaru
+- [ ] Historia opadów (archiwum) dla potwierdzania zabrudzenia starszych dni
+- [ ] **REAL DEVICE VALIDATION** – nagrać log rejestrów z prawdziwego Anenji i oznaczyć zweryfikowane rejestry jako VERIFIED
+
 ## Język angielski i nawigacja wstecz
 - [x] Przycisk Wstecz: podstrony → poprzednia zakładka → wyjście po 2. naciśnięciu (test instrumentalny)
 - [x] Ustawienie języka (Polski domyślnie / English / Systemowy), zasoby `values` + `values-en`, widget

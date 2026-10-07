@@ -101,5 +101,8 @@ Stan wyjściowy: v0.9.0, `:core` 239 testów. Mapa przed pracą → po pracy:
 | Digital twin | MISSING | DONE: Słońce → PV → falownik → bateria → odbiorniki z istniejących modeli |
 | BROKEN | — | nie znaleziono; flaky test emulatora (okno ANR systemu) naprawiony w testach |
 
+## PV Reality & Diagnostics (2026-10-07)
+Pełny audyt i architektura: [docs/PV_DIAGNOSTICS.md](docs/PV_DIAGNOSTICS.md). Najważniejsze ustalenia: łańcuch strat istniał (rozbudowany o AOI/MPPT zamiast drugiej implementacji); zabrudzenie i mismatch były tylko założeniami; symulator był oznaczany jako pomiar (naprawione); zduplikowana reguła śniegu (ujednolicona); `PvPerformanceAnalyzer` gubił małe straty (naprawione, test regresyjny). Pozostałe duplikaty pozostawione świadomie: `ModelComparison` obok `PvPerformanceAnalyzer`, dwa silniki kalibracji, dwa modele temperatury (PR vs łańcuch).
+
 ## Bezpieczeństwo
 Pełny audyt bezpieczeństwa: [docs/SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md).

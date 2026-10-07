@@ -22,3 +22,24 @@ All in `core/src/main/kotlin/com/solartracker/pro/core`.
 | `access.FeatureAccessManager` | `SubscriptionState` | enabled / reason per `Feature` |
 
 External network APIs used by the app (all optional, cached): Open-Meteo (forecast, climate, geocoding, elevation), Nominatim (address search), Overpass (OSM buildings/trees), GitHub Releases (updates). No API keys are embedded.
+
+## PV Reality & Diagnostics (0.13.0)
+
+| Entry point | Input | Output |
+|---|---|---|
+| `diagnostics.PvRealityEngine.assess` | array, losses, location, time, conditions, measured `Quantity`, `IrradianceBasis`, shading/calibration | `PvReality` (theoretical, `LossItem`s, expected, actual, unexplained, uncertainty, confidence, status) |
+| `diagnostics.PvDiagnosticEngine.diagnose` | `DiagnosticInput` (reality, recent samples, link, validation, snow, soiling, degradation, MPPT, flow) | `PvDiagnosis` (status, primary + ranked `Diagnosis` with severity, confidence, evidence, impact, recommendation) |
+| `diagnostics.SoilingDetector.assess` | `DailyPerformance` list | `SoilingAssessment` (NONE / SUSPECTED / CONFIRMED / INSUFFICIENT_DATA, loss, rate, rain recovery) |
+| `diagnostics.DegradationAnalyzer.assess` | `MonthlyPerformance` list, nameplate | `DegradationAssessment` (%/year, trend, confidence, capacity projection) |
+| `diagnostics.PerformanceHistory.daily / monthly` | stored `CalibrationObservation`s, rain | daily / monthly clear-sky performance index |
+| `diagnostics.MpptAnalyzer.analyze` | `MpptReading`s, `MpptConfig`s, expected per MPPT | `MpptAnalysis` (deviation vs model and peers, mismatch, possible causes) |
+| `diagnostics.ConversionEfficiency.estimate / median` | telemetry | PV → loads + battery efficiency (ESTIMATED) |
+| `inverter.RegisterDiagnostics.smgSamples / quality` | raw SMG blocks, validation issues | `RegisterSample`s with `RegisterQuality` |
+| `inverter.InverterConnectionManager.registerLog` | – | `RegisterLogRecord` per poll (incl. timeouts) |
+| `export.RegisterLogExport.csv / json` | `RegisterLogRecord`s | CSV / JSON text |
+| `forecast.PvRadarBuilder.build` | PV engine, clear-sky engine, nowcast | `PvRadar` (NOW…+6 h, cloud impact, energy, `CloudEvent`) |
+| `forecast.EnergyMissionPlanner.evaluate` | `MissionRequest`, SOC, PV/load forecast | `MissionResult` (achievable, probability estimate, milestones, margin, deficit, metrics) |
+| `vehicle.PanelLayoutOptimizer.optimize` | `RoofArea`, `PanelType`s | `LayoutResult` (placements, Wp, utilisation, mass, centre of gravity) |
+| `design.TiltScheduleOptimizer.optimize / seasonal` | array, mount constraints, objective, conditions, load | `TiltSchedule` (moves, gain vs static, worth it) |
+| `design.PvWindSafetyEngine.assess / worstAhead` | `WindPanelSetup`, gust/mean wind, forecast | `WindAssessment` (SAFE … STOW_IMMEDIATELY, recommended tilt) |
+| `economics.WhatIfSimulator.compare` | `WhatIfBase`, `WhatIfChange`, tariff | `WhatIfResult` (annual PV, autarky, backup energy, cost delta, payback) |

@@ -21,14 +21,15 @@ The rule is simple: **`:core` decides, `:app` shows and stores.** Anything that 
 | `analytics` | Real energy flow, history aggregation, model comparison, calibration, anomalies/alerts, forecast accuracy, AutoCalibration, period totals |
 | `shading` | Obstacles, horizon, geometry, ray-traced shading per panel/bypass group, shading forecasts, map/terrain providers |
 | `forecast` | Predictive PV, load forecast, battery SOC prediction, energy forecast, rule-based advisor |
-| `health` | Daily statistics, PV Health Score, predictive fault warnings |
+| `health` | Daily statistics, PV Health Score, predictive fault warnings, PV performance (loss shares) |
+| `diagnostics` | PV Reality engine, PV Doctor, soiling and degradation detection, MPPT analysis, performance history |
 | `ems` | `EnergyOptimizationEngine`: dispatch simulation, windows, load scheduling, explanations (no device control) |
-| `economics` | Payback, NPV, ROI, LCOE, storage cost |
-| `design` | PV designer (string sizing), yield estimator, location comparison |
-| `vehicle` | Vehicle/camper solar estimates |
+| `economics` | Payback, NPV, ROI, LCOE, storage cost, what-if simulator |
+| `design` | PV designer (string sizing), yield estimator, location comparison, tilt optimizer and dynamic tilt schedule, wind safety |
+| `vehicle` | Vehicle/camper solar estimates, panel layout optimizer |
 | `export` | CSV/JSON export of history |
 | `access` | FREE/PRO feature access (`FeatureAccessManager`) |
-| `quality` | `DataKind` labels (MEASURED, CALCULATED, ESTIMATED, FORECAST, STALE, LAST KNOWN, N/A, UNKNOWN) |
+| `quality` | `DataKind` labels (MEASURED, CALCULATED, ESTIMATED, FORECAST, SIMULATED, STALE, LAST KNOWN, INVALID, N/A, UNKNOWN) |
 | `update` | GitHub release check, download with resume, SHA-256 and signer verification |
 | `widget`, `live` | Widget summary, 1-second live ticker |
 
@@ -39,8 +40,10 @@ Transport (TCP / Modbus TCP / USB / simulator)
   → InverterProvider (protocol mapping) → InverterConnectionManager (polling, back-off, freshness)
   → EnergyCenterViewModel.onTelemetry
        ├─ RealEnergyFlow, ModelComparison (+ shading), CalibrationEngine, AnomalyDetector → alerts
-       ├─ TelemetryAggregator → HistoryDatabase (30 s rows, 15 min summaries)
-       └─ recomputeForecast → PredictivePvEngine + LoadForecaster + BatteryPredictor
+       ├─ PvRealityEngine → PvDiagnosticEngine (PV Doctor) → DiagnosticsState
+       ├─ registerLog (raw registers + quality, read-only) → register log export
+       ├─ TelemetryAggregator → HistoryDatabase (30 s rows, 15 min summaries, monthly performance index)
+       └─ recomputeForecast → PredictivePvEngine + LoadForecaster + BatteryPredictor, PvRadar, EnergyMission
              └─ recomputeInsights → PvHealthEngine, PredictiveFaultEngine, EnergyOptimizationEngine, HistoryPeriods
 ```
 

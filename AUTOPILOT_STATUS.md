@@ -115,3 +115,6 @@ Odbiorniki elastyczne i agregat dla EMS, dodatkowe dane pogodowe (wiatr, śnieg,
 ## PRO: Energy Management + Predictive Monitoring (2026-10-06)
 Audyt → `PROJECT_AUDIT.md` (sekcja „Audyt PRO”). Zrealizowane P0.1–P0.5 i P1.1–P1.7 oraz pulpit; testy `:core` 274/274.
 Integracja z falownikiem pozostaje TYLKO DO ODCZYTU. Wymaga walidacji na urządzeniu: mapa rejestrów SMG, znaki mocy, kody błędów.
+
+## PV Reality & Diagnostics (2026-10-07)
+Etapy: audyt → architektura → reality engine → PV Doctor → zabrudzenie/degradacja → MPPT/rejestry → radar/misje → pojazd/kąt/wiatr/„co jeśli” → UI → testy → dokumentacja. Testy rdzenia: 279 → 333. Każdy etap: `:core:test` lokalnie + CI (build, lint, emulator).
