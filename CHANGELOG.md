@@ -5,6 +5,8 @@ Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie 
 
 ## [Unreleased]
 
+## [v0.11.0] - 2026-10-07
+
 ### Added
 - Dashboard: cloud impact on today's and tomorrow's production ("X kWh zamiast Y kWh przy czystym niebie, chmury −Z%")
 - SOC estimated from the resting battery voltage (± uncertainty) when the inverter does not report SOC; used by energy security with reduced confidence
