@@ -65,3 +65,21 @@ class WeatherEffectsTest {
         assertTrue(windy.expectedKw > calm.expectedKw)
     }
 }
+
+class CloudLayersTest {
+    private val t = Instant.parse("2026-10-07T08:25:00Z")
+
+    @Test
+    fun parsesLayersAndExplainsSunThroughClouds() {
+        val json = """{"hourly":{"time":[${t.epochSecond}],"shortwave_radiation":[600],"direct_normal_irradiance":[700],"diffuse_radiation":[120],
+            "temperature_2m":[23],"cloud_cover":[91],"cloud_cover_low":[3],"cloud_cover_mid":[8],"cloud_cover_high":[90]}}"""
+        val h = OpenMeteo.parseForecast(json, t).hours.single()
+        assertEquals(90.0, h.cloudHighPercent!!, 0.0)
+        assertEquals(3.0, h.cloudLowPercent!!, 0.0)
+        assertTrue(WeatherEffects.cloudExplanation(h, 0.9)!!.contains("wysokie"))
+        assertTrue(WeatherEffects.cloudExplanation(h.copy(cloudLowPercent = 80.0), 0.9)!!.contains("przerwy"))
+        assertNull(WeatherEffects.cloudExplanation(h, 0.3)) // forecast irradiance agrees with clouds
+        assertNull(WeatherEffects.cloudExplanation(h.copy(cloudCoverPercent = 20.0), 0.9))
+        assertTrue(OpenMeteo.forecastUrl(com.solartracker.pro.core.solar.GeoLocation(37.3, 27.3)).contains("cloud_cover_high"))
+    }
+}

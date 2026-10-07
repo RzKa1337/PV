@@ -24,6 +24,10 @@ data class HourlyWeather(
     /** Snow depth on the ground [m]. */
     val snowDepthM: Double? = null,
     val visibilityM: Double? = null,
+    /** Cloud cover by layer [%]: low (< 2 km), mid (2–6 km), high (> 6 km, often thin cirrus). */
+    val cloudLowPercent: Double? = null,
+    val cloudMidPercent: Double? = null,
+    val cloudHighPercent: Double? = null,
 ) {
     val startTime: Instant get() = endTime.minus(Duration.ofHours(1))
     val hasIrradiance: Boolean get() = dni != null && dhi != null

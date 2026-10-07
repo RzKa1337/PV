@@ -107,6 +107,8 @@ data class WeatherNow(
     val hour: HourlyWeather? = null,
     /** Forecast snow on the panels (≥ 2 cm, ≤ +1 °C, tilt < 60°). */
     val snowOnPanels: Boolean = false,
+    /** Forecast irradiance / clear-sky irradiance for this hour (what the PV estimate really uses). */
+    val clearSkyIndex: Double? = null,
     /** Today's and tomorrow's production vs a cloudless sky. */
     val cloudToday: CloudImpact? = null,
     val cloudTomorrow: CloudImpact? = null,
@@ -454,6 +456,7 @@ class MainViewModel(
                     temperatureC = hour?.temperatureC,
                     hour = hour,
                     snowOnPanels = WeatherEffects.snowCovered(hour, s.system.tiltDeg),
+                    clearSkyIndex = WeatherEffects.clearSkyIndex(hour, SolarCalculator.position(s.location, now), now),
                     cloudToday = CloudImpactCalculator.day(s.system, s.location, date, zone, e.model),
                     cloudTomorrow = CloudImpactCalculator.day(s.system, s.location, date.plusDays(1), zone, e.model),
                 )

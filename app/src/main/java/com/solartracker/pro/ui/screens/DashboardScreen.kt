@@ -34,6 +34,7 @@ import com.solartracker.pro.ui.DashboardState
 import com.solartracker.pro.ui.WeatherNow
 import com.solartracker.pro.ui.describeSources
 import com.solartracker.pro.core.weather.OpenMeteo
+import com.solartracker.pro.core.weather.WeatherEffects
 import com.solartracker.pro.core.weather.WeatherSource
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.IconButton
@@ -300,6 +301,17 @@ private fun WeatherCard(w: WeatherNow, onRefresh: () -> Unit) {
                         h.visibilityM?.takeIf { it < 5000 }?.let { "widoczność ${Format.decimal(it / 1000, 1)} km" },
                     )
                     if (details.isNotEmpty()) Text(details.joinToString(" · "), style = MaterialTheme.typography.bodySmall)
+                }
+                w.hour?.takeIf { w.source == WeatherSource.FORECAST }?.let { h ->
+                    if (h.cloudLowPercent != null || h.cloudMidPercent != null || h.cloudHighPercent != null) {
+                        Text("Chmury: niskie ${h.cloudLowPercent?.let { Format.percent(it) } ?: "—"} · średnie ${h.cloudMidPercent?.let { Format.percent(it) } ?: "—"} · " +
+                            "wysokie ${h.cloudHighPercent?.let { Format.percent(it) } ?: "—"}", style = MaterialTheme.typography.bodySmall)
+                    }
+                    w.clearSkyIndex?.let { csi ->
+                        Text("Słońce wg prognozy: ${Format.percent((csi * 100).coerceAtMost(100.0))} czystego nieba (to liczy model PV, nie sam % zachmurzenia)",
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                    WeatherEffects.cloudExplanation(h, w.clearSkyIndex)?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
                 }
                 listOfNotNull(w.cloudToday?.let { "Dziś" to it }, w.cloudTomorrow?.let { "Jutro" to it }).forEach { (label, c) ->
                     val r = c.reductionPercent

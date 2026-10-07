@@ -46,6 +46,23 @@ object WeatherEffects {
     fun skyCondition(hour: HourlyWeather?, position: SolarPosition, time: Instant): SkyCondition =
         SkyClassifier.classify(hour?.cloudCoverPercent, hour?.precipitationMm, hour?.snowDepthM, hour?.temperatureC, clearSkyIndex(hour, position, time))
 
+    /**
+     * Explains why a high total cloud cover can still give a lot of sun: the forecast irradiance (not the
+     * cloud percentage) drives the PV estimate, and high thin clouds let most sunlight through.
+     */
+    fun cloudExplanation(hour: HourlyWeather?, clearSkyIndex: Double?): String? {
+        hour ?: return null
+        val total = hour.cloudCoverPercent ?: return null
+        val csi = clearSkyIndex ?: return null
+        if (total < 50 || csi < 0.6) return null
+        val low = hour.cloudLowPercent
+        val mid = hour.cloudMidPercent
+        val high = hour.cloudHighPercent
+        val thinHigh = high != null && (low ?: 0.0) < 30 && (mid ?: 0.0) < 30 && high >= 50
+        return if (thinHigh) "Głównie wysokie, cienkie chmury – przepuszczają większość światła"
+        else "Mimo zachmurzenia prognoza przewiduje sporo słońca (przerwy w chmurach)"
+    }
+
     /** Short Polish description of notable conditions for the forecast basis. */
     fun describe(hour: HourlyWeather?): String? {
         hour ?: return null
