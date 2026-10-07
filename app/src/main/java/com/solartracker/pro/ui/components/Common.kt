@@ -1,5 +1,7 @@
 package com.solartracker.pro.ui.components
 
+import androidx.compose.ui.res.stringResource
+import com.solartracker.pro.R
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -20,7 +22,7 @@ import androidx.compose.ui.unit.sp
 
 /** Small label marking a value as a model estimate, never a measurement. */
 @Composable
-fun EstimateBadge(modifier: Modifier = Modifier, text: String = "SZACUNEK") {
+fun EstimateBadge(modifier: Modifier = Modifier, text: String = stringResource(R.string.estimate_badge)) {
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(6.dp),

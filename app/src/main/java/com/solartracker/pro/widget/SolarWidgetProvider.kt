@@ -108,7 +108,7 @@ class SolarWidgetProvider : AppWidgetProvider() {
             )
             setTextViewText(
                 R.id.widget_sun,
-                if (s.sunElevationDeg > 0) context.getString(R.string.widget_sun_up, s.sunElevationDeg.toInt(), s.sunset?.let(hm::format) ?: "—")
+                if (s.sunElevationDeg > 0) context.getString(R.string.widget_sun_up, s.sunElevationDeg.toInt().toString(), s.sunset?.let(hm::format) ?: "—")
                 else context.getString(R.string.widget_sun_down, s.sunrise?.let(hm::format) ?: "—"),
             )
             bindClicks(context, this)

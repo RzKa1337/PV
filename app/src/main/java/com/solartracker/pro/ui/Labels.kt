@@ -101,3 +101,22 @@ val LossCause.uiLabel: String
         LossCause.CLIPPING -> tr(label, "Power limiting (clipping)")
         LossCause.UNKNOWN -> tr(label, "Unknown")
     }
+
+val com.solartracker.pro.core.analytics.HistoryPeriod.uiLabel: String
+    get() = when (this) {
+        com.solartracker.pro.core.analytics.HistoryPeriod.DAY -> tr(label, "Day")
+        com.solartracker.pro.core.analytics.HistoryPeriod.WEEK -> tr(label, "Week")
+        com.solartracker.pro.core.analytics.HistoryPeriod.MONTH -> tr(label, "Month")
+        com.solartracker.pro.core.analytics.HistoryPeriod.YEAR -> tr(label, "Year")
+        com.solartracker.pro.core.analytics.HistoryPeriod.LIFETIME -> tr(label, "Lifetime")
+    }
+
+val com.solartracker.pro.core.analytics.SkyCondition.uiLabel: String
+    get() = when (this) {
+        com.solartracker.pro.core.analytics.SkyCondition.CLEAR -> tr(label, "clear")
+        com.solartracker.pro.core.analytics.SkyCondition.PARTLY_CLOUDY -> tr(label, "partly cloudy")
+        com.solartracker.pro.core.analytics.SkyCondition.OVERCAST -> tr(label, "overcast")
+        com.solartracker.pro.core.analytics.SkyCondition.RAIN -> tr(label, "rain")
+        com.solartracker.pro.core.analytics.SkyCondition.SNOW -> tr(label, "snow")
+        com.solartracker.pro.core.analytics.SkyCondition.UNKNOWN -> tr(label, "unknown")
+    }

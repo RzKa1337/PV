@@ -1,5 +1,7 @@
 package com.solartracker.pro.ui.energy
 
+import androidx.compose.ui.res.stringResource
+import com.solartracker.pro.R
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,6 +20,7 @@ import com.solartracker.pro.core.forecast.EnergyRisk
 import com.solartracker.pro.core.forecast.EnergySecurity
 import com.solartracker.pro.core.quality.DataKind
 import com.solartracker.pro.ui.components.SectionCard
+import com.solartracker.pro.ui.uiLabel
 import java.time.Duration
 import java.util.Locale
 
@@ -35,29 +38,29 @@ private fun hm(d: Duration): String = "${d.toHours()} h ${d.toMinutes() % 60} mi
 @Composable
 fun EnergySecurityCard(security: EnergySecurity?, modifier: Modifier = Modifier, compact: Boolean = false) {
     SectionCard(modifier.testTag("energy_security_card")) {
-        Text("BEZPIECZEŃSTWO ENERGETYCZNE", fontWeight = FontWeight.Bold)
+        Text(stringResource(R.string.es_title), fontWeight = FontWeight.Bold)
         if (security == null) {
-            Text("Prognoza jeszcze się liczy…", style = MaterialTheme.typography.bodyMedium)
+            Text(stringResource(R.string.ins_ems_computing), style = MaterialTheme.typography.bodyMedium)
             return@SectionCard
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Column(Modifier.weight(1f)) {
                 Text(security.securityPercent?.let { "$it%" } ?: "—", fontSize = 36.sp, fontWeight = FontWeight.Bold, color = riskColor(security.risk))
-                Text("Ryzyko: ${security.risk.label}", color = riskColor(security.risk), fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.es_risk, security.risk.uiLabel), color = riskColor(security.risk), fontWeight = FontWeight.SemiBold)
             }
             Column(Modifier.weight(1f)) {
-                Text("SOC teraz", style = MaterialTheme.typography.labelMedium)
+                Text(stringResource(R.string.ec_soc_now), style = MaterialTheme.typography.labelMedium)
                 Text(security.socNow?.let { "${it.toInt()}%" } ?: "—", fontSize = 26.sp, fontWeight = FontWeight.Bold)
-                security.minSocPercent?.let { Text("Minimum: ${it.toInt()}%", style = MaterialTheme.typography.bodySmall) }
+                security.minSocPercent?.let { Text(stringResource(R.string.es_minimum, it.toInt().toString()), style = MaterialTheme.typography.bodySmall) }
             }
         }
         if (security.shortageExpected && !security.gridBackup) {
-            Text("⚠️ PRZEWIDYWANY BRAK ENERGII", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.es_shortage), color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
         }
         Text(security.explanation, style = MaterialTheme.typography.bodyMedium)
-        security.timeToMinSoc?.let { Text("Do minimum SOC: ${hm(it)}", fontWeight = FontWeight.SemiBold) }
+        security.timeToMinSoc?.let { Text(stringResource(R.string.es_to_min_soc, (hm(it)).toString()), fontWeight = FontWeight.SemiBold) }
         if (!compact && security.milestones.isNotEmpty()) {
-            Text("Przewidywany SOC (zakres: gorszy–lepszy scenariusz)", style = MaterialTheme.typography.labelMedium)
+            Text(stringResource(R.string.es_soc_range), style = MaterialTheme.typography.labelMedium)
             security.milestones.forEach { m ->
                 Row(Modifier.fillMaxWidth()) {
                     Text(m.label, Modifier.weight(1f))
@@ -65,7 +68,7 @@ fun EnergySecurityCard(security: EnergySecurity?, modifier: Modifier = Modifier,
                 }
             }
         }
-        Text("Pewność ${Fmt.conf(security.confidence)}" + if (security.socKind != DataKind.MEASURED) " · SOC: ${security.socKind.label}" else "",
+        Text(stringResource(R.string.ins_confidence, Fmt.conf(security.confidence)) + if (security.socKind != DataKind.MEASURED) " · SOC: ${security.socKind.uiLabel}" else "",
             style = MaterialTheme.typography.bodySmall)
         KindBadge(DataKind.FORECAST)
     }
@@ -77,18 +80,18 @@ fun OutlookCard(outlook: List<DayOutlook>, modifier: Modifier = Modifier) {
     if (outlook.isEmpty()) return
     fun f(v: Double) = String.format(Locale.ROOT, "%.1f", v)
     SectionCard(modifier.testTag("outlook_card")) {
-        Text("PROGNOZA ENERGII 72 H", fontWeight = FontWeight.Bold)
+        Text(stringResource(R.string.es_outlook), fontWeight = FontWeight.Bold)
         outlook.forEach { d ->
-            Text(d.label + if (d.partial) " (od teraz)" else "", fontWeight = FontWeight.Bold, color = riskColor(d.risk))
-            Text("PV ${f(d.pvKwh)} kWh · zużycie ${f(d.loadKwh)} kWh · bilans ${if (d.balanceKwh >= 0) "+" else ""}${f(d.balanceKwh)} kWh",
+            Text(d.label + if (d.partial) stringResource(R.string.es_from_now) else "", fontWeight = FontWeight.Bold, color = riskColor(d.risk))
+            Text(stringResource(R.string.es_outlook_row, f(d.pvKwh), f(d.loadKwh), (if (d.balanceKwh >= 0) "+" else "").toString(), f(d.balanceKwh)),
                 style = MaterialTheme.typography.bodyMedium)
-            val soc = if (d.socMin != null) "SOC ${d.socMin}–${d.socMax}%" + (d.socMinPessimistic?.let { " (gorzej: min $it%)" } ?: "") else null
+            val soc = if (d.socMin != null) "SOC ${d.socMin}–${d.socMax}%" + (d.socMinPessimistic?.let { stringResource(R.string.es_worse_min, it.toString()) } ?: "") else null
             Text(listOfNotNull(
                 soc,
-                if (d.batteryChargeKwh > 0.05 || d.batteryDischargeKwh > 0.05) "bateria +${f(d.batteryChargeKwh)}/−${f(d.batteryDischargeKwh)} kWh" else null,
-                d.securityPercent?.let { "bezpieczeństwo $it%" },
-                "ryzyko ${d.risk.label}",
-                "pewność ${Fmt.conf(d.confidence)}",
+                if (d.batteryChargeKwh > 0.05 || d.batteryDischargeKwh > 0.05) stringResource(R.string.es_battery_flow, f(d.batteryChargeKwh), f(d.batteryDischargeKwh)) else null,
+                d.securityPercent?.let { stringResource(R.string.es_security, it.toString()) },
+                stringResource(R.string.es_risk_lower, d.risk.uiLabel),
+                stringResource(R.string.es_confidence_lower, Fmt.conf(d.confidence)),
             ).joinToString(" · "), style = MaterialTheme.typography.bodySmall)
         }
         KindBadge(DataKind.FORECAST)

@@ -1,5 +1,7 @@
 package com.solartracker.pro.ui.energy
 
+import androidx.compose.ui.res.stringResource
+import com.solartracker.pro.R
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -50,6 +52,8 @@ import com.solartracker.pro.energy.EnergyCenterViewModel
 import com.solartracker.pro.energy.SiteConfig
 import com.solartracker.pro.ui.components.ScreenTitle
 import com.solartracker.pro.ui.components.SectionCard
+import com.solartracker.pro.ui.uiLabel
+import androidx.compose.ui.platform.LocalContext
 import java.time.LocalTime
 import java.util.Locale
 import java.util.UUID
@@ -59,8 +63,8 @@ fun EnergyConfigScreen(vm: EnergyCenterViewModel, onBack: () -> Unit, modifier: 
     val inverter by vm.inverterConfig.collectAsStateWithLifecycle()
     val site by vm.siteConfig.collectAsStateWithLifecycle()
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        TextButton(onClick = onBack) { Text("← Centrum energii") }
-        ScreenTitle("Konfiguracja", "Falownik, instalacja i lokalizacja")
+        TextButton(onClick = onBack) { Text(stringResource(R.string.back_energy_center)) }
+        ScreenTitle(stringResource(R.string.cfg_title), stringResource(R.string.cfg_subtitle))
         inverter?.let { InverterForm(it, vm::saveInverter) }
         site?.let { LocationSection(vm, it) }
         site?.let { SiteForm(it, vm::saveSite) }
@@ -96,35 +100,35 @@ private fun InverterForm(current: InverterConfig, onSave: (InverterConfig) -> Li
     var mppt by remember(current) { mutableStateOf(current.mpptCount.toString()) }
     var errors by remember(current) { mutableStateOf(emptyList<String>()) }
     SectionCard {
-        Text("Falownik", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(R.string.inverter), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Monitorowanie falownika", Modifier.weight(1f))
+            Text(stringResource(R.string.cfg_monitoring), Modifier.weight(1f))
             Switch(checked = c.enabled, onCheckedChange = { c = c.copy(enabled = it) })
         }
-        Text("Model: Anenji 6.2 kW 48 V (ANJ-6200W-48V). Połączenie przez port RS232 falownika. Wbudowane Wi-Fi wysyła dane do chmury producenta i nie jest obsługiwane lokalnie.",
+        Text(stringResource(R.string.cfg_model_hint),
             style = MaterialTheme.typography.bodySmall)
-        Text("Połączenie", fontWeight = FontWeight.SemiBold)
+        Text(stringResource(R.string.cfg_connection), fontWeight = FontWeight.SemiBold)
         ChoiceRow(InverterLink.entries.map { it to it.label }, c.link) { c = c.copy(link = it) }
         if (c.link == InverterLink.TCP_SERIAL_BRIDGE || c.link == InverterLink.MODBUS_TCP_GATEWAY) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(host, { host = it.trim().take(253) }, label = { Text("Adres IP mostka") }, singleLine = true, modifier = Modifier.weight(2f))
+                OutlinedTextField(host, { host = it.trim().take(253) }, label = { Text(stringResource(R.string.cfg_bridge_ip)) }, singleLine = true, modifier = Modifier.weight(2f))
                 NumberField("Port", port, { port = it }, Modifier.weight(1f))
             }
         }
-        if (c.link == InverterLink.SIMULATOR) Text("Symulator pokazuje dane testowe oznaczone jako SYMULATOR – nie są to pomiary.", color = MaterialTheme.colorScheme.error)
+        if (c.link == InverterLink.SIMULATOR) Text(stringResource(R.string.cfg_simulator_hint), color = MaterialTheme.colorScheme.error)
         if (c.link != InverterLink.SIMULATOR) {
-            Text("Protokół", fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.cfg_protocol), fontWeight = FontWeight.SemiBold)
             ChoiceRow(InverterProtocol.entries.map { it to it.label }, c.protocol) { c = c.copy(protocol = it) }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            NumberField("Adres Modbus", slave, { slave = it }, Modifier.weight(1f))
-            NumberField("Odczyt co [s]", poll, { poll = it }, Modifier.weight(1f))
+            NumberField(stringResource(R.string.cfg_modbus_address), slave, { slave = it }, Modifier.weight(1f))
+            NumberField(stringResource(R.string.cfg_poll), poll, { poll = it }, Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            NumberField("Moc falownika [W]", rated, { rated = it }, Modifier.weight(1f))
-            NumberField("Liczba MPPT", mppt, { mppt = it }, Modifier.weight(1f))
+            NumberField(stringResource(R.string.cfg_rated_power), rated, { rated = it }, Modifier.weight(1f))
+            NumberField(stringResource(R.string.cfg_mppt_count), mppt, { mppt = it }, Modifier.weight(1f))
         }
-        Text("Częstszy odczyt = szybsze dane, ale większe zużycie baterii telefonu. Odczyt działa tylko, gdy Centrum energii jest otwarte.", style = MaterialTheme.typography.bodySmall)
+        Text(stringResource(R.string.cfg_poll_hint), style = MaterialTheme.typography.bodySmall)
         errors.forEach { Text(it, color = MaterialTheme.colorScheme.error) }
         Button(onClick = {
             val updated = c.copy(
@@ -132,7 +136,7 @@ private fun InverterForm(current: InverterConfig, onSave: (InverterConfig) -> Li
                 pollIntervalSeconds = poll.toIntOrNull() ?: -1, ratedPowerW = rated.num() ?: -1.0, mpptCount = mppt.toIntOrNull() ?: -1,
             )
             errors = onSave(updated)
-        }) { Text("Zapisz falownik") }
+        }) { Text(stringResource(R.string.cfg_save_inverter)) }
     }
 }
 
@@ -145,36 +149,37 @@ private fun LocationSection(vm: EnergyCenterViewModel, site: SiteConfig) {
     var query by rememberSaveable { mutableStateOf("") }
     var pickOnMap by rememberSaveable { mutableStateOf(false) }
     BackHandler(enabled = pickOnMap) { pickOnMap = false }
+    val context = LocalContext.current
     val location = settings?.location ?: return
     val point = LatLon(location.latitude, location.longitude)
     SectionCard {
-        Text("Lokalizacja instalacji", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        Text("${settings?.locationName} · ${String.format(Locale.ROOT, "%.6f, %.6f", point.lat, point.lon)} · ${Fmt.m(location.elevationM)} n.p.m.")
-        Text("Dokładność: ${site.locationAccuracy.label}", color = if (site.locationAccuracy.factor < 0.8) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
-        Text(if (site.locationConfirmed) "Lokalizacja potwierdzona ✓" else "Lokalizacja NIEPOTWIERDZONA – zacienienie nie jest obliczane",
+        Text(stringResource(R.string.cfg_site_location), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(R.string.cfg_location_line, settings?.locationName.orEmpty(), String.format(Locale.ROOT, "%.6f, %.6f", point.lat, point.lon), Fmt.m(location.elevationM).orEmpty()))
+        Text(stringResource(R.string.cfg_accuracy, site.locationAccuracy.uiLabel), color = if (site.locationAccuracy.factor < 0.8) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
+        Text(if (site.locationConfirmed) stringResource(R.string.cfg_location_confirmed) else stringResource(R.string.cfg_location_unconfirmed),
             fontWeight = FontWeight.SemiBold, color = if (site.locationConfirmed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
-        OutlinedTextField(query, { query = it.take(200) }, label = { Text("Miasto, adres lub kod pocztowy") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(query, { query = it.take(200) }, label = { Text(stringResource(R.string.cfg_search_field)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilledTonalButton(onClick = { vm.search(query) }, enabled = !busy && query.trim().length >= 2) { Text(if (busy) "Szukam…" else "Szukaj") }
-            OutlinedButton(onClick = { pickOnMap = !pickOnMap }) { Text(if (pickOnMap) "Zamknij mapę" else "Wskaż na mapie") }
+            FilledTonalButton(onClick = { vm.search(query) }, enabled = !busy && query.trim().length >= 2) { Text(if (busy) stringResource(R.string.cfg_searching) else stringResource(R.string.search)) }
+            OutlinedButton(onClick = { pickOnMap = !pickOnMap }) { Text(if (pickOnMap) stringResource(R.string.cfg_close_map) else stringResource(R.string.cfg_pick_on_map)) }
         }
         results.forEach { r ->
             TextButton(onClick = { vm.setLocation(r.point, r.name.take(60), r.accuracy, r.elevationM) }) {
-                Text("${r.name} (${r.accuracy.label}, ${r.source})")
+                Text("${r.name} (${r.accuracy.uiLabel}, ${r.source})")
             }
         }
         if (pickOnMap) {
-            Text("Dotknij mapy, aby ustawić dokładny punkt instalacji (np. środek dachu z panelami).", style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.cfg_tap_map), style = MaterialTheme.typography.bodySmall)
             Box(Modifier.fillMaxWidth().height(320.dp)) {
                 OsmMap(center = point, marker = point, shapes = emptyList(), modifier = Modifier.fillMaxSize(), onTap = { p ->
-                    vm.setLocation(p, settings?.locationName?.takeIf { it.isNotBlank() } ?: "Punkt z mapy", LocationAccuracy.MAP_POINT)
+                    vm.setLocation(p, settings?.locationName?.takeIf { it.isNotBlank() } ?: context.getString(R.string.cfg_map_point), LocationAccuracy.MAP_POINT)
                 })
                 Text("N ↑", Modifier.align(Alignment.TopEnd).padding(8.dp), fontWeight = FontWeight.Bold)
             }
-            Text("Mapa © OpenStreetMap contributors", style = MaterialTheme.typography.labelSmall)
+            Text(stringResource(R.string.map_attribution), style = MaterialTheme.typography.labelSmall)
         }
-        if (!site.locationConfirmed) Button(onClick = vm::confirmLocation) { Text("Potwierdź lokalizację") }
-        if (site.locationAccuracy.factor < 0.8) Text("Lokalizacja jest przybliżona – wskaż dokładny punkt na mapie, aby zacienienie było wiarygodne.", style = MaterialTheme.typography.bodySmall)
+        if (!site.locationConfirmed) Button(onClick = vm::confirmLocation) { Text(stringResource(R.string.cfg_confirm_location)) }
+        if (site.locationAccuracy.factor < 0.8) Text(stringResource(R.string.cfg_location_approx), style = MaterialTheme.typography.bodySmall)
     }
 }
 
@@ -193,28 +198,28 @@ private fun SiteForm(current: SiteConfig, onSave: (SiteConfig) -> List<String>) 
     var export by remember(current) { mutableStateOf(current.gridExportAllowed) }
     var errors by remember(current) { mutableStateOf(emptyList<String>()) }
     SectionCard {
-        Text("Instalacja PV (geometria)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        Text("Moc, kąt i azymut ustawiasz w zakładce Ustawienia. Tu podaj rozmieszczenie paneli – potrzebne do obliczeń zacienienia.", style = MaterialTheme.typography.bodySmall)
-        OutlinedTextField(model, { model = it.take(60) }, label = { Text("Model panelu") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        Text(stringResource(R.string.cfg_site_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(R.string.cfg_site_hint), style = MaterialTheme.typography.bodySmall)
+        OutlinedTextField(model, { model = it.take(60) }, label = { Text(stringResource(R.string.cfg_panel_model)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            NumberField("Liczba paneli", panels, { panels = it }, Modifier.weight(1f))
-            NumberField("Rzędy", rows, { rows = it }, Modifier.weight(1f))
+            NumberField(stringResource(R.string.cfg_panel_count), panels, { panels = it }, Modifier.weight(1f))
+            NumberField(stringResource(R.string.cfg_rows), rows, { rows = it }, Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            NumberField("Szerokość [m]", w, { w = it }, Modifier.weight(1f))
-            NumberField("Długość [m]", l, { l = it }, Modifier.weight(1f))
+            NumberField(stringResource(R.string.cfg_width_m), w, { w = it }, Modifier.weight(1f))
+            NumberField(stringResource(R.string.cfg_length_m), l, { l = it }, Modifier.weight(1f))
         }
-        NumberField("Wysokość dolnej krawędzi paneli nad gruntem [m]", h, { h = it }, Modifier.fillMaxWidth())
+        NumberField(stringResource(R.string.cfg_base_height), h, { h = it }, Modifier.fillMaxWidth())
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            NumberField("Stringi", strings, { strings = it }, Modifier.weight(1f))
+            NumberField(stringResource(R.string.cfg_strings), strings, { strings = it }, Modifier.weight(1f))
             NumberField("MPPT", mppt, { mppt = it }, Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            NumberField("Promień przeszkód [m]", radius, { radius = it }, Modifier.weight(1f))
-            NumberField("Napięcie baterii [V]", batteryV, { batteryV = it }, Modifier.weight(1f))
+            NumberField(stringResource(R.string.cfg_obstacle_radius), radius, { radius = it }, Modifier.weight(1f))
+            NumberField(stringResource(R.string.cfg_battery_voltage), batteryV, { batteryV = it }, Modifier.weight(1f))
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Oddawanie energii do sieci możliwe", Modifier.weight(1f))
+            Text(stringResource(R.string.cfg_export_allowed), Modifier.weight(1f))
             Switch(checked = export, onCheckedChange = { export = it })
         }
         errors.forEach { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -227,7 +232,7 @@ private fun SiteForm(current: SiteConfig, onSave: (SiteConfig) -> List<String>) 
                     batteryVoltage = batteryV.num() ?: 48.0, gridExportAllowed = export,
                 ),
             )
-        }) { Text("Zapisz instalację") }
+        }) { Text(stringResource(R.string.cfg_save_site)) }
     }
 }
 
@@ -247,49 +252,50 @@ private fun EmsSection(vm: EnergyCenterViewModel) {
     var to by remember { mutableStateOf("") }
     var surplusOnly by remember { mutableStateOf(true) }
     var errors by remember { mutableStateOf(emptyList<String>()) }
+    val context = LocalContext.current
     SectionCard {
-        Text("Odbiorniki elastyczne (EMS)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        Text("Urządzenia, które można uruchomić później (pralka, bojler, ładowanie auta). Aplikacja tylko podpowiada godzinę – niczego nie włącza.",
+        Text(stringResource(R.string.cfg_ems_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(R.string.cfg_ems_hint),
             style = MaterialTheme.typography.bodySmall)
-        if (loads.isEmpty()) Text("Brak odbiorników.", style = MaterialTheme.typography.bodyMedium)
+        if (loads.isEmpty()) Text(stringResource(R.string.cfg_no_loads), style = MaterialTheme.typography.bodyMedium)
         loads.forEach { l ->
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(l.name, fontWeight = FontWeight.SemiBold)
                     Text(String.format(Locale.ROOT, "%.2f kW × %.2f h", l.powerKw, l.hours) +
                         (if (l.earliest != null || l.latest != null) " · ${l.earliest ?: "—"}–${l.latest ?: "—"}" else "") +
-                        (if (l.surplusOnly) " · tylko z nadwyżki" else ""), style = MaterialTheme.typography.bodySmall)
+                        (if (l.surplusOnly) stringResource(R.string.cfg_surplus_only_suffix) else ""), style = MaterialTheme.typography.bodySmall)
                 }
-                TextButton(onClick = { vm.saveFlexibleLoads(loads.filterNot { it.id == l.id }) }) { Text("Usuń") }
+                TextButton(onClick = { vm.saveFlexibleLoads(loads.filterNot { it.id == l.id }) }) { Text(stringResource(R.string.remove)) }
             }
         }
-        OutlinedTextField(name, { name = it.take(40) }, label = { Text("Nazwa") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(name, { name = it.take(40) }, label = { Text(stringResource(R.string.name)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            NumberField("Moc [kW]", kw, { kw = it }, Modifier.weight(1f))
-            NumberField("Czas pracy [h]", hours, { hours = it }, Modifier.weight(1f))
+            NumberField(stringResource(R.string.cfg_power_kw), kw, { kw = it }, Modifier.weight(1f))
+            NumberField(stringResource(R.string.cfg_run_hours), hours, { hours = it }, Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(from, { from = it.take(5) }, label = { Text("Od (GG:MM)") }, singleLine = true, modifier = Modifier.weight(1f))
-            OutlinedTextField(to, { to = it.take(5) }, label = { Text("Do (GG:MM)") }, singleLine = true, modifier = Modifier.weight(1f))
+            OutlinedTextField(from, { from = it.take(5) }, label = { Text(stringResource(R.string.cfg_from_hhmm)) }, singleLine = true, modifier = Modifier.weight(1f))
+            OutlinedTextField(to, { to = it.take(5) }, label = { Text(stringResource(R.string.cfg_to_hhmm)) }, singleLine = true, modifier = Modifier.weight(1f))
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Tylko z nadwyżki PV", Modifier.weight(1f))
+            Text(stringResource(R.string.cfg_surplus_only), Modifier.weight(1f))
             Switch(checked = surplusOnly, onCheckedChange = { surplusOnly = it })
         }
         errors.forEach { Text(it, color = MaterialTheme.colorScheme.error) }
         OutlinedButton(onClick = {
             val f = from.time(); val t = to.time()
             val timeErrors = buildList {
-                if (from.isNotBlank() && f == null) add("Niepoprawna godzina „od”")
-                if (to.isNotBlank() && t == null) add("Niepoprawna godzina „do”")
+                if (from.isNotBlank() && f == null) add(context.getString(R.string.cfg_bad_from))
+                if (to.isNotBlank() && t == null) add(context.getString(R.string.cfg_bad_to))
             }
             val load = FlexibleLoad(UUID.randomUUID().toString(), name.trim(), kw.num() ?: -1.0, hours.num() ?: -1.0, f, t, 0, surplusOnly)
-            errors = timeErrors + load.validate() + (if (loads.size >= 20) listOf("Maksymalnie 20 odbiorników") else emptyList())
+            errors = timeErrors + load.validate() + (if (loads.size >= 20) listOf(context.getString(R.string.cfg_max_loads)) else emptyList())
             if (errors.isEmpty()) {
                 vm.saveFlexibleLoads(loads + load)
                 name = ""; kw = ""; hours = ""; from = ""; to = ""
             }
-        }) { Text("Dodaj odbiornik") }
+        }) { Text(stringResource(R.string.cfg_add_load)) }
     }
     GeneratorForm(generator, vm::saveGenerator)
     val cooling by vm.cooling.collectAsStateWithLifecycle()
@@ -299,8 +305,10 @@ private fun EmsSection(vm: EnergyCenterViewModel) {
 /** Optional cold room: modelled as a compressor duty cycle, not as constant nominal power. */
 @Composable
 private fun CoolingForm(current: CoolingLoadProfile?, onSave: (CoolingLoadProfile?) -> Unit) {
+    val context = LocalContext.current
+    val defaultName = stringResource(R.string.cfg_cold_room)
     var enabled by remember(current) { mutableStateOf(current != null) }
-    var name by remember(current) { mutableStateOf(current?.name ?: "Chłodnia") }
+    var name by remember(current) { mutableStateOf(current?.name ?: defaultName) }
     var nominal by remember(current) { mutableStateOf(current?.nominalPowerW?.toInt()?.toString() ?: "") }
     var minimum by remember(current) { mutableStateOf(current?.minimumPowerW?.toInt()?.toString() ?: "") }
     var mode by remember(current) { mutableStateOf(current?.mode ?: CoolingMode.AVERAGE) }
@@ -321,80 +329,79 @@ private fun CoolingForm(current: CoolingLoadProfile?, onSave: (CoolingLoadProfil
     var errors by remember(current) { mutableStateOf(emptyList<String>()) }
     var saved by remember(current) { mutableStateOf(false) }
     SectionCard {
-        Text("Chłodnia (duży odbiornik)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(R.string.cfg_cold_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Mam chłodnię", Modifier.weight(1f))
+            Text(stringResource(R.string.cfg_have_cold), Modifier.weight(1f))
             Switch(checked = enabled, onCheckedChange = { enabled = it })
         }
-        Text("Sprężarka pracuje cyklicznie – średni pobór zależy od temperatury otoczenia. Wpisz dane z tabliczki, licznika lub sterownika. " +
-            "Model jest dodawany do prognozy zużycia, dopóki aplikacja nie ma własnej historii pomiarów (potem chłodnia jest już w pomiarach).",
+        Text(stringResource(R.string.cfg_cold_hint),
             style = MaterialTheme.typography.bodySmall)
         if (enabled) {
-            OutlinedTextField(name, { name = it.take(40) }, label = { Text("Nazwa") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(name, { name = it.take(40) }, label = { Text(stringResource(R.string.name)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                NumberField("Moc nominalna [W]", nominal, { nominal = it }, Modifier.weight(1f))
-                NumberField("Moc w spoczynku [W]", minimum, { minimum = it }, Modifier.weight(1f))
+                NumberField(stringResource(R.string.cfg_nominal_w), nominal, { nominal = it }, Modifier.weight(1f))
+                NumberField(stringResource(R.string.cfg_idle_w), minimum, { minimum = it }, Modifier.weight(1f))
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = mode == CoolingMode.AVERAGE, onClick = { mode = CoolingMode.AVERAGE }, label = { Text("Znam średnią moc") })
-                FilterChip(selected = mode == CoolingMode.DUTY_CYCLE, onClick = { mode = CoolingMode.DUTY_CYCLE }, label = { Text("Znam cykl pracy") })
+                FilterChip(selected = mode == CoolingMode.AVERAGE, onClick = { mode = CoolingMode.AVERAGE }, label = { Text(stringResource(R.string.cfg_know_average)) })
+                FilterChip(selected = mode == CoolingMode.DUTY_CYCLE, onClick = { mode = CoolingMode.DUTY_CYCLE }, label = { Text(stringResource(R.string.cfg_know_duty)) })
             }
-            FilterChip(selected = mode == CoolingMode.SCHEDULE, onClick = { mode = CoolingMode.SCHEDULE }, label = { Text("Harmonogram mocy") })
+            FilterChip(selected = mode == CoolingMode.SCHEDULE, onClick = { mode = CoolingMode.SCHEDULE }, label = { Text(stringResource(R.string.cfg_schedule)) })
             if (mode == CoolingMode.SCHEDULE) {
-                Text("Średni pobór w przedziałach godzin (np. z licznika). Godziny poza harmonogramem = moc w spoczynku.", style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(R.string.cfg_schedule_hint), style = MaterialTheme.typography.bodySmall)
                 schedule.forEachIndexed { i, e ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("${e.start}–${e.end}: ${e.powerW.toInt()} W", Modifier.weight(1f))
-                        TextButton(onClick = { schedule.removeAt(i) }) { Text("Usuń") }
+                        TextButton(onClick = { schedule.removeAt(i) }) { Text(stringResource(R.string.remove)) }
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(schedFrom, { schedFrom = it.take(5) }, label = { Text("Od") }, singleLine = true, modifier = Modifier.weight(1f))
-                    OutlinedTextField(schedTo, { schedTo = it.take(5) }, label = { Text("Do") }, singleLine = true, modifier = Modifier.weight(1f))
-                    NumberField("Moc [W]", schedW, { schedW = it }, Modifier.weight(1f))
+                    OutlinedTextField(schedFrom, { schedFrom = it.take(5) }, label = { Text(stringResource(R.string.from)) }, singleLine = true, modifier = Modifier.weight(1f))
+                    OutlinedTextField(schedTo, { schedTo = it.take(5) }, label = { Text(stringResource(R.string.to)) }, singleLine = true, modifier = Modifier.weight(1f))
+                    NumberField(stringResource(R.string.cfg_power_w), schedW, { schedW = it }, Modifier.weight(1f))
                 }
                 OutlinedButton(onClick = {
                     val f = schedFrom.time(); val t = schedTo.time(); val w = schedW.num()
                     if (f != null && t != null && w != null && f != t && w >= 0) {
                         schedule += CoolingScheduleEntry(f, t, w); schedFrom = ""; schedTo = ""; schedW = ""
-                    } else errors = listOf("Harmonogram: podaj godziny GG:MM (różne) i moc")
-                }) { Text("Dodaj przedział") }
+                    } else errors = listOf(context.getString(R.string.cfg_schedule_error))
+                }) { Text(stringResource(R.string.consumption_add_period)) }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 when (mode) {
-                    CoolingMode.AVERAGE -> NumberField("Średnia moc [W]", average, { average = it }, Modifier.weight(1f))
-                    CoolingMode.DUTY_CYCLE -> NumberField("Praca sprężarki [%]", duty, { duty = it }, Modifier.weight(1f))
+                    CoolingMode.AVERAGE -> NumberField(stringResource(R.string.cfg_average_w), average, { average = it }, Modifier.weight(1f))
+                    CoolingMode.DUTY_CYCLE -> NumberField(stringResource(R.string.cfg_duty), duty, { duty = it }, Modifier.weight(1f))
                     CoolingMode.SCHEDULE -> Unit
                 }
-                if (mode != CoolingMode.SCHEDULE) NumberField("Przy temp. otoczenia [°C]", reference, { reference = it }, Modifier.weight(1f))
+                if (mode != CoolingMode.SCHEDULE) NumberField(stringResource(R.string.cfg_at_ambient), reference, { reference = it }, Modifier.weight(1f))
             }
-            NumberField("Temperatura w chłodni [°C]", target, { target = it }, Modifier.fillMaxWidth())
+            NumberField(stringResource(R.string.cfg_room_temp), target, { target = it }, Modifier.fillMaxWidth())
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(open, { open = it.take(5) }, label = { Text("Otwarte od (GG:MM)") }, singleLine = true, modifier = Modifier.weight(1f))
-                OutlinedTextField(close, { close = it.take(5) }, label = { Text("do (GG:MM)") }, singleLine = true, modifier = Modifier.weight(1f))
+                OutlinedTextField(open, { open = it.take(5) }, label = { Text(stringResource(R.string.cfg_open_from)) }, singleLine = true, modifier = Modifier.weight(1f))
+                OutlinedTextField(close, { close = it.take(5) }, label = { Text(stringResource(R.string.cfg_open_to)) }, singleLine = true, modifier = Modifier.weight(1f))
             }
-            NumberField("Poza godzinami otwarcia: praca [% normalnej]", idle, { idle = it }, Modifier.fillMaxWidth())
+            NumberField(stringResource(R.string.cfg_idle_factor), idle, { idle = it }, Modifier.fillMaxWidth())
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Wychładzanie przed otwarciem", Modifier.weight(1f))
+                Text(stringResource(R.string.cfg_precool), Modifier.weight(1f))
                 Switch(checked = pre, onCheckedChange = { pre = it })
             }
             if (pre) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                NumberField("Do temperatury [°C]", preTarget, { preTarget = it }, Modifier.weight(1f))
-                NumberField("Przez [h]", preHours, { preHours = it }, Modifier.weight(1f))
+                NumberField(stringResource(R.string.cfg_precool_to), preTarget, { preTarget = it }, Modifier.weight(1f))
+                NumberField(stringResource(R.string.cfg_precool_hours), preHours, { preHours = it }, Modifier.weight(1f))
             }
         }
         errors.forEach { Text(it, color = MaterialTheme.colorScheme.error) }
         current?.let { c ->
             val day = c.dailyEnergyKwh(java.time.LocalDate.now(), java.time.ZoneId.systemDefault(), c.referenceAmbientC)
-            Text(String.format(Locale.ROOT, "Szacowane zużycie przy %.0f °C: %.1f kWh/dobę", c.referenceAmbientC, day), style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.cfg_cold_estimate, String.format(Locale.ROOT, "%.0f", c.referenceAmbientC), String.format(Locale.ROOT, "%.1f", day)), style = MaterialTheme.typography.bodySmall)
         }
-        if (saved) Text("Zapisano", color = MaterialTheme.colorScheme.primary)
+        if (saved) Text(stringResource(R.string.saved), color = MaterialTheme.colorScheme.primary)
         Button(onClick = {
             saved = false
             if (!enabled) { onSave(null); saved = true; errors = emptyList(); return@Button }
             val o = open.time(); val c = close.time()
             val p = CoolingLoadProfile(
-                name = name.trim().ifEmpty { "Chłodnia" }, nominalPowerW = nominal.num() ?: -1.0, minimumPowerW = minimum.num() ?: -1.0, mode = mode,
+                name = name.trim().ifEmpty { defaultName }, nominalPowerW = nominal.num() ?: -1.0, minimumPowerW = minimum.num() ?: -1.0, mode = mode,
                 averagePowerW = average.num().takeIf { mode == CoolingMode.AVERAGE }, dutyAtReference = duty.num()?.div(100).takeIf { mode == CoolingMode.DUTY_CYCLE },
                 schedule = if (mode == CoolingMode.SCHEDULE) schedule.toList() else emptyList(),
                 targetTemperatureC = target.num() ?: 99.0, referenceAmbientC = reference.num() ?: 25.0,
@@ -402,11 +409,11 @@ private fun CoolingForm(current: CoolingLoadProfile?, onSave: (CoolingLoadProfil
                 preCoolingEnabled = pre, preCoolingTargetC = preTarget.num(), preCoolingHours = preHours.num() ?: 2.0,
             )
             errors = p.validate() + buildList {
-                if (open.isNotBlank() && o == null) add("Niepoprawna godzina otwarcia")
-                if (close.isNotBlank() && c == null) add("Niepoprawna godzina zamknięcia")
+                if (open.isNotBlank() && o == null) add(context.getString(R.string.cfg_bad_open))
+                if (close.isNotBlank() && c == null) add(context.getString(R.string.cfg_bad_close))
             }
             if (errors.isEmpty()) { onSave(p); saved = true }
-        }) { Text("Zapisz chłodnię") }
+        }) { Text(stringResource(R.string.cfg_save_cold)) }
     }
 }
 
@@ -421,30 +428,30 @@ private fun GeneratorForm(current: GeneratorConfig?, onSave: (GeneratorConfig?) 
     var errors by remember(current) { mutableStateOf(emptyList<String>()) }
     var saved by remember(current) { mutableStateOf(false) }
     SectionCard {
-        Text("Agregat", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(R.string.source_generator), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Mam agregat", Modifier.weight(1f))
+            Text(stringResource(R.string.cfg_have_generator), Modifier.weight(1f))
             Switch(checked = enabled, onCheckedChange = { enabled = it })
         }
-        Text("Używany w zaleceniach, gdy w Ustawieniach → Ceny źródłem rezerwowym jest agregat.", style = MaterialTheme.typography.bodySmall)
+        Text(stringResource(R.string.cfg_generator_hint), style = MaterialTheme.typography.bodySmall)
         if (enabled) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                NumberField("Moc [kW]", kw, { kw = it }, Modifier.weight(1f))
-                NumberField("Min. praca [h]", minRun, { minRun = it }, Modifier.weight(1f))
+                NumberField(stringResource(R.string.cfg_power_kw), kw, { kw = it }, Modifier.weight(1f))
+                NumberField(stringResource(R.string.cfg_min_run), minRun, { minRun = it }, Modifier.weight(1f))
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                NumberField("Start przy SOC [%]", start, { start = it }, Modifier.weight(1f))
-                NumberField("Stop przy SOC [%]", stop, { stop = it }, Modifier.weight(1f))
+                NumberField(stringResource(R.string.cfg_start_soc), start, { start = it }, Modifier.weight(1f))
+                NumberField(stringResource(R.string.cfg_stop_soc), stop, { stop = it }, Modifier.weight(1f))
             }
-            NumberField("Zużycie paliwa [l/kWh] (opcj.)", fuel, { fuel = it }, Modifier.fillMaxWidth())
+            NumberField(stringResource(R.string.cfg_fuel), fuel, { fuel = it }, Modifier.fillMaxWidth())
         }
         errors.forEach { Text(it, color = MaterialTheme.colorScheme.error) }
-        if (saved) Text("Zapisano", color = MaterialTheme.colorScheme.primary)
+        if (saved) Text(stringResource(R.string.saved), color = MaterialTheme.colorScheme.primary)
         Button(onClick = {
             if (!enabled) { onSave(null); saved = true; errors = emptyList(); return@Button }
             val g = GeneratorConfig(kw.num() ?: -1.0, start.num() ?: -1.0, stop.num() ?: -1.0, minRun.num() ?: -1.0, fuel.num())
             errors = g.validate()
             if (errors.isEmpty()) { onSave(g); saved = true }
-        }) { Text("Zapisz agregat") }
+        }) { Text(stringResource(R.string.cfg_save_generator)) }
     }
 }

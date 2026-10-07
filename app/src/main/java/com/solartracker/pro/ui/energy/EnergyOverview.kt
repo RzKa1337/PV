@@ -1,5 +1,7 @@
 package com.solartracker.pro.ui.energy
 
+import androidx.compose.ui.res.stringResource
+import com.solartracker.pro.R
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -43,27 +45,27 @@ fun EnergyOverview(vm: EnergyCenterViewModel, weather: WeatherState, modifier: M
     Column(modifier.testTag("energy_overview"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         EnergySecurityCard(forecast.security, compact = true)
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Tile("PV TERAZ", Fmt.kw(t?.pv?.powerW) ?: "—", if (t == null) null else kind, Modifier.weight(1f),
-                forecast.nowForecastKw?.let { "prognoza ${Fmt.kwFromKw(it)}" })
-            Tile("PV DZIŚ", Fmt.kwh(forecast.producedTodayKwh) ?: "—", if (forecast.producedTodayKwh == null) null else DataKind.CALCULATED, Modifier.weight(1f),
-                forecast.today?.let { "oczekiwane ${Fmt.kwh(it.expectedKwh)}" })
+            Tile(stringResource(R.string.ov_pv_now), Fmt.kw(t?.pv?.powerW) ?: "—", if (t == null) null else kind, Modifier.weight(1f),
+                forecast.nowForecastKw?.let { stringResource(R.string.ov_forecast_value, Fmt.kwFromKw(it)) })
+            Tile(stringResource(R.string.ov_pv_today), Fmt.kwh(forecast.producedTodayKwh) ?: "—", if (forecast.producedTodayKwh == null) null else DataKind.CALCULATED, Modifier.weight(1f),
+                forecast.today?.let { stringResource(R.string.ov_expected, Fmt.kwh(it.expectedKwh)) })
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Tile("ZUŻYCIE TERAZ", Fmt.kw(t?.load?.powerW) ?: "—", if (t == null) null else kind, Modifier.weight(1f))
-            Tile("SOC BATERII", Fmt.pct(t?.battery?.socPercent) ?: "—", if (t == null) null else kind, Modifier.weight(1f))
+            Tile(stringResource(R.string.ov_load_now), Fmt.kw(t?.load?.powerW) ?: "—", if (t == null) null else kind, Modifier.weight(1f))
+            Tile(stringResource(R.string.ov_battery_soc), Fmt.pct(t?.battery?.socPercent) ?: "—", if (t == null) null else kind, Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Tile("TRAFNOŚĆ PROGNOZY", insights.todayAccuracy?.accuracyPercent?.let { "${it.toInt()}%" } ?: "—",
-                if (insights.todayAccuracy == null) null else DataKind.CALCULATED, Modifier.weight(1f), "dzisiejsze pełne godziny")
+            Tile(stringResource(R.string.ov_accuracy), insights.todayAccuracy?.accuracyPercent?.let { "${it.toInt()}%" } ?: "—",
+                if (insights.todayAccuracy == null) null else DataKind.CALCULATED, Modifier.weight(1f), stringResource(R.string.ov_accuracy_note))
             val status = when {
-                config?.enabled != true -> "NIESKONFIGUROWANY"
-                live.info?.simulated == true -> "SYMULATOR"
+                config?.enabled != true -> stringResource(R.string.ov_not_configured)
+                live.info?.simulated == true -> stringResource(R.string.simulator_upper)
                 live.connection.status == LinkStatus.OFFLINE -> "OFFLINE"
-                live.freshness == Freshness.STALE -> "DANE NIEAKTUALNE"
+                live.freshness == Freshness.STALE -> stringResource(R.string.ov_stale)
                 live.connection.status == LinkStatus.ONLINE -> "ONLINE"
                 else -> live.connection.status.name
             }
-            Tile("ANENJI", status, null, Modifier.weight(1f), live.connection.quality?.let { "jakość łącza ${Fmt.conf(it)}" })
+            Tile("ANENJI", status, null, Modifier.weight(1f), live.connection.quality?.let { stringResource(R.string.ov_link_quality, Fmt.conf(it)) })
         }
     }
 }

@@ -17,6 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.solartracker.pro.core.inverter.Freshness
 import com.solartracker.pro.core.quality.DataKind
+import com.solartracker.pro.ui.uiLabel
 import java.util.Locale
 
 /** Label showing what kind of value is displayed (measurement, calculation, estimate, ...). */
@@ -24,7 +25,7 @@ import java.util.Locale
 fun KindBadge(kind: DataKind, modifier: Modifier = Modifier) {
     val (bg, fg) = kindColors(kind)
     Surface(modifier = modifier, shape = RoundedCornerShape(6.dp), color = bg, contentColor = fg) {
-        Text(kind.label, Modifier.padding(horizontal = 6.dp, vertical = 1.dp), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+        Text(kind.uiLabel, Modifier.padding(horizontal = 6.dp, vertical = 1.dp), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
     }
 }
 

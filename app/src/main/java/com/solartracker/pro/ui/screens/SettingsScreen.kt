@@ -134,7 +134,7 @@ private fun PeakPowerSection(current: Double, onSave: (Double) -> Unit) {
                 label = { Text(stringResource(R.string.settings_power_label)) },
                 singleLine = true,
                 isError = !valid,
-                supportingText = { if (!valid) Text(stringResource(R.string.settings_power_error, PvSystem.MAX_PEAK_POWER_KW.toInt())) },
+                supportingText = { if (!valid) Text(stringResource(R.string.settings_power_error, PvSystem.MAX_PEAK_POWER_KW.toInt().toString())) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.weight(1f),
             )
@@ -148,7 +148,7 @@ private fun PeakPowerSection(current: Double, onSave: (Double) -> Unit) {
 private fun TiltSection(current: Double, onSave: (Double) -> Unit) {
     var value by remember(current) { mutableFloatStateOf(current.toFloat()) }
     SectionCard {
-        SectionTitle(stringResource(R.string.settings_tilt_title, value.roundToInt()))
+        SectionTitle(stringResource(R.string.settings_tilt_title, value.roundToInt().toString()))
         Text(
             stringResource(R.string.settings_tilt_hint),
             style = MaterialTheme.typography.bodySmall,
@@ -168,7 +168,7 @@ private fun TiltSection(current: Double, onSave: (Double) -> Unit) {
 private fun AzimuthSection(current: Double, onSave: (Double) -> Unit) {
     var value by remember(current) { mutableFloatStateOf(current.toFloat()) }
     SectionCard {
-        SectionTitle(stringResource(R.string.settings_azimuth_title, value.roundToInt(), Format.compass(value.toDouble())))
+        SectionTitle(stringResource(R.string.settings_azimuth_title, value.roundToInt().toString(), Format.compass(value.toDouble())))
         Text(
             stringResource(R.string.settings_azimuth_hint),
             style = MaterialTheme.typography.bodySmall,
@@ -351,14 +351,14 @@ private fun WeatherSection(enabled: Boolean, weather: WeatherState, actions: Set
             Text(stringResource(R.string.settings_weather_now, describeSources(weather)), style = MaterialTheme.typography.bodySmall)
             weather.forecast?.coversUntil?.let {
                 Text(
-                    stringResource(R.string.settings_forecast_until, it.atZone(java.time.ZoneId.systemDefault()).toLocalDate()),
+                    stringResource(R.string.settings_forecast_until, it.atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString()),
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
             weather.climate?.let {
                 Text(
                     when (it.source) {
-                        ClimateSource.ARCHIVE -> stringResource(R.string.settings_climate_archive, it.years)
+                        ClimateSource.ARCHIVE -> stringResource(R.string.settings_climate_archive, it.years.toString())
                         ClimateSource.DEFAULT_POLAND -> stringResource(R.string.settings_climate_default)
                     },
                     style = MaterialTheme.typography.bodySmall,
@@ -429,7 +429,7 @@ private fun CitySearch(onPick: (GeocodeResult) -> Unit) {
             Column(Modifier.fillMaxWidth()) {
                 Text(r.name, style = MaterialTheme.typography.bodyMedium)
                 Text(
-                    "${Format.coordinates(r.point.lat, r.point.lon)}" + (r.elevationM?.let { stringResource(R.string.elevation_asl_m, it.toInt()) } ?: "") + " · ${r.accuracy.label}",
+                    "${Format.coordinates(r.point.lat, r.point.lon)}" + (r.elevationM?.let { stringResource(R.string.elevation_asl_m, it.toInt().toString()) } ?: "") + " · ${r.accuracy.label}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

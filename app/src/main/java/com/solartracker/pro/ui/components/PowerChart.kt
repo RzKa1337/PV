@@ -1,5 +1,7 @@
 package com.solartracker.pro.ui.components
 
+import androidx.compose.ui.res.stringResource
+import com.solartracker.pro.R
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -45,7 +47,7 @@ fun PowerChart(
     val start = points.first().time.toEpochMilli()
     val end = points.last().time.toEpochMilli()
     val maxPower = max(points.maxOf { it.powerKw }, peakPowerKw * 0.1).coerceAtLeast(0.1)
-    val description = "Wykres przewidywanej mocy PV, maksimum ${Format.kw(points.maxOf { it.powerKw })}"
+    val description = stringResource(R.string.chart_power_desc, Format.kw(points.maxOf { it.powerKw }))
 
     Canvas(
         modifier = modifier

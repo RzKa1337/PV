@@ -1,5 +1,7 @@
 package com.solartracker.pro.ui.components
 
+import androidx.compose.ui.res.stringResource
+import com.solartracker.pro.R
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -30,7 +32,7 @@ fun GroupedBarChart(
     categories: List<String>,
     series: List<BarSeries>,
     modifier: Modifier = Modifier,
-    contentDescription: String = "Wykres słupkowy",
+    contentDescription: String = stringResource(R.string.chart_bar),
 ) {
     if (categories.isEmpty() || series.isEmpty()) return
     val gridColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)

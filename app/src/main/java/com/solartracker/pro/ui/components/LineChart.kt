@@ -1,5 +1,7 @@
 package com.solartracker.pro.ui.components
 
+import androidx.compose.ui.res.stringResource
+import com.solartracker.pro.R
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -48,7 +50,7 @@ fun LineChart(
     fixedMax: Double? = null,
     yUnit: String = "",
     height: Dp = 200.dp,
-    contentDescription: String = "Wykres",
+    contentDescription: String = stringResource(R.string.chart),
 ) {
     val count = series.maxOfOrNull { it.values.size } ?: 0
     if (count < 2) return
