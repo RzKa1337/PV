@@ -43,7 +43,24 @@ fun EnergyOverview(vm: EnergyCenterViewModel, weather: WeatherState, modifier: M
     val kind = freshnessKind(live.freshness)
     val t = live.telemetry
     Column(modifier.testTag("energy_overview"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        EnergySecurityCard(forecast.security, compact = true)
+        val settings by vm.settings.collectAsStateWithLifecycle()
+        val connected = config?.enabled == true
+        if (connected || settings?.activeBattery != null) EnergySecurityCard(forecast.security, compact = true)
+        if (!connected) {
+            SectionCard {
+                Text(stringResource(R.string.ov_setup_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.ov_setup_text), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Tile(stringResource(R.string.ov_pv_today), Fmt.kwh(forecast.producedTodayKwh) ?: "—",
+                    if (forecast.producedTodayKwh == null) null else DataKind.CALCULATED, Modifier.weight(1f),
+                    forecast.today?.let { stringResource(R.string.ov_expected, Fmt.kwh(it.expectedKwh).toString()) })
+                Tile(stringResource(R.string.ov_accuracy), insights.todayAccuracy?.accuracyPercent?.let { "${it.toInt()}%" } ?: "—",
+                    if (insights.todayAccuracy == null) null else DataKind.CALCULATED, Modifier.weight(1f), stringResource(R.string.ov_accuracy_note))
+            }
+            return@Column
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Tile(stringResource(R.string.ov_pv_now), Fmt.kw(t?.pv?.powerW) ?: "—", if (t == null) null else kind, Modifier.weight(1f),
                 forecast.nowForecastKw?.let { stringResource(R.string.ov_forecast_value, Fmt.kwFromKw(it).toString()) })

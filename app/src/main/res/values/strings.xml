@@ -782,4 +782,20 @@
     <string name="widget_sun_up">Słońce %1$s° · zachód %2$s</string>
     <string name="widget_today">Dziś %1$s kWh · zostało %2$s kWh</string>
     <string name="year">Rok</string>
+    <string name="w_sunshine">Słońce wg prognozy</string>
+    <string name="w_sunshine_value">%1$s czystego nieba</string>
+    <string name="w_sunshine_hint">Model PV liczy z prognozy nasłonecznienia, nie z samego %% zachmurzenia.</string>
+    <string name="w_clouds">Chmury</string>
+    <string name="w_cloud_low">niskie</string>
+    <string name="w_cloud_mid">średnie</string>
+    <string name="w_cloud_high">wysokie</string>
+    <string name="w_production">Produkcja vs czyste niebo</string>
+    <string name="w_production_row">%1$s / %2$s kWh</string>
+    <string name="w_wind">Wiatr</string>
+    <string name="w_humidity">Wilgotność</string>
+    <string name="w_uv">UV</string>
+    <string name="w_uv_max">maks. %1$s %2$s</string>
+    <string name="w_updated">Prognoza z %1$s · %2$s</string>
+    <string name="ov_setup_title">Falownik niepodłączony</string>
+    <string name="ov_setup_text">Podłącz falownik w Centrum → Konfiguracja, aby widzieć rzeczywistą produkcję, SOC baterii i bezpieczeństwo energetyczne. Poniżej szacunki z modelu.</string>
 </resources>

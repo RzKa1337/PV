@@ -20,6 +20,11 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -272,80 +277,42 @@ private fun BatteryCard(b: BatteryNow) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun WeatherCard(w: WeatherNow, onRefresh: () -> Unit) {
     val st = w.state
+    val zone = java.time.ZoneId.systemDefault()
+    val forecastHour = w.hour?.takeIf { w.source == WeatherSource.FORECAST }
     SectionCard {
+        // Header: icon, temperature and condition; refresh aligned to the header only.
         Row(verticalAlignment = Alignment.CenterVertically) {
+            val icon = when {
+                w.source != WeatherSource.FORECAST -> "📊"
+                (w.cloudCoverPercent ?: 0.0) >= 70 -> "☁️"
+                (w.cloudCoverPercent ?: 0.0) >= 30 -> "⛅"
+                else -> "☀️"
+            }
+            Text(icon, fontSize = 34.sp)
+            Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                val icon = when {
-                    w.source != WeatherSource.FORECAST -> "📊"
-                    (w.cloudCoverPercent ?: 0.0) >= 70 -> "☁️"
-                    (w.cloudCoverPercent ?: 0.0) >= 30 -> "⛅"
-                    else -> "☀️"
-                }
-                Text(stringResource(R.string.dash_weather, icon), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-                Text(
-                    when (w.source) {
-                        WeatherSource.FORECAST -> listOfNotNull(
-                            w.temperatureC?.let { "${Format.decimal(it, 0)}°C" },
-                            w.cloudCoverPercent?.let { stringResource(R.string.dash_cloud_cover, Format.percent(it)) },
-                        ).joinToString(" · ").ifEmpty { stringResource(R.string.forecast_lower) }
-                        WeatherSource.CLIMATE -> stringResource(R.string.dash_climate_no_forecast)
-                        WeatherSource.CLEAR_SKY -> if (st.loading) stringResource(R.string.dash_loading_data) else stringResource(R.string.dash_no_data_clear)
-                    },
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                w.hour?.takeIf { w.source == WeatherSource.FORECAST }?.let { h ->
-                    val details = listOfNotNull(
-                        h.windSpeedMs?.let { stringResource(R.string.dash_wind, Format.decimal(it, 1)) },
-                        h.relativeHumidityPercent?.let { stringResource(R.string.dash_humidity, Format.percent(it)) },
-                        h.precipitationMm?.takeIf { it > 0 }?.let { stringResource(R.string.dash_precip, Format.decimal(it, 1)) },
-                        h.snowDepthM?.takeIf { it > 0 }?.let { stringResource(R.string.dash_snow, Format.decimal(it * 100, 0)) },
-                        h.visibilityM?.takeIf { it < 5000 }?.let { stringResource(R.string.dash_visibility, Format.decimal(it / 1000, 1)) },
+                Text(stringResource(R.string.dash_weather, "").trim(), style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(verticalAlignment = Alignment.Bottom) {
+                    if (w.source == WeatherSource.FORECAST && w.temperatureC != null) {
+                        Text("${Format.decimal(w.temperatureC, 0)}°C", fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    Text(
+                        when (w.source) {
+                            WeatherSource.FORECAST -> w.cloudCoverPercent?.let { stringResource(R.string.dash_cloud_cover, Format.percent(it)) }
+                                ?: stringResource(R.string.forecast_lower)
+                            WeatherSource.CLIMATE -> stringResource(R.string.dash_climate_no_forecast)
+                            WeatherSource.CLEAR_SKY -> if (st.loading) stringResource(R.string.dash_loading_data) else stringResource(R.string.dash_no_data_clear)
+                        },
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.padding(bottom = 4.dp),
                     )
-                    if (details.isNotEmpty()) Text(details.joinToString(" · "), style = MaterialTheme.typography.bodySmall)
                 }
-                w.uv?.let { uv ->
-                    val now = uv.now?.let { stringResource(R.string.dash_uv_now, Format.decimal(it, 1), UvLevel.of(it).uiLabel) }
-                    val max = uv.todayMax?.let { m ->
-                        stringResource(R.string.dash_uv_max, Format.decimal(m, 1), UvLevel.of(m).uiLabel) +
-                            (uv.todayMaxAt?.let { stringResource(R.string.dash_uv_max_at, Format.time(it.minusSeconds(1800), java.time.ZoneId.systemDefault())) } ?: "")
-                    }
-                    val line = listOfNotNull(now, max).joinToString(" · ")
-                    if (line.isNotEmpty()) {
-                        Text("☀ $line", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold,
-                            color = if ((uv.todayMax ?: 0.0) >= 6) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
-                        (uv.levelMax ?: uv.levelNow)?.takeIf { it != UvLevel.LOW }?.let { Text(it.uiAdvice, style = MaterialTheme.typography.bodySmall) }
-                    }
-                }
-                w.hour?.takeIf { w.source == WeatherSource.FORECAST }?.let { h ->
-                    if (h.cloudLowPercent != null || h.cloudMidPercent != null || h.cloudHighPercent != null) {
-                        Text(stringResource(R.string.dash_cloud_layers, h.cloudLowPercent?.let { Format.percent(it) } ?: "—", h.cloudMidPercent?.let { Format.percent(it) } ?: "—",
-                            h.cloudHighPercent?.let { Format.percent(it) } ?: "—"), style = MaterialTheme.typography.bodySmall)
-                    }
-                    w.clearSkyIndex?.let { csi ->
-                        Text(stringResource(R.string.dash_clear_sky_index, Format.percent((csi * 100).coerceAtMost(100.0))),
-                            style = MaterialTheme.typography.bodySmall)
-                    }
-                    WeatherEffects.cloudExplanation(h, w.clearSkyIndex)?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-                }
-                listOfNotNull(w.cloudToday?.let { stringResource(R.string.today) to it }, w.cloudTomorrow?.let { stringResource(R.string.tomorrow) to it }).forEach { (label, c) ->
-                    val r = c.reductionPercent
-                    if (r != null && c.source != WeatherSource.CLEAR_SKY) {
-                        Text(
-                            stringResource(
-                                R.string.dash_cloud_impact,
-                                label, Format.decimal(c.weatherKwh, 1), Format.decimal(c.clearSkyKwh, 1), Format.percent(r),
-                                if (c.source == WeatherSource.CLIMATE) stringResource(R.string.dash_monthly_average) else "",
-                            ),
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-                }
-                if (w.snowOnPanels) Text(stringResource(R.string.dash_snow_on_panels),
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
             }
             if (st.loading) {
                 CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
@@ -353,18 +320,124 @@ private fun WeatherCard(w: WeatherNow, onRefresh: () -> Unit) {
                 IconButton(onClick = onRefresh) { Icon(Icons.Outlined.Refresh, contentDescription = stringResource(R.string.settings_weather_refresh)) }
             }
         }
-        st.updatedAt?.let {
-            Text(
-                stringResource(R.string.dash_forecast_from, Format.time(it, java.time.ZoneId.systemDefault())),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+
+        // Compact info pills.
+        val uvNow = w.uv?.now
+        val uvMax = w.uv?.todayMax
+        val pills = listOfNotNull(
+            forecastHour?.windSpeedMs?.let { Triple(stringResource(R.string.w_wind), "${Format.decimal(it, 1)} m/s", null) },
+            forecastHour?.relativeHumidityPercent?.let { Triple(stringResource(R.string.w_humidity), Format.percent(it), null) },
+            forecastHour?.precipitationMm?.takeIf { it > 0 }?.let { Triple("💧", stringResource(R.string.dash_precip, Format.decimal(it, 1)), null) },
+            forecastHour?.snowDepthM?.takeIf { it > 0 }?.let { Triple("❄", stringResource(R.string.dash_snow, Format.decimal(it * 100, 0)), null) },
+            forecastHour?.visibilityM?.takeIf { it < 5000 }?.let { Triple("👁", stringResource(R.string.dash_visibility, Format.decimal(it / 1000, 1)), null) },
+            uvNow?.let { Triple(stringResource(R.string.w_uv), "${Format.decimal(it, 1)} · ${UvLevel.of(it).uiLabel}", uvColor(UvLevel.of(it))) },
+        )
+        if (pills.isNotEmpty()) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                pills.forEach { (label, value, accent) -> InfoPill(label, value, accent) }
+            }
         }
+        uvMax?.let { m ->
+            val level = UvLevel.of(m)
+            val at = w.uv?.todayMaxAt?.let { stringResource(R.string.dash_uv_max_at, Format.time(it.minusSeconds(1800), zone)) } ?: ""
+            Text("☀ " + stringResource(R.string.w_uv_max, Format.decimal(m, 1), level.uiLabel) + at,
+                style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+            (w.uv?.levelMax ?: w.uv?.levelNow)?.takeIf { it != UvLevel.LOW }?.let {
+                Text(it.uiAdvice, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+
+        // Sunshine actually reaching the panels (forecast irradiance vs clear sky).
+        if (forecastHour != null) {
+            w.clearSkyIndex?.let { csi ->
+                val v = csi.coerceIn(0.0, 1.0)
+                SubHeader(stringResource(R.string.w_sunshine))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    MeterBar(v.toFloat(), ChartColors.pv, Modifier.weight(1f))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.w_sunshine_value, Format.percent(v * 100)), style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold)
+                }
+            }
+            if (forecastHour.cloudLowPercent != null || forecastHour.cloudMidPercent != null || forecastHour.cloudHighPercent != null) {
+                Text(
+                    stringResource(R.string.w_clouds) + ": " + listOf(
+                        R.string.w_cloud_low to forecastHour.cloudLowPercent,
+                        R.string.w_cloud_mid to forecastHour.cloudMidPercent,
+                        R.string.w_cloud_high to forecastHour.cloudHighPercent,
+                    ).joinToString(" · ") { (label, v) -> "${stringResource(label)} ${v?.let { Format.percent(it) } ?: "—"}" },
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            WeatherEffects.cloudExplanation(forecastHour, w.clearSkyIndex)?.let {
+                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+
+        // Production today / tomorrow versus a cloudless sky.
+        val impacts = listOfNotNull(w.cloudToday?.let { stringResource(R.string.today) to it }, w.cloudTomorrow?.let { stringResource(R.string.tomorrow) to it })
+            .filter { (_, c) -> c.reductionPercent != null && c.source != WeatherSource.CLEAR_SKY }
+        if (impacts.isNotEmpty()) {
+            SubHeader(stringResource(R.string.w_production))
+            impacts.forEach { (label, c) ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(label, style = MaterialTheme.typography.bodySmall, modifier = Modifier.width(64.dp))
+                    MeterBar((c.weatherKwh / c.clearSkyKwh).coerceIn(0.0, 1.0).toFloat(), ChartColors.pv, Modifier.weight(1f))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        stringResource(R.string.w_production_row, Format.decimal(c.weatherKwh, 1), Format.decimal(c.clearSkyKwh, 1)) +
+                            (if (c.source == WeatherSource.CLIMATE) " " + stringResource(R.string.dash_monthly_average) else ""),
+                        style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
+        }
+
+        if (w.snowOnPanels) Text(stringResource(R.string.dash_snow_on_panels),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
         st.error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
+
+        // Footer: forecast time and attribution in one muted line.
         Text(
-            OpenMeteo.ATTRIBUTION,
+            listOfNotNull(st.updatedAt?.let { stringResource(R.string.dash_forecast_from, Format.time(it, zone)) }, OpenMeteo.ATTRIBUTION).joinToString(" · "),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+}
+
+@Composable
+private fun SubHeader(text: String) {
+    Text(text, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+}
+
+@Composable
+private fun MeterBar(fraction: Float, color: Color, modifier: Modifier = Modifier) {
+    Box(modifier.height(8.dp).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
+        Box(Modifier.fillMaxWidth(fraction.coerceIn(0f, 1f)).height(8.dp).clip(RoundedCornerShape(4.dp)).background(color))
+    }
+}
+
+/** Small rounded chip: muted label + value; [accent] tints the background (the text always names the level). */
+@Composable
+private fun InfoPill(label: String, value: String, accent: Color? = null) {
+    val bg = accent?.copy(alpha = 0.22f) ?: MaterialTheme.colorScheme.surfaceVariant
+    Row(
+        Modifier.clip(RoundedCornerShape(50)).background(bg).padding(horizontal = 10.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.width(4.dp))
+        Text(value, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+    }
+}
+
+/** WHO UV colour scale (always shown together with the level name). */
+private fun uvColor(level: UvLevel): Color = when (level) {
+    UvLevel.LOW -> Color(0xFF4CAF50)
+    UvLevel.MODERATE -> Color(0xFFFFC107)
+    UvLevel.HIGH -> Color(0xFFFF7043)
+    UvLevel.VERY_HIGH -> Color(0xFFE53935)
+    UvLevel.EXTREME -> Color(0xFF8E24AA)
 }

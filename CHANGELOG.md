@@ -4,6 +4,11 @@ Wszystkie istotne zmiany w projekcie Solar Tracker PRO.
 Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie [SemVer](https://semver.org/).
 
 ## [Unreleased]
+### Changed
+- Pulpit: przebudowana karta pogody – nagłówek z dużą temperaturą, kompaktowe „pigułki” (wiatr, wilgotność, opady, UV w kolorach WHO z nazwą poziomu), pasek „Słońce wg prognozy”, warstwy chmur i paski produkcji dziś/jutro względem czystego nieba; czas prognozy i atrybucja w jednej stopce.
+- Pulpit: gdy falownik nie jest podłączony, zamiast sześciu pustych kafelków pokazywana jest jedna podpowiedź konfiguracji + szacunki modelu; karta bezpieczeństwa energetycznego tylko przy skonfigurowanej baterii lub falowniku.
+
+## [Unreleased]
 
 ## [v0.11.0] - 2026-10-07
 

@@ -781,4 +781,20 @@
     <string name="widget_sun_up">Sun %1$s° · sunset %2$s</string>
     <string name="widget_today">Today %1$s kWh · %2$s kWh left</string>
     <string name="year">Year</string>
+    <string name="w_sunshine">Sun per forecast</string>
+    <string name="w_sunshine_value">%1$s of a clear sky</string>
+    <string name="w_sunshine_hint">The PV model uses the forecast irradiance, not the cloud cover %% alone.</string>
+    <string name="w_clouds">Clouds</string>
+    <string name="w_cloud_low">low</string>
+    <string name="w_cloud_mid">mid</string>
+    <string name="w_cloud_high">high</string>
+    <string name="w_production">Production vs clear sky</string>
+    <string name="w_production_row">%1$s / %2$s kWh</string>
+    <string name="w_wind">Wind</string>
+    <string name="w_humidity">Humidity</string>
+    <string name="w_uv">UV</string>
+    <string name="w_uv_max">max %1$s %2$s</string>
+    <string name="w_updated">Forecast from %1$s · %2$s</string>
+    <string name="ov_setup_title">Inverter not connected</string>
+    <string name="ov_setup_text">Connect the inverter in Energy Center → Configuration to see real production, battery SOC and energy security. Below are model estimates.</string>
 </resources>
