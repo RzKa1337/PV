@@ -301,6 +301,16 @@ private fun WeatherCard(w: WeatherNow, onRefresh: () -> Unit) {
                     )
                     if (details.isNotEmpty()) Text(details.joinToString(" · "), style = MaterialTheme.typography.bodySmall)
                 }
+                listOfNotNull(w.cloudToday?.let { "Dziś" to it }, w.cloudTomorrow?.let { "Jutro" to it }).forEach { (label, c) ->
+                    val r = c.reductionPercent
+                    if (r != null && c.source != WeatherSource.CLEAR_SKY) {
+                        Text(
+                            "$label: ${Format.decimal(c.weatherKwh, 1)} kWh zamiast ${Format.decimal(c.clearSkyKwh, 1)} kWh przy czystym niebie " +
+                                "(chmury −${Format.percent(r)}${if (c.source == WeatherSource.CLIMATE) ", średnia miesięczna" else ""})",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
                 if (w.snowOnPanels) Text("Prawdopodobnie śnieg na panelach – produkcja może być bliska zera (szacunek pulpitu tego nie uwzględnia).",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
             }

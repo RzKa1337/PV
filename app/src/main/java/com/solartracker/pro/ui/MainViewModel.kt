@@ -27,6 +27,8 @@ import com.solartracker.pro.core.solar.SunTimes
 import com.solartracker.pro.core.weather.MonthlyClimate
 import com.solartracker.pro.core.weather.WeatherAwareIrradianceModel
 import com.solartracker.pro.core.weather.WeatherForecast
+import com.solartracker.pro.core.weather.CloudImpact
+import com.solartracker.pro.core.weather.CloudImpactCalculator
 import com.solartracker.pro.core.weather.HourlyWeather
 import com.solartracker.pro.core.weather.WeatherEffects
 import com.solartracker.pro.core.weather.WeatherSource
@@ -105,6 +107,9 @@ data class WeatherNow(
     val hour: HourlyWeather? = null,
     /** Forecast snow on the panels (≥ 2 cm, ≤ +1 °C, tilt < 60°). */
     val snowOnPanels: Boolean = false,
+    /** Today's and tomorrow's production vs a cloudless sky. */
+    val cloudToday: CloudImpact? = null,
+    val cloudTomorrow: CloudImpact? = null,
 )
 
 /** Short Polish description of the data behind the estimates. */
@@ -449,6 +454,8 @@ class MainViewModel(
                     temperatureC = hour?.temperatureC,
                     hour = hour,
                     snowOnPanels = WeatherEffects.snowCovered(hour, s.system.tiltDeg),
+                    cloudToday = CloudImpactCalculator.day(s.system, s.location, date, zone, e.model),
+                    cloudTomorrow = CloudImpactCalculator.day(s.system, s.location, date.plusDays(1), zone, e.model),
                 )
             } else {
                 null
