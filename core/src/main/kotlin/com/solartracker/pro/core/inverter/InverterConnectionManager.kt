@@ -101,6 +101,10 @@ class InverterConnectionManager(
     /** Validation of the newest reading (values with provenance and quality, issues). */
     val validation: StateFlow<TelemetryValidation?> = _validation.asStateFlow()
 
+    private val _registerLog = MutableStateFlow<RegisterLogRecord?>(null)
+    /** Last poll as a register log record (raw registers + quality + link status) – read-only diagnostics. */
+    val registerLog: StateFlow<RegisterLogRecord?> = _registerLog.asStateFlow()
+
     private val stats = ConnectionStats()
     private var connected = false
     private var lastRaw: InverterTelemetry? = null
@@ -189,6 +193,7 @@ class InverterConnectionManager(
                 readsFailed = previous.readsFailed + 1,
             )
             if (offline && previous.status != LinkStatus.OFFLINE) onEvent("Falownik nie odpowiada (OFFLINE): $message")
+            _registerLog.value = RegisterLogRecord(attemptAt, false, "${kind.label}: $message", emptyList(), provider.info.simulated)
             false
         }
     }
@@ -208,6 +213,7 @@ class InverterConnectionManager(
             if (frozen) it.copy(issues = it.issues + TelemetryIssue(IssueType.FROZEN, null, "$identicalStreak identycznych odczytów z rzędu")) else it
         }
         _validation.value = validation
+        _registerLog.value = RegisterLogRecord(reading.timestamp, true, "OK", provider.registerSamples(validation?.issues ?: emptyList()), provider.info.simulated)
         val accepted = validation?.sanitized ?: reading
         _telemetry.value = accepted
         onTelemetry(accepted)

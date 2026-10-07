@@ -168,7 +168,16 @@ class EnergySecurityAnalyzer(
         }
     }
 
-    private data class Scenarios(val expected: BatteryPrediction, val pessimistic: BatteryPrediction, val optimistic: BatteryPrediction)
+    /** The three SOC trajectories behind every result of this analyzer (null without battery/SOC). */
+    data class Scenarios(val expected: BatteryPrediction, val pessimistic: BatteryPrediction, val optimistic: BatteryPrediction)
+
+    /** Same scenarios as [analyze] uses, for layers built on top of it (e.g. energy missions). */
+    fun scenarioSet(
+        now: Instant, socNow: Double?, socKind: DataKind, pv: (Instant) -> PvForecastPoint, load: (Instant) -> LoadForecastPoint,
+        horizon: Duration, step: Duration = Duration.ofMinutes(15),
+    ): Scenarios? = if (predictor == null || socNow == null) null else scenarios(now, socNow, socKind, pv, load, horizon, step)
+
+    val batteryConfig: BatteryStorage? get() = battery?.takeIf { predictor != null }
 
     private fun scenarios(
         now: Instant, soc: Double, kind: DataKind, pv: (Instant) -> PvForecastPoint, load: (Instant) -> LoadForecastPoint,

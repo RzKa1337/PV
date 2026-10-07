@@ -108,5 +108,5 @@ class PredictivePvEngine(
 
 /** Short-term horizons shown to the user. */
 enum class ShortHorizon(val minutes: Long, val label: String) {
-    M5(5, "+5 min"), M15(15, "+15 min"), M30(30, "+30 min"), H1(60, "+60 min"), H2(120, "+2 h"), H6(360, "+6 h");
+    NOW(0, "TERAZ"), M5(5, "+5 min"), M15(15, "+15 min"), M30(30, "+30 min"), H1(60, "+60 min"), H2(120, "+2 h"), H3(180, "+3 h"), H6(360, "+6 h");
 }

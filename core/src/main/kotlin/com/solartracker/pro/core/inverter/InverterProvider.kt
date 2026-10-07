@@ -28,6 +28,12 @@ interface InverterProvider : AutoCloseable {
     /** Protocol-level notes about the last read (e.g. registers that look unsupported). */
     val diagnostics: List<String> get() = emptyList()
 
+    /**
+     * Raw registers of the last successful read with their quality (for verifying the register map on a real
+     * device). Empty for protocols without registers (PI30 ASCII) and before the first read.
+     */
+    fun registerSamples(issues: List<TelemetryIssue> = emptyList()): List<RegisterSample> = emptyList()
+
     @Throws(IOException::class)
     fun connect()
 
@@ -64,10 +70,16 @@ class AnenjiSmgModbusProvider(
     override var diagnostics: List<String> = emptyList()
         private set
 
+    private var lastBlocks: Pair<SmgRawBlocks, Instant>? = null
+
+    override fun registerSamples(issues: List<TelemetryIssue>): List<RegisterSample> =
+        lastBlocks?.let { (blocks, time) -> RegisterDiagnostics.smgSamples(blocks, time, issues) } ?: emptyList()
+
     override fun read(now: Instant): InverterTelemetry {
         val live = client.readRegisters(SmgRegisterMap.LIVE_START, SmgRegisterMap.LIVE_COUNT)
         val status = client.readRegisters(SmgRegisterMap.STATUS_START, SmgRegisterMap.STATUS_COUNT)
         val blocks = SmgRawBlocks(status, live)
+        lastBlocks = blocks to now
         diagnostics = SmgRegisters.checkRaw(blocks).map { "Rejestr ${it.spec.address} (${it.spec.name}): ${it.reason}" }
         return mapper.map(blocks, now)
     }

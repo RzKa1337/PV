@@ -69,7 +69,8 @@ object HistoryExport {
     private fun prim(v: Double?) = v?.let { JsonPrimitive(it) } ?: JsonNull
     private fun num(v: Double?): String = v?.let { String.format(Locale.ROOT, "%.4f", it) } ?: ""
 
-    private fun csv(v: Any?): String = when (v) {
+    /** One CSV cell (shared with other exports): formula-injection safe, quoted when needed. */
+    internal fun csv(v: Any?): String = when (v) {
         null -> ""
         is Double -> String.format(Locale.ROOT, "%.4f", v)
         is Number -> v.toString()

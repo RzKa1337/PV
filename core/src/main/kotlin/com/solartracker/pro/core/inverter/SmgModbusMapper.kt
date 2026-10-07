@@ -105,6 +105,8 @@ data class RegisterSpec(
     val unit: String,
     val field: TelemetryField?,
     val validation: RegisterValidation = RegisterValidation.REAL_DEVICE_VALIDATION_REQUIRED,
+    /** Physically possible range of the decoded value (generic bounds, not vendor data); null = unchecked. */
+    val expected: ClosedFloatingPointRange<Double>? = null,
 )
 
 /** A raw register value that looks like "not supported" or a decoding problem. */
@@ -112,28 +114,45 @@ data class RawRegisterIssue(val spec: RegisterSpec, val raw: Int, val reason: St
 
 /** Register catalogue of the SMG live block (same addresses and scaling the mapper uses). */
 object SmgRegisters {
+    // Generic physical bounds for a 6.2 kW / 48 V hybrid (same basis as [PlausibilityLimits]), not vendor data.
+    private val L = PlausibilityLimits()
+    private val RANGE_MODE = 0.0..6.0
+    private val RANGE_AC_V = 0.0..L.acVoltageMaxV
+    private val RANGE_HZ = 0.0..L.frequencyRangeHz.endInclusive
+    private val RANGE_AC_A = 0.0..(L.powerMaxW / 100.0)
+    private val RANGE_POWER = -L.powerMaxW..L.powerMaxW
+    private val RANGE_VA = 0.0..L.powerMaxW
+    private val RANGE_BAT_V = 0.0..L.batteryVoltageRange.endInclusive
+    private val RANGE_BAT_A = -(L.powerMaxW / L.batteryNominalV)..(L.powerMaxW / L.batteryNominalV)
+    private val RANGE_PV_V = 0.0..L.pvVoltageMaxV
+    private val RANGE_PV_A = 0.0..L.pvCurrentMaxA
+    private val RANGE_PV_W = -50.0..L.powerMaxW
+    private val RANGE_LOAD_PCT = 0.0..250.0
+    private val RANGE_TEMP = L.tempRangeC
+    private val RANGE_SOC = 0.0..100.0
+
     val LIVE: List<RegisterSpec> = listOf(
-        RegisterSpec(SmgRegisterMap.OPERATING_MODE, "Tryb pracy", 1.0, false, "", TelemetryField.OPERATING_MODE),
-        RegisterSpec(SmgRegisterMap.GRID_VOLTAGE, "Napięcie sieci", 0.1, false, "V", TelemetryField.GRID_VOLTAGE),
-        RegisterSpec(SmgRegisterMap.GRID_FREQUENCY, "Częstotliwość sieci", 0.01, false, "Hz", TelemetryField.GRID_FREQUENCY),
-        RegisterSpec(SmgRegisterMap.GRID_POWER, "Moc sieci", 1.0, true, "W", TelemetryField.GRID_POWER),
-        RegisterSpec(SmgRegisterMap.INVERTER_POWER, "Moc falownika", 1.0, true, "W", TelemetryField.INVERTER_POWER),
-        RegisterSpec(SmgRegisterMap.OUTPUT_VOLTAGE, "Napięcie wyjścia", 0.1, false, "V", TelemetryField.OUTPUT_VOLTAGE),
-        RegisterSpec(SmgRegisterMap.OUTPUT_CURRENT, "Prąd wyjścia", 0.1, false, "A", TelemetryField.OUTPUT_CURRENT),
-        RegisterSpec(SmgRegisterMap.OUTPUT_FREQUENCY, "Częstotliwość wyjścia", 0.01, false, "Hz", TelemetryField.OUTPUT_FREQUENCY),
-        RegisterSpec(SmgRegisterMap.OUTPUT_POWER, "Moc obciążenia", 1.0, true, "W", TelemetryField.LOAD_POWER),
-        RegisterSpec(SmgRegisterMap.OUTPUT_VA, "Moc pozorna obciążenia", 1.0, false, "VA", TelemetryField.LOAD_APPARENT_POWER),
-        RegisterSpec(SmgRegisterMap.BATTERY_VOLTAGE, "Napięcie baterii", 0.1, false, "V", TelemetryField.BATTERY_VOLTAGE),
-        RegisterSpec(SmgRegisterMap.BATTERY_AVERAGE_CURRENT, "Prąd baterii (średni)", 0.1, true, "A", TelemetryField.BATTERY_CURRENT),
-        RegisterSpec(SmgRegisterMap.BATTERY_AVERAGE_POWER, "Moc baterii (średnia)", 1.0, true, "W", TelemetryField.BATTERY_POWER),
-        RegisterSpec(SmgRegisterMap.PV_VOLTAGE, "Napięcie PV", 0.1, false, "V", TelemetryField.PV_VOLTAGE),
-        RegisterSpec(SmgRegisterMap.PV_CURRENT, "Prąd PV", 0.1, false, "A", TelemetryField.PV_CURRENT),
-        RegisterSpec(SmgRegisterMap.PV_POWER, "Moc PV", 1.0, true, "W", TelemetryField.PV_POWER),
-        RegisterSpec(SmgRegisterMap.PV_CHARGING_POWER, "Moc ładowania z PV", 1.0, true, "W", TelemetryField.PV_CHARGING_POWER),
-        RegisterSpec(SmgRegisterMap.LOAD_PERCENT, "Obciążenie", 1.0, false, "%", TelemetryField.LOAD_PERCENT),
-        RegisterSpec(SmgRegisterMap.DCDC_TEMPERATURE, "Temperatura DC/DC", 1.0, true, "°C", null),
-        RegisterSpec(SmgRegisterMap.INVERTER_TEMPERATURE, "Temperatura falownika", 1.0, true, "°C", TelemetryField.INVERTER_TEMPERATURE),
-        RegisterSpec(SmgRegisterMap.BATTERY_PERCENT, "SOC baterii", 1.0, false, "%", TelemetryField.BATTERY_SOC),
+        RegisterSpec(SmgRegisterMap.OPERATING_MODE, "Tryb pracy", 1.0, false, "", TelemetryField.OPERATING_MODE, expected = RANGE_MODE),
+        RegisterSpec(SmgRegisterMap.GRID_VOLTAGE, "Napięcie sieci", 0.1, false, "V", TelemetryField.GRID_VOLTAGE, expected = RANGE_AC_V),
+        RegisterSpec(SmgRegisterMap.GRID_FREQUENCY, "Częstotliwość sieci", 0.01, false, "Hz", TelemetryField.GRID_FREQUENCY, expected = RANGE_HZ),
+        RegisterSpec(SmgRegisterMap.GRID_POWER, "Moc sieci", 1.0, true, "W", TelemetryField.GRID_POWER, expected = RANGE_POWER),
+        RegisterSpec(SmgRegisterMap.INVERTER_POWER, "Moc falownika", 1.0, true, "W", TelemetryField.INVERTER_POWER, expected = RANGE_POWER),
+        RegisterSpec(SmgRegisterMap.OUTPUT_VOLTAGE, "Napięcie wyjścia", 0.1, false, "V", TelemetryField.OUTPUT_VOLTAGE, expected = RANGE_AC_V),
+        RegisterSpec(SmgRegisterMap.OUTPUT_CURRENT, "Prąd wyjścia", 0.1, false, "A", TelemetryField.OUTPUT_CURRENT, expected = RANGE_AC_A),
+        RegisterSpec(SmgRegisterMap.OUTPUT_FREQUENCY, "Częstotliwość wyjścia", 0.01, false, "Hz", TelemetryField.OUTPUT_FREQUENCY, expected = RANGE_HZ),
+        RegisterSpec(SmgRegisterMap.OUTPUT_POWER, "Moc obciążenia", 1.0, true, "W", TelemetryField.LOAD_POWER, expected = RANGE_POWER),
+        RegisterSpec(SmgRegisterMap.OUTPUT_VA, "Moc pozorna obciążenia", 1.0, false, "VA", TelemetryField.LOAD_APPARENT_POWER, expected = RANGE_VA),
+        RegisterSpec(SmgRegisterMap.BATTERY_VOLTAGE, "Napięcie baterii", 0.1, false, "V", TelemetryField.BATTERY_VOLTAGE, expected = RANGE_BAT_V),
+        RegisterSpec(SmgRegisterMap.BATTERY_AVERAGE_CURRENT, "Prąd baterii (średni)", 0.1, true, "A", TelemetryField.BATTERY_CURRENT, expected = RANGE_BAT_A),
+        RegisterSpec(SmgRegisterMap.BATTERY_AVERAGE_POWER, "Moc baterii (średnia)", 1.0, true, "W", TelemetryField.BATTERY_POWER, expected = RANGE_POWER),
+        RegisterSpec(SmgRegisterMap.PV_VOLTAGE, "Napięcie PV", 0.1, false, "V", TelemetryField.PV_VOLTAGE, expected = RANGE_PV_V),
+        RegisterSpec(SmgRegisterMap.PV_CURRENT, "Prąd PV", 0.1, false, "A", TelemetryField.PV_CURRENT, expected = RANGE_PV_A),
+        RegisterSpec(SmgRegisterMap.PV_POWER, "Moc PV", 1.0, true, "W", TelemetryField.PV_POWER, expected = RANGE_PV_W),
+        RegisterSpec(SmgRegisterMap.PV_CHARGING_POWER, "Moc ładowania z PV", 1.0, true, "W", TelemetryField.PV_CHARGING_POWER, expected = RANGE_PV_W),
+        RegisterSpec(SmgRegisterMap.LOAD_PERCENT, "Obciążenie", 1.0, false, "%", TelemetryField.LOAD_PERCENT, expected = RANGE_LOAD_PCT),
+        RegisterSpec(SmgRegisterMap.DCDC_TEMPERATURE, "Temperatura DC/DC", 1.0, true, "°C", null, expected = RANGE_TEMP),
+        RegisterSpec(SmgRegisterMap.INVERTER_TEMPERATURE, "Temperatura falownika", 1.0, true, "°C", TelemetryField.INVERTER_TEMPERATURE, expected = RANGE_TEMP),
+        RegisterSpec(SmgRegisterMap.BATTERY_PERCENT, "SOC baterii", 1.0, false, "%", TelemetryField.BATTERY_SOC, expected = RANGE_SOC),
     )
 
     /** Raw checks independent of scaling: 0xFFFF / 0x8000 are typical "not supported" markers. */

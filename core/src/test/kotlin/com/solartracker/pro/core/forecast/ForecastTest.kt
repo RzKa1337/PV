@@ -126,7 +126,7 @@ class ForecastTest {
         assertEquals(12.0 + today.remainingKwh, today.expectedKwh, 1e-9)
         assertTrue(today.minKwh <= today.expectedKwh && today.expectedKwh <= today.maxKwh)
         val short = engine.shortTerm(noon, nowcastRatio = 0.8)
-        assertEquals(6, short.size)
+        assertEquals(ShortHorizon.entries.size, short.size) // NOW, +5 min … +6 h (radar horizons)
         assertTrue(short.first().point.confidence >= short.last().point.confidence)
     }
 
