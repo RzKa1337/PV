@@ -31,6 +31,8 @@ data class HourlyWeather(
     /** UV index forecast (with clouds) and for a cloudless sky. */
     val uvIndex: Double? = null,
     val uvIndexClearSky: Double? = null,
+    /** Maximum wind gust in the hour at 10 m [m/s]. */
+    val windGustsMs: Double? = null,
 ) {
     val startTime: Instant get() = endTime.minus(Duration.ofHours(1))
     val hasIrradiance: Boolean get() = dni != null && dhi != null

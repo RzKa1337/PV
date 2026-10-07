@@ -28,7 +28,7 @@ object OpenMeteo {
     private const val HOURLY_VARIABLES =
         "temperature_2m,cloud_cover,shortwave_radiation,direct_normal_irradiance,diffuse_radiation," +
             "wind_speed_10m,relative_humidity_2m,precipitation,snow_depth,visibility," +
-            "cloud_cover_low,cloud_cover_mid,cloud_cover_high,uv_index,uv_index_clear_sky"
+            "cloud_cover_low,cloud_cover_mid,cloud_cover_high,uv_index,uv_index_clear_sky,wind_gusts_10m"
 
     fun forecastUrl(location: GeoLocation, forecastDays: Int = 16, pastDays: Int = 2): String =
         "https://api.open-meteo.com/v1/forecast?latitude=${coord(location.latitude)}" +
@@ -53,6 +53,7 @@ object OpenMeteo {
         val temp = hourly.doubles("temperature_2m", time.size)
         val cloud = hourly.doubles("cloud_cover", time.size)
         val wind = hourly.doubles("wind_speed_10m", time.size)
+        val gusts = hourly.doubles("wind_gusts_10m", time.size)
         val humidity = hourly.doubles("relative_humidity_2m", time.size)
         val precipitation = hourly.doubles("precipitation", time.size)
         val snow = hourly.doubles("snow_depth", time.size)
@@ -72,6 +73,7 @@ object OpenMeteo {
                 temperatureC = temp[i],
                 cloudCoverPercent = cloud[i]?.coerceIn(0.0, 100.0),
                 windSpeedMs = wind[i]?.coerceAtLeast(0.0),
+                windGustsMs = gusts[i]?.coerceAtLeast(0.0),
                 relativeHumidityPercent = humidity[i]?.coerceIn(0.0, 100.0),
                 precipitationMm = precipitation[i]?.coerceAtLeast(0.0),
                 snowDepthM = snow[i]?.coerceAtLeast(0.0),
