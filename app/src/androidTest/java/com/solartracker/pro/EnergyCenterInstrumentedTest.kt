@@ -125,6 +125,25 @@ class EnergyCenterInstrumentedTest {
     }
 
     @Test
+    fun analyzerRunsOnHistoryAndShowsHealth() {
+        runBlocking { EnergySettingsStore(context).setInverter(InverterConfig(enabled = true, link = InverterLink.SIMULATOR, pollIntervalSeconds = 2)) }
+        ActivityScenario.launch(MainActivity::class.java).use {
+            val tab = UiTestSupport.findDismissingAnr(device, By.desc("Centrum"), tag)
+            assertNotNull("Centrum tab not found", tab)
+            tab!!.click()
+            val open = device.wait(Until.findObject(By.text("Analiza Anenji")), 30_000)
+            assertNotNull("analyzer button", open)
+            open.click()
+            assertNotNull("read-only notice", device.wait(Until.findObject(By.textContains("tylko czyta dane")), 15_000))
+            val run = device.wait(Until.findObject(By.text("Analizuj historię")), 10_000)
+            assertNotNull("analyse button", run)
+            run.click()
+            assertNotNull("health", device.wait(Until.findObject(By.text("SYSTEM HEALTH")), 60_000))
+            screenshot("analyzer")
+        }
+    }
+
+    @Test
     fun keystoreEncryptsSecrets() {
         val secret = "github_pat_TEST_123"
         val stored = SecretStore.encrypt(secret)

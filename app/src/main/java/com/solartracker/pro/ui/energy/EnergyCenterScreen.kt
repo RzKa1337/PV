@@ -94,13 +94,14 @@ fun EnergyCenterScreen(weather: WeatherState, modifier: Modifier = Modifier, vm:
         "config" -> EnergyConfigScreen(vm, onBack = { page = "main" }, modifier = modifier)
         "insights" -> InsightsScreen(vm, onBack = { page = "main" }, modifier = modifier)
         "diagnostics" -> DiagnosticsScreen(vm, onBack = { page = "main" }, modifier = modifier)
+        "analyzer" -> AnalyzerScreen(vm, onBack = { page = "main" }, modifier = modifier)
         else -> EnergyCenterMain(vm, onShading = { page = "shading" }, onConfig = { page = "config" }, onInsights = { page = "insights" },
-            onDiagnostics = { page = "diagnostics" }, modifier = modifier)
+            onDiagnostics = { page = "diagnostics" }, onAnalyzer = { page = "analyzer" }, modifier = modifier)
     }
 }
 
 @Composable
-private fun EnergyCenterMain(vm: EnergyCenterViewModel, onShading: () -> Unit, onConfig: () -> Unit, onInsights: () -> Unit, onDiagnostics: () -> Unit, modifier: Modifier) {
+private fun EnergyCenterMain(vm: EnergyCenterViewModel, onShading: () -> Unit, onConfig: () -> Unit, onInsights: () -> Unit, onDiagnostics: () -> Unit, onAnalyzer: () -> Unit, modifier: Modifier) {
     val live by vm.live.collectAsStateWithLifecycle()
     val model by vm.model.collectAsStateWithLifecycle()
     val forecast by vm.forecast.collectAsStateWithLifecycle()
@@ -163,6 +164,7 @@ private fun EnergyCenterMain(vm: EnergyCenterViewModel, onShading: () -> Unit, o
                 OutlinedButton(onClick = onConfig) { Text(stringResource(R.string.ec_configuration)) }
             }
             OutlinedButton(onClick = onDiagnostics, modifier = Modifier.fillMaxWidth().testTag("open_diagnostics")) { Text(stringResource(R.string.dg_open)) }
+            OutlinedButton(onClick = onAnalyzer, modifier = Modifier.fillMaxWidth().testTag("open_analyzer")) { Text(stringResource(R.string.an_open)) }
             OutlinedButton(onClick = onInsights, modifier = Modifier.fillMaxWidth().testTag("open_insights")) { Text(stringResource(R.string.ec_open_insights)) }
         }
 

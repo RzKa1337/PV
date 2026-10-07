@@ -1,5 +1,28 @@
 package com.solartracker.pro.energy
 
+import com.solartracker.pro.core.anenji.AnalysisContext
+import com.solartracker.pro.core.anenji.AnalyzerSample
+import com.solartracker.pro.core.anenji.AnalyzerSamples
+import com.solartracker.pro.core.anenji.AnenjiDeepAnalyzer
+import com.solartracker.pro.core.anenji.AnenjiEvent
+import com.solartracker.pro.core.anenji.AnenjiSettingsSnapshot
+import com.solartracker.pro.core.anenji.BatteryContext
+import com.solartracker.pro.core.anenji.CommError
+import com.solartracker.pro.core.anenji.CommRecord
+import com.solartracker.pro.core.anenji.ContextProvider
+import com.solartracker.pro.core.anenji.DataOrigin
+import com.solartracker.pro.core.anenji.DeepAnalysisInput
+import com.solartracker.pro.core.anenji.DeepAnalysisReport
+import com.solartracker.pro.core.anenji.ImportedLog
+import com.solartracker.pro.core.anenji.IncidentAnalyzer
+import com.solartracker.pro.core.anenji.IncidentReport
+import com.solartracker.pro.core.anenji.LogImporter
+import com.solartracker.pro.core.anenji.SettingKey
+import com.solartracker.pro.core.anenji.SnapshotCodec
+import com.solartracker.pro.core.anenji.WhyAnalyzer
+import com.solartracker.pro.core.anenji.WhyAnswer
+import com.solartracker.pro.core.anenji.WhyQuestion
+import com.solartracker.pro.core.export.DeepReportExport
 import com.solartracker.pro.core.pv.Irradiance
 import com.solartracker.pro.core.pv.PvPointEstimate
 import com.solartracker.pro.core.weather.HourlyWeather
@@ -265,6 +288,19 @@ data class DiagnosticsState(
     val lastRegisters: RegisterLogRecord? = null,
 )
 
+/** Anenji Deep Analyzer (Centrum → Analiza Anenji). Read-only. */
+data class AnalyzerState(
+    val running: Boolean = false,
+    val source: String? = null,
+    val report: DeepAnalysisReport? = null,
+    val importSummary: String? = null,
+    val importIssues: List<String> = emptyList(),
+    val snapshots: List<AnenjiSettingsSnapshot> = emptyList(),
+    val incident: IncidentReport? = null,
+    val why: WhyAnswer? = null,
+    val error: String? = null,
+)
+
 /** About 3 h of 5-second polls. */
 private const val MAX_REGISTER_RECORDS = 2000
 
@@ -312,6 +348,12 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
     private val realitySamples = ArrayDeque<RealitySample>()
     private var lastRealitySampleAt: Instant? = null
     private val registerLog = ArrayDeque<RegisterLogRecord>()
+    private val _analyzer = MutableStateFlow(AnalyzerState())
+    val analyzer: StateFlow<AnalyzerState> = _analyzer.asStateFlow()
+    private val commLog = ArrayDeque<CommRecord>()
+    private var lastImport: ImportedLog? = null
+    private var analyzerSamples: List<AnalyzerSample> = emptyList()
+    private var analyzerEvents: List<AnenjiEvent> = emptyList()
     private val _busy = MutableStateFlow(false)
     val busy: StateFlow<Boolean> = _busy.asStateFlow()
 
@@ -536,7 +578,8 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
         list.filter { it.notify }.forEach { EnergyNotifications.alert(context, it) }
     }
 
-    private fun persist(sample: HistorySample) {
+    private fun persist(row: HistorySample) {
+        val sample = row.copy(simulated = _live.value.info?.simulated == true)
         runCatching {
             db.insert(sample)
             val period = Duration.ofMinutes(15)
@@ -907,6 +950,10 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun onRegisterRecord(r: RegisterLogRecord) {
+        synchronized(commLog) {
+            commLog.addLast(CommRecord(r.timestamp, r.communicationOk, if (r.communicationOk) null else CommError.classify(r.communication), detail = r.communication.takeIf { !r.communicationOk }))
+            while (commLog.size > 20_000) commLog.removeFirst()
+        }
         val d = _diagnostics.value
         if (!d.registerRecording) {
             _diagnostics.value = d.copy(lastRegisters = r)
@@ -939,6 +986,165 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
         val records = synchronized(registerLog) { registerLog.toList() }
         if (json) RegisterLogExport.json(records, Instant.now(), BuildConfig.VERSION_NAME, _live.value.info?.let { "${it.manufacturer} ${it.model} · ${it.protocol}" } ?: "?")
         else RegisterLogExport.csv(records)
+    }
+
+    // ---- Anenji Deep Analyzer (read-only) ---------------------------------------------------------
+
+    private val snapshotFile get() = java.io.File(context.filesDir, "anenji/snapshots.json")
+
+    private fun loadSnapshots(): List<AnenjiSettingsSnapshot> = runCatching { SnapshotCodec.decode(snapshotFile.readText()) }.getOrDefault(emptyList())
+
+    private fun saveSnapshots(list: List<AnenjiSettingsSnapshot>) {
+        runCatching { snapshotFile.parentFile?.mkdirs(); snapshotFile.writeText(SnapshotCodec.encode(list.takeLast(200))) }
+    }
+
+    private fun deviceName(): String = _live.value.info?.let { "${it.manufacturer} ${it.model} · ${it.protocol}" } ?: "Anenji (nie podłączony)"
+
+    private fun batteryContext(): BatteryContext? {
+        val s = settings.value ?: return null
+        val b = s.activeBattery ?: return null
+        val v = siteConfig.value?.batteryVoltage ?: 48.0
+        return BatteryContext(b.type, v, b.nominalCapacityKwh * 1000 / v)
+    }
+
+    /** Snapshot of everything known now: device registers (none verified → NOT_AVAILABLE) and app settings (UNVERIFIED). */
+    fun takeSnapshot() {
+        viewModelScope.launch(Dispatchers.IO) {
+            // Inverter settings are not read: no settings register is verified for this model (→ NOT_AVAILABLE).
+            val b = batteryContext()
+            val app = buildMap {
+                b?.let { put(SettingKey.BATTERY_NOMINAL_VOLTAGE, it.nominalVoltage); it.capacityAh?.let { ah -> put(SettingKey.BATTERY_CAPACITY, ah) } }
+            }
+            val appText = buildMap { b?.let { put(SettingKey.BATTERY_TYPE, it.type.name) } }
+            val snap = AnenjiSettingsSnapshot.build(Instant.now(), deviceName(), app = app, appText = appText)
+            val list = (loadSnapshots() + snap).sortedBy { it.timestamp }
+            saveSnapshots(list)
+            _analyzer.value = _analyzer.value.copy(snapshots = list)
+        }
+    }
+
+    fun loadAnalyzer() {
+        viewModelScope.launch(Dispatchers.IO) { _analyzer.value = _analyzer.value.copy(snapshots = loadSnapshots()) }
+    }
+
+    /** Imports a CSV/JSON/TXT log and analyses it. */
+    fun importLog(text: String, fileName: String?) {
+        viewModelScope.launch(Dispatchers.Default) {
+            val log = runCatching { LogImporter.import(text, zone, fileName) }.getOrElse {
+                _analyzer.value = _analyzer.value.copy(error = "Import: ${it.message}"); return@launch
+            }
+            lastImport = log
+            val recognized = log.columns.count { it.recognized }
+            _analyzer.value = _analyzer.value.copy(
+                importSummary = "${fileName ?: "log"} · ${log.format} · ${log.samples.size}/${log.rowsTotal} wierszy · kolumny rozpoznane $recognized/${log.columns.size}" +
+                    (log.from?.let { f -> " · ${f.atZone(zone).toLocalDate()} – ${log.to?.atZone(zone)?.toLocalDate()}" } ?: ""),
+                importIssues = log.issues, error = null,
+            )
+            runAnalysis(useImport = true)
+        }
+    }
+
+    /** Runs the deep analysis on the imported log or on the stored device history (simulator rows kept apart). */
+    fun runAnalysis(useImport: Boolean = false) {
+        viewModelScope.launch(Dispatchers.Default) {
+            _analyzer.value = _analyzer.value.copy(running = true, error = null)
+            val result = runCatching {
+                val s = settings.value
+                val now = Instant.now()
+                val import = lastImport.takeIf { useImport }
+                val samples: List<AnalyzerSample>
+                val comm: List<CommRecord>
+                val snaps: List<AnenjiSettingsSnapshot>
+                if (import != null) {
+                    samples = import.samples
+                    comm = import.comm
+                    snaps = SnapshotCodec.fromImport(deviceName(), import.settings, import.settingsText)
+                } else {
+                    val rows = withContext(Dispatchers.IO) {
+                        val recent = db.history(now.minus(Duration.ofDays(HistoryDatabase.HISTORY_DAYS)), now)
+                        val older = db.history(now.minus(Duration.ofDays(365)), recent.firstOrNull()?.start ?: now, summary = true)
+                        older + recent
+                    }
+                    samples = rows.map { AnalyzerSamples.fromHistory(it, if (it.simulated) DataOrigin.SIMULATOR else DataOrigin.DEVICE) }
+                    comm = synchronized(commLog) { commLog.toList() }
+                    snaps = loadSnapshots()
+                }
+                val ctx = s?.let { st -> analysisContext(st) }
+                val inv = inverterConfig.value?.takeIf { it.enabled }
+                val report = AnenjiDeepAnalyzer.analyze(DeepAnalysisInput(
+                    device = if (import != null) "Import: ${_analyzer.value.importSummary?.substringBefore(" ·") ?: "log"}" else deviceName(),
+                    samples = samples, comm = comm, snapshots = snaps, battery = batteryContext(), pvLimitW = inv?.ratedPowerW,
+                    zone = zone, now = if (import != null) import.to ?: now else now, context = ctx,
+                    limits = PlausibilityLimits(batteryNominalV = siteConfig.value?.batteryVoltage ?: 48.0, ratedPowerW = inv?.ratedPowerW ?: 6200.0),
+                    forecastAccuracyPercent = _insights.value.periodAccuracy[AccuracyPeriod.DAY]?.accuracyPercent,
+                    mppt = _diagnostics.value.mppt, soiling = _diagnostics.value.soiling, degradation = _diagnostics.value.degradation,
+                    importIssues = import?.issues.orEmpty(),
+                ))
+                analyzerSamples = samples.filter { report.simulated || it.origin != DataOrigin.SIMULATOR }
+                analyzerEvents = report.events
+                Triple(report, if (import != null) "import" else "historia", snaps)
+            }
+            _analyzer.value = result.fold(
+                { (r, src, snaps) -> _analyzer.value.copy(running = false, report = r, source = src, snapshots = if (src == "import") snaps else loadSnapshots(), incident = null, why = null) },
+                { _analyzer.value.copy(running = false, error = it.message ?: it.javaClass.simpleName) },
+            )
+        }
+    }
+
+    /** Model expectation and weather for correlation; cached per 5 minutes. Unknown = null (never assumed). */
+    private fun analysisContext(s: AppSettings): ContextProvider {
+        val weather = WeatherAwareIrradianceModel(s.location, _weather.value.first, _weather.value.second)
+        val estimator = PvEstimator(weather)
+        val forecast = _weather.value.first
+        val cache = HashMap<Long, AnalysisContext?>()
+        return ContextProvider { t ->
+            synchronized(cache) {
+                cache.getOrPut(t.epochSecond / 300) {
+                    runCatching {
+                        val e = estimator.pointEstimate(s.system, s.location, t)
+                        val hour = forecast?.at(t)
+                        AnalysisContext(
+                            expectedPvW = if (weather.sourceAt(t) == WeatherSource.FORECAST) e.powerKw * 1000 else null,
+                            cloudCoverPercent = hour?.cloudCoverPercent, clearSkyIndex = WeatherEffects.clearSkyIndex(hour, e.sun.position, t),
+                            ambientC = hour?.temperatureC, sunElevationDeg = e.sun.elevationDeg,
+                        )
+                    }.getOrNull()
+                }
+            }
+        }
+    }
+
+    fun analyzeIncident(at: Instant) {
+        viewModelScope.launch(Dispatchers.Default) {
+            val s = settings.value
+            val r = IncidentAnalyzer.analyze(at, analyzerSamples, analyzerEvents, zone, s?.let { analysisContext(it) })
+            _analyzer.value = _analyzer.value.copy(incident = r)
+        }
+    }
+
+    /** "Dlaczego…?" – free text or a fixed question type; answered deterministically from the data. */
+    fun ask(text: String?, question: WhyQuestion? = null) {
+        viewModelScope.launch(Dispatchers.Default) {
+            val ref = _analyzer.value.report?.to?.atZone(zone)?.toLocalDate() ?: java.time.LocalDate.now(zone)
+            val parsed = question?.let { it to ref } ?: text?.let { WhyAnalyzer.parse(it, ref) }
+            if (parsed == null) {
+                _analyzer.value = _analyzer.value.copy(error = "Nie rozpoznano pytania – wybierz jedno z gotowych pytań")
+                return@launch
+            }
+            val s = settings.value
+            val a = WhyAnalyzer.answer(parsed.first, parsed.second, analyzerSamples, analyzerEvents, zone, s?.let { analysisContext(it) },
+                inverterConfig.value?.takeIf { it.enabled }?.ratedPowerW)
+            _analyzer.value = _analyzer.value.copy(why = a, error = null)
+        }
+    }
+
+    suspend fun exportAnalyzerReport(format: String, out: java.io.OutputStream) = withContext(Dispatchers.IO) {
+        val r = _analyzer.value.report ?: error("Najpierw uruchom analizę")
+        when (format) {
+            "json" -> out.write(DeepReportExport.json(r, BuildConfig.VERSION_NAME).toByteArray())
+            "csv" -> out.write(DeepReportExport.csv(r, zone).toByteArray())
+            else -> PdfReport.write(DeepReportExport.NAME, DeepReportExport.lines(r, zone), out)
+        }
     }
 
     suspend fun exportHistory(json: Boolean): String = withContext(Dispatchers.IO) {

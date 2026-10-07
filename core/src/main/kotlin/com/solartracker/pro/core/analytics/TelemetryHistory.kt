@@ -33,6 +33,8 @@ data class HistorySample(
     val mode: OperatingMode?,
     val faultCodes: Set<Int>,
     val warningCodes: Set<Int>,
+    /** Recorded from the simulator – kept apart from real device data in every analysis. */
+    val simulated: Boolean = false,
 ) {
     val duration: Duration get() = Duration.between(start, end)
 }
@@ -142,6 +144,7 @@ class TelemetryAggregator(
                         gridImportKwh = g.sumOf { it.gridImportKwh }, gridExportKwh = g.sumOf { it.gridExportKwh },
                         batteryChargeKwh = g.sumOf { it.batteryChargeKwh }, batteryDischargeKwh = g.sumOf { it.batteryDischargeKwh },
                         mode = g.last().mode, faultCodes = g.flatMap { it.faultCodes }.toSet(), warningCodes = g.flatMap { it.warningCodes }.toSet(),
+                        simulated = g.any { it.simulated },
                     )
                 }
         }

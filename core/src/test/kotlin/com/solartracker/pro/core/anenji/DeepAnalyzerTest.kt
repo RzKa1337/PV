@@ -229,4 +229,21 @@ class DeepAnalyzerTest {
         assertEquals(75, h.of(HealthCategory.MPPT).score)
         assertEquals(75, h.overall) // only MPPT assessable → weighted mean of one
     }
+
+    @Test
+    fun snapshotsAreStoredAndImportedLogSettingsBecomeASnapshotTimeline() {
+        val a = snapshot(AnalyzerFixtures.START, 80.0, bulk = 56.0)
+        val back = SnapshotCodec.decode(SnapshotCodec.encode(listOf(a))).single()
+        assertEquals(a.timestamp, back.timestamp)
+        assertEquals(80.0, back.number(SettingKey.MAX_CHARGE_CURRENT)!!, 0.0)
+        assertEquals(SettingStatus.NOT_AVAILABLE, back.value(SettingKey.FLOAT_VOLTAGE)!!.status)
+        assertTrue(SnapshotCodec.decode("not json").isEmpty())
+        val t0 = AnalyzerFixtures.START
+        val snaps = SnapshotCodec.fromImport("x", listOf(t0 to mapOf(SettingKey.MAX_CHARGE_CURRENT to 80.0), t0.plusSeconds(300) to mapOf(SettingKey.MAX_CHARGE_CURRENT to 80.0),
+            t0.plusSeconds(600) to mapOf(SettingKey.MAX_CHARGE_CURRENT to 60.0)), listOf(t0 to mapOf(SettingKey.OUTPUT_SOURCE_PRIORITY to "SBU")))
+        assertEquals(2, snaps.size)
+        val change = AnenjiSettingsDiff.timeline(snaps).changes.single()
+        assertEquals(t0.plusSeconds(600), change.seenAt)
+        assertEquals("SBU", snaps.last().value(SettingKey.OUTPUT_SOURCE_PRIORITY)!!.display)
+    }
 }

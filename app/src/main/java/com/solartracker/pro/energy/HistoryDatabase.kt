@@ -28,7 +28,7 @@ class HistoryDatabase(context: Context) : SQLiteOpenHelper(context.applicationCo
                 "CREATE TABLE $table (start INTEGER PRIMARY KEY, end_ms INTEGER NOT NULL, samples INTEGER NOT NULL, " +
                     "pv REAL, pv_max REAL, load REAL, battery REAL, grid REAL, bat_v REAL, bat_a REAL, soc REAL, inv_t REAL, bat_t REAL, " +
                     "pv_kwh REAL NOT NULL, load_kwh REAL NOT NULL, imp_kwh REAL NOT NULL, exp_kwh REAL NOT NULL, chg_kwh REAL NOT NULL, dis_kwh REAL NOT NULL, " +
-                    "mode TEXT, faults TEXT, warnings TEXT)",
+                    "mode TEXT, faults TEXT, warnings TEXT, sim INTEGER NOT NULL DEFAULT 0)",
             )
         }
         db.execSQL("CREATE TABLE $T_CALIB (time INTEGER PRIMARY KEY, real_kw REAL NOT NULL, model_kw REAL NOT NULL)")
@@ -41,6 +41,8 @@ class HistoryDatabase(context: Context) : SQLiteOpenHelper(context.applicationCo
         if (oldVersion < 2) createForecastTable(db)
         if (oldVersion < 3) addCalibrationContext(db)
         if (oldVersion < 4) createPerformanceTable(db)
+        // v5: rows recorded from the simulator are flagged (existing rows: unknown origin → treated as device data).
+        if (oldVersion < 5) for (t in listOf(T_HISTORY, T_SUMMARY)) db.execSQL("ALTER TABLE $t ADD COLUMN sim INTEGER NOT NULL DEFAULT 0")
     }
 
     /** v4: monthly clear-sky performance index – kept for years (degradation needs ≥ 2 years). */
@@ -158,6 +160,7 @@ class HistoryDatabase(context: Context) : SQLiteOpenHelper(context.applicationCo
         put("pv_kwh", s.pvEnergyKwh); put("load_kwh", s.loadEnergyKwh); put("imp_kwh", s.gridImportKwh); put("exp_kwh", s.gridExportKwh)
         put("chg_kwh", s.batteryChargeKwh); put("dis_kwh", s.batteryDischargeKwh)
         put("mode", s.mode?.name); put("faults", s.faultCodes.joinToString(",")); put("warnings", s.warningCodes.joinToString(","))
+        put("sim", if (s.simulated) 1 else 0)
     }
 
     private fun read(c: Cursor): HistorySample {
@@ -174,12 +177,13 @@ class HistoryDatabase(context: Context) : SQLiteOpenHelper(context.applicationCo
             gridExportKwh = d("exp_kwh") ?: 0.0, batteryChargeKwh = d("chg_kwh") ?: 0.0, batteryDischargeKwh = d("dis_kwh") ?: 0.0,
             mode = c.getString(c.getColumnIndexOrThrow("mode"))?.let { m -> OperatingMode.entries.firstOrNull { it.name == m } },
             faultCodes = codes("faults"), warningCodes = codes("warnings"),
+            simulated = c.getInt(c.getColumnIndexOrThrow("sim")) == 1,
         )
     }
 
     companion object {
         const val NAME = "telemetry.db"
-        const val VERSION = 4
+        const val VERSION = 5
         const val HISTORY_DAYS = 30L
         const val SUMMARY_DAYS = 730L
         private const val T_HISTORY = "history"

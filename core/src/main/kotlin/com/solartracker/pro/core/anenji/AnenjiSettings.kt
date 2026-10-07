@@ -165,3 +165,60 @@ data class AnenjiSettingsDiff(val changes: List<SettingChange>) {
             AnenjiSettingsDiff(snapshots.sortedBy { it.timestamp }.zipWithNext { a, b -> between(a, b).changes }.flatten())
     }
 }
+
+/** JSON storage of snapshots (kept on the phone with their timestamps). */
+object SnapshotCodec {
+    private val json = kotlinx.serialization.json.Json { prettyPrint = false }
+
+    fun encode(list: List<AnenjiSettingsSnapshot>): String = json.encodeToString(kotlinx.serialization.json.JsonArray.serializer(),
+        kotlinx.serialization.json.JsonArray(list.map { s ->
+            kotlinx.serialization.json.JsonObject(mapOf(
+                "timestamp" to kotlinx.serialization.json.JsonPrimitive(s.timestamp.toString()),
+                "device" to kotlinx.serialization.json.JsonPrimitive(s.device),
+                "values" to kotlinx.serialization.json.JsonArray(s.values.filter { it.status != SettingStatus.NOT_AVAILABLE }.map { v ->
+                    kotlinx.serialization.json.JsonObject(buildMap {
+                        put("key", kotlinx.serialization.json.JsonPrimitive(v.key.name))
+                        v.register?.let { put("register", kotlinx.serialization.json.JsonPrimitive(it)) }
+                        v.rawValue?.let { put("raw", kotlinx.serialization.json.JsonPrimitive(it)) }
+                        v.decodedValue?.let { put("decoded", kotlinx.serialization.json.JsonPrimitive(it)) }
+                        v.text?.let { put("text", kotlinx.serialization.json.JsonPrimitive(it)) }
+                        v.source?.let { put("source", kotlinx.serialization.json.JsonPrimitive(it.name)) }
+                        put("status", kotlinx.serialization.json.JsonPrimitive(v.status.name))
+                    })
+                }),
+            ))
+        }))
+
+    /** Unknown keys/values are skipped; a broken file gives an empty list (never invented values). */
+    fun decode(text: String): List<AnenjiSettingsSnapshot> = runCatching {
+        json.parseToJsonElement(text) as kotlinx.serialization.json.JsonArray
+    }.getOrNull().orEmpty().mapNotNull { e ->
+        val o = e as? kotlinx.serialization.json.JsonObject ?: return@mapNotNull null
+        fun str(x: kotlinx.serialization.json.JsonElement?) = (x as? kotlinx.serialization.json.JsonPrimitive)?.content
+        val time = str(o["timestamp"])?.let { runCatching { Instant.parse(it) }.getOrNull() } ?: return@mapNotNull null
+        val known = (o["values"] as? kotlinx.serialization.json.JsonArray).orEmpty().mapNotNull { v ->
+            val m = v as? kotlinx.serialization.json.JsonObject ?: return@mapNotNull null
+            val key = SettingKey.entries.firstOrNull { it.name == str(m["key"]) } ?: return@mapNotNull null
+            SettingValue(key, str(m["register"])?.toIntOrNull(), str(m["raw"]), str(m["decoded"])?.toDoubleOrNull(), str(m["text"]), key.unit,
+                SettingSource.entries.firstOrNull { it.name == str(m["source"]) },
+                SettingStatus.entries.firstOrNull { it.name == str(m["status"]) } ?: SettingStatus.UNVERIFIED)
+        }.associateBy { it.key }
+        AnenjiSettingsSnapshot(time, str(o["device"]).orEmpty(), SettingKey.entries.map { k ->
+            known[k] ?: SettingValue(k, null, null, null, null, k.unit, null, SettingStatus.NOT_AVAILABLE, "brak w zapisanym snapshocie")
+        })
+    }
+
+    /** Snapshots from an imported log: one per distinct set of values (a change = a new snapshot). */
+    fun fromImport(device: String, numbers: List<Pair<Instant, Map<SettingKey, Double>>>, texts: List<Pair<Instant, Map<SettingKey, String>>>): List<AnenjiSettingsSnapshot> {
+        val times = (numbers.map { it.first } + texts.map { it.first }).distinct().sorted()
+        val n = numbers.toMap(); val t = texts.toMap()
+        val out = mutableListOf<AnenjiSettingsSnapshot>()
+        var lastN = emptyMap<SettingKey, Double>(); var lastT = emptyMap<SettingKey, String>()
+        for (time in times) {
+            val curN = lastN + (n[time] ?: emptyMap()); val curT = lastT + (t[time] ?: emptyMap())
+            if (out.isEmpty() || curN != lastN || curT != lastT) out += AnenjiSettingsSnapshot.build(time, device, imported = curN, importedText = curT)
+            lastN = curN; lastT = curT
+        }
+        return out
+    }
+}
