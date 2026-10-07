@@ -9,6 +9,12 @@ Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie 
 - Dashboard: cloud impact on today's and tomorrow's production ("X kWh zamiast Y kWh przy czystym niebie, chmury −Z%")
 - SOC estimated from the resting battery voltage (± uncertainty) when the inverter does not report SOC; used by energy security with reduced confidence
 - Cold-room power schedule editor in Konfiguracja
+- **English UI** (Ustawienia → Język / Language: Polski – default, English, Systemowy): bottom navigation, all screen titles, Pulpit, Live, Kąty, Miesiące, Energia, Centrum energii (main page, Analizy, Konfiguracja, main labels of Analiza zacienienia), Narzędzia, Ustawienia, Aktualizacje and the home-screen widget. Texts live in `res/values` (Polish) and `res/values-en`; numbers, months and dates follow the chosen language. The choice applies immediately (the screen is rebuilt)
+- **System Back button no longer closes the app**: it first closes an open sub-page (Centrum → Zacienienie/Konfiguracja/Analizy, map drawing/picking, a non-default tool) and then returns to the previously visited tab; on Pulpit with no history a second press within 2 s exits
+
+### Known gaps (English UI)
+- Still Polish in English mode: texts generated in `:core` (Solar Advisor questions/answers, alerts and their details, health/EMS/daily-report explanations, forecast bases, telemetry issue and link-error names, inverter link/protocol names, feature-lock reasons, SOC milestone and 72 h day labels), the obstacle editor dialog, detailed data lines of Analiza zacienienia, notifications (updates, daily report) and the PDF/CSV export
+- Currency stays "zł" (PLN)
 
 ### Changed
 - CI runners pinned to ubuntu-24.04 (ubuntu-latest moves to Ubuntu 26 on 2026-10-19)

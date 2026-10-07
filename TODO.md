@@ -135,6 +135,14 @@ Zaimplementowane, kompiluje się i przechodzi lint w CI — **czeka na ręczny t
 - [ ] **REAL DEVICE VALIDATION REQUIRED** – rejestry SMG, znaki mocy, temperatury, kody błędów
 - [x] Edytor harmonogramu chłodni w UI
 
+## Język angielski i nawigacja wstecz
+- [x] Przycisk Wstecz: podstrony → poprzednia zakładka → wyjście po 2. naciśnięciu (test instrumentalny)
+- [x] Ustawienie języka (Polski domyślnie / English / Systemowy), zasoby `values` + `values-en`, widget
+- [ ] Tłumaczenie tekstów z `:core` (doradca, alerty, raport dzienny, zdrowie, EMS, nazwy problemów telemetrii)
+- [ ] Tłumaczenie okna edycji przeszkody i szczegółowych wierszy analizy zacienienia
+- [ ] Powiadomienia (aktualizacje, raport dzienny) i eksport PDF/CSV po angielsku
+- [ ] Test instrumentalny przełączenia języka na English
+
 ## Później (pomysły)
 - [x] Śnieg na panelach z `snow_depth` w prognozie – v0.9.0
 - [ ] Wpływ temperatury na pojemność i moc ładowania baterii
