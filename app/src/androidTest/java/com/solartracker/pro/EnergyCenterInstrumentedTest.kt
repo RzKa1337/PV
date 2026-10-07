@@ -98,6 +98,33 @@ class EnergyCenterInstrumentedTest {
     }
 
     @Test
+    fun diagnosticsScreenShowsStatusRecommendationAndRegisterLog() {
+        runBlocking { EnergySettingsStore(context).setInverter(InverterConfig(enabled = true, link = InverterLink.SIMULATOR, pollIntervalSeconds = 2)) }
+        ActivityScenario.launch(MainActivity::class.java).use {
+            val tab = UiTestSupport.findDismissingAnr(device, By.desc("Centrum"), tag)
+            assertNotNull("Centrum tab not found", tab)
+            tab!!.click()
+            assertNotNull("status ONLINE", device.wait(Until.findObject(By.textContains(": ONLINE")), 30_000))
+            val open = device.wait(Until.findObject(By.text("Diagnostyka PV")), 15_000)
+            assertNotNull("diagnostics button", open)
+            open.click()
+            assertNotNull("PV status card", device.wait(Until.findObject(By.text("STATUS PV")), 15_000))
+            assertNotNull("recommendation", device.wait(Until.findObject(By.text("ZALECENIE")), 30_000))
+            screenshot("diagnostics-top")
+            // Scroll to the register log: the simulator must say it has no registers (never fake ones).
+            val selector = By.textContains("Symulator nie ma rejestrów")
+            var note = device.findObject(selector)
+            repeat(25) {
+                if (note != null) return@repeat
+                device.findObjects(By.scrollable(true)).maxByOrNull { it.visibleBounds.height() }?.scroll(Direction.DOWN, 0.8f)
+                note = device.wait(Until.findObject(selector), 1_000)
+            }
+            assertNotNull("simulator register note", note)
+            screenshot("diagnostics-registers")
+        }
+    }
+
+    @Test
     fun keystoreEncryptsSecrets() {
         val secret = "github_pat_TEST_123"
         val stored = SecretStore.encrypt(secret)

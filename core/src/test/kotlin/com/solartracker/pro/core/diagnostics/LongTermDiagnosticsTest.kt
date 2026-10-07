@@ -1,5 +1,7 @@
 package com.solartracker.pro.core.diagnostics
 
+import com.solartracker.pro.core.analytics.CalibrationObservation
+import com.solartracker.pro.core.analytics.SkyCondition
 import com.solartracker.pro.core.inverter.MpptReading
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -122,5 +124,27 @@ class LongTermDiagnosticsTest {
         val mismatch = MpptAnalyzer.analyze(listOf(MpptReading(1, 82.0, 9.0, 740.0), MpptReading(2, 66.0, 11.0, 726.0)), configs, mapOf(1 to 740.0, 2 to 740.0))
         assertTrue(mismatch.stringMismatch)
         assertEquals(mapOf(1 to 600.0, 2 to 400.0), MpptAnalyzer.splitByPeak(1000.0, listOf(MpptConfig(1, 1200.0), MpptConfig(2, 800.0))))
+    }
+
+    @Test
+    fun performanceHistoryUsesOnlyClearCleanSamples() {
+        val zone = java.time.ZoneId.of("UTC")
+        fun obs(day: Int, minute: Int, real: Double, csi: Double, link: Boolean = true, nearLimit: Boolean = false) = CalibrationObservation(
+            java.time.Instant.parse("2026-05-0${day}T10:00:00Z").plusSeconds(minute * 60L), real, 1.0, 40.0, nearLimit = nearLimit,
+            sunElevationDeg = 50.0, clearSkyIndex = csi, condition = if (csi >= 0.85) SkyCondition.CLEAR else SkyCondition.OVERCAST, shadingFactor = 1.0, linkOk = link)
+        val o = (0 until 240).map { obs(1, it, 0.95, 0.95) } + (0 until 240).map { obs(2, it, 0.5, 0.4) } +
+            (0 until 240).map { obs(3, it, 0.9, 0.95, link = it % 2 == 0) } + listOf(obs(3, 300, 0.1, 0.95, nearLimit = true))
+        val d = PerformanceHistory.daily(o, zone, mapOf(LocalDate.of(2026, 5, 2) to 4.0))
+        assertEquals(3, d.size)
+        assertEquals(0.95, d[0].performanceIndex!!, 1e-9)
+        assertEquals(4.0, d[0].clearSkyHours, 1e-9)
+        assertNull("rain unknown stays null", d[0].rainMm)
+        assertEquals(4.0, d[1].rainMm!!, 0.0)
+        assertEquals(0.0, d[1].clearSkyHours, 0.0)
+        assertEquals(2.0, d[2].clearSkyHours, 1e-9) // link problems and near-limit samples excluded
+        assertEquals(0.9, d[2].performanceIndex!!, 1e-9)
+        val m = PerformanceHistory.monthly(d)
+        assertEquals(1, m.size)
+        assertEquals(1, m[0].clearDays) // day 3 has only 2 clear hours
     }
 }

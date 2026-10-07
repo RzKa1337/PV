@@ -239,7 +239,7 @@ fun InsightsScreen(vm: EnergyCenterViewModel, onBack: () -> Unit, modifier: Modi
     }
 }
 
-private suspend fun writeText(context: Context, uri: Uri, text: String) = withContext(Dispatchers.IO) {
+internal suspend fun writeText(context: Context, uri: Uri, text: String) = withContext(Dispatchers.IO) {
     context.contentResolver.openOutputStream(uri, "wt")?.use { it.write(text.toByteArray(Charsets.UTF_8)) }
         ?: error(context.getString(R.string.ins_cannot_open))
 }

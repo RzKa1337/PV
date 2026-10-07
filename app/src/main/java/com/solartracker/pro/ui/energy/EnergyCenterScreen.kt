@@ -93,12 +93,14 @@ fun EnergyCenterScreen(weather: WeatherState, modifier: Modifier = Modifier, vm:
         "shading" -> ShadingScreen(vm, onBack = { page = "main" }, modifier = modifier)
         "config" -> EnergyConfigScreen(vm, onBack = { page = "main" }, modifier = modifier)
         "insights" -> InsightsScreen(vm, onBack = { page = "main" }, modifier = modifier)
-        else -> EnergyCenterMain(vm, onShading = { page = "shading" }, onConfig = { page = "config" }, onInsights = { page = "insights" }, modifier = modifier)
+        "diagnostics" -> DiagnosticsScreen(vm, onBack = { page = "main" }, modifier = modifier)
+        else -> EnergyCenterMain(vm, onShading = { page = "shading" }, onConfig = { page = "config" }, onInsights = { page = "insights" },
+            onDiagnostics = { page = "diagnostics" }, modifier = modifier)
     }
 }
 
 @Composable
-private fun EnergyCenterMain(vm: EnergyCenterViewModel, onShading: () -> Unit, onConfig: () -> Unit, onInsights: () -> Unit, modifier: Modifier) {
+private fun EnergyCenterMain(vm: EnergyCenterViewModel, onShading: () -> Unit, onConfig: () -> Unit, onInsights: () -> Unit, onDiagnostics: () -> Unit, modifier: Modifier) {
     val live by vm.live.collectAsStateWithLifecycle()
     val model by vm.model.collectAsStateWithLifecycle()
     val forecast by vm.forecast.collectAsStateWithLifecycle()
@@ -160,6 +162,7 @@ private fun EnergyCenterMain(vm: EnergyCenterViewModel, onShading: () -> Unit, o
                 if (enabled) FilledTonalButton(onClick = vm::refreshNow) { Text(stringResource(R.string.widget_refresh)) }
                 OutlinedButton(onClick = onConfig) { Text(stringResource(R.string.ec_configuration)) }
             }
+            OutlinedButton(onClick = onDiagnostics, modifier = Modifier.fillMaxWidth().testTag("open_diagnostics")) { Text(stringResource(R.string.dg_open)) }
             OutlinedButton(onClick = onInsights, modifier = Modifier.fillMaxWidth().testTag("open_insights")) { Text(stringResource(R.string.ec_open_insights)) }
         }
 

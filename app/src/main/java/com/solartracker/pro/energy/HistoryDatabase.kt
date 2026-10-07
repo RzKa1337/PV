@@ -10,6 +10,8 @@ import com.solartracker.pro.core.analytics.CalibrationSample
 import com.solartracker.pro.core.analytics.SkyCondition
 import com.solartracker.pro.core.analytics.ForecastHorizon
 import com.solartracker.pro.core.analytics.HistorySample
+import com.solartracker.pro.core.diagnostics.MonthlyPerformance
+import java.time.YearMonth
 import com.solartracker.pro.core.inverter.OperatingMode
 import java.time.Duration
 import java.time.Instant
@@ -32,12 +34,36 @@ class HistoryDatabase(context: Context) : SQLiteOpenHelper(context.applicationCo
         db.execSQL("CREATE TABLE $T_CALIB (time INTEGER PRIMARY KEY, real_kw REAL NOT NULL, model_kw REAL NOT NULL)")
         addCalibrationContext(db)
         createForecastTable(db)
+        createPerformanceTable(db)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         if (oldVersion < 2) createForecastTable(db)
         if (oldVersion < 3) addCalibrationContext(db)
+        if (oldVersion < 4) createPerformanceTable(db)
     }
+
+    /** v4: monthly clear-sky performance index – kept for years (degradation needs ≥ 2 years). */
+    private fun createPerformanceTable(db: SQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS $T_PERF_MONTH (month TEXT PRIMARY KEY, pi REAL, clear_days INTEGER NOT NULL)")
+    }
+
+    /** Replaces the stored value of a month (recomputed while the month is within the observation window). */
+    fun putMonthlyPerformance(m: MonthlyPerformance) {
+        writableDatabase.insertWithOnConflict(T_PERF_MONTH, null, ContentValues().apply {
+            put("month", m.month.toString()); if (m.performanceIndex == null) putNull("pi") else put("pi", m.performanceIndex); put("clear_days", m.clearDays)
+        }, SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    fun monthlyPerformance(): List<MonthlyPerformance> =
+        readableDatabase.query(T_PERF_MONTH, null, null, null, null, null, "month").use { c ->
+            buildList {
+                while (c.moveToNext()) {
+                    val pi = c.getColumnIndexOrThrow("pi").let { if (c.isNull(it)) null else c.getDouble(it) }
+                    add(MonthlyPerformance(YearMonth.parse(c.getString(c.getColumnIndexOrThrow("month"))), pi, c.getInt(c.getColumnIndexOrThrow("clear_days"))))
+                }
+            }
+        }
 
     /** v3: context of each calibration sample (AutoCalibration 3.0). Old rows keep NULL (= unknown). */
     private fun addCalibrationContext(db: SQLiteDatabase) {
@@ -153,13 +179,14 @@ class HistoryDatabase(context: Context) : SQLiteOpenHelper(context.applicationCo
 
     companion object {
         const val NAME = "telemetry.db"
-        const val VERSION = 3
+        const val VERSION = 4
         const val HISTORY_DAYS = 30L
         const val SUMMARY_DAYS = 730L
         private const val T_HISTORY = "history"
         private const val T_SUMMARY = "summary"
         private const val T_CALIB = "calibration"
         private const val T_FORECAST = "forecast"
+        private const val T_PERF_MONTH = "perf_month"
         private val CALIB_CONTEXT_COLUMNS = listOf(
             "usable" to "INTEGER", "cell_t" to "REAL", "near_limit" to "INTEGER", "elev" to "REAL", "az" to "REAL", "cloud" to "REAL",
             "poa" to "REAL", "csi" to "REAL", "cond" to "TEXT", "shade" to "REAL", "fault" to "INTEGER", "link_ok" to "INTEGER", "invalid" to "INTEGER",

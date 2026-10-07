@@ -1,5 +1,36 @@
 package com.solartracker.pro.energy
 
+import com.solartracker.pro.core.pv.Irradiance
+import com.solartracker.pro.core.pv.PvPointEstimate
+import com.solartracker.pro.core.weather.HourlyWeather
+import java.time.YearMonth
+import com.solartracker.pro.core.diagnostics.ConversionEfficiency
+import com.solartracker.pro.core.diagnostics.DegradationAnalyzer
+import com.solartracker.pro.core.diagnostics.DegradationAssessment
+import com.solartracker.pro.core.diagnostics.DiagnosticInput
+import com.solartracker.pro.core.diagnostics.FlowContext
+import com.solartracker.pro.core.diagnostics.IrradianceBasis
+import com.solartracker.pro.core.diagnostics.MpptAnalysis
+import com.solartracker.pro.core.diagnostics.MpptAnalyzer
+import com.solartracker.pro.core.diagnostics.MpptConfig
+import com.solartracker.pro.core.diagnostics.PerformanceHistory
+import com.solartracker.pro.core.diagnostics.PvDiagnosis
+import com.solartracker.pro.core.diagnostics.PvDiagnosticEngine
+import com.solartracker.pro.core.diagnostics.PvReality
+import com.solartracker.pro.core.diagnostics.PvRealityEngine
+import com.solartracker.pro.core.diagnostics.RealitySample
+import com.solartracker.pro.core.diagnostics.SoilingAssessment
+import com.solartracker.pro.core.diagnostics.SoilingDetector
+import com.solartracker.pro.core.export.RegisterLogExport
+import com.solartracker.pro.core.forecast.EnergyMissionPlanner
+import com.solartracker.pro.core.forecast.MissionGoal
+import com.solartracker.pro.core.forecast.MissionRequest
+import com.solartracker.pro.core.forecast.MissionResult
+import com.solartracker.pro.core.forecast.PvRadar
+import com.solartracker.pro.core.forecast.PvRadarBuilder
+import com.solartracker.pro.core.inverter.RegisterDiagnostics
+import com.solartracker.pro.core.inverter.RegisterLogRecord
+import com.solartracker.pro.core.inverter.RegisterQuality
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -217,6 +248,26 @@ data class InsightsState(
     val twin: DigitalTwin? = null,
 )
 
+/** PV Reality & Diagnostics (Centrum → Diagnostyka PV). */
+data class DiagnosticsState(
+    val reality: PvReality? = null,
+    val diagnosis: PvDiagnosis? = null,
+    val radar: PvRadar? = null,
+    val missionGoal: MissionGoal = MissionGoal.SURVIVE_NIGHT,
+    val mission: MissionResult? = null,
+    val soiling: SoilingAssessment? = null,
+    val degradation: DegradationAssessment? = null,
+    val mppt: MpptAnalysis? = null,
+    /** Raw register log (read-only) – recorded only while [registerRecording] is on. */
+    val registerRecording: Boolean = false,
+    val registerRecords: Int = 0,
+    val registerSummary: Map<RegisterQuality, Int> = emptyMap(),
+    val lastRegisters: RegisterLogRecord? = null,
+)
+
+/** About 3 h of 5-second polls. */
+private const val MAX_REGISTER_RECORDS = 2000
+
 class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
     private val context = app.applicationContext
     private val zone: ZoneId get() = ZoneId.systemDefault()
@@ -256,6 +307,11 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
     val searchResults: StateFlow<List<GeocodeResult>> = _search.asStateFlow()
     private val _insights = MutableStateFlow(InsightsState())
     val insights: StateFlow<InsightsState> = _insights.asStateFlow()
+    private val _diagnostics = MutableStateFlow(DiagnosticsState())
+    val diagnostics: StateFlow<DiagnosticsState> = _diagnostics.asStateFlow()
+    private val realitySamples = ArrayDeque<RealitySample>()
+    private var lastRealitySampleAt: Instant? = null
+    private val registerLog = ArrayDeque<RegisterLogRecord>()
     private val _busy = MutableStateFlow(false)
     val busy: StateFlow<Boolean> = _busy.asStateFlow()
 
@@ -354,12 +410,14 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
                     if (s.status == LinkStatus.OFFLINE) {
                         if (offlineSince == null) offlineSince = Instant.now()
                         onTelemetryMissing()
+                        rediagnose()
                     } else if (s.status == LinkStatus.ONLINE) {
                         offlineSince = null
                     }
                 }
             }
             launch { m.validation.collect { v -> _live.value = _live.value.copy(validation = v, diagnostics = provider.diagnostics) } }
+            launch { m.registerLog.collect { r -> if (r != null) onRegisterRecord(r) } }
             m.run()
         }
     }
@@ -444,6 +502,7 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
             while (recentTelemetry.size > 40) recentTelemetry.removeFirst()
         }
         _model.value = ModelState(modelKw, estimate.powerKw, comparison, calibration.result(), calibrationModel, performance)
+        runCatching { updateReality(s, t, weather, estimate, hourNow, irradiance, shadeFactor) }
 
         val anomalies = AnomalyDetector.detect(
             AnomalyInput(
@@ -549,6 +608,25 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
             producedTodayKwh = producedToday,
             updatedAt = now,
         )
+        runCatching {
+            // Radar: the same engine on a clear sky (same calibration/shading/limits) isolates the cloud impact.
+            val clear = PredictivePvEngine(
+                s.location, s.system, WeatherAwareIrradianceModel(s.location), _shading.value.engine,
+                calibrationFactor = calibration.appliedFactor(), calibrationConfidence = if (cal.ready) cal.confidence else 0.0,
+                inverterLimitKw = inv?.takeIf { it.enabled }?.ratedPowerW?.div(1000.0), calibrationModel = model,
+            )
+            val currentKw = live.telemetry?.pv?.powerW?.takeIf { fresh }?.div(1000.0)
+            val radar = withContext(Dispatchers.Default) { PvRadarBuilder(pv, clear, s.system.peakPowerKw).build(now, nowcast, currentKw) }
+            val goal = _diagnostics.value.missionGoal
+            val mission = withContext(Dispatchers.Default) {
+                EnergyMissionPlanner(security, zone).evaluate(
+                    MissionRequest(goal, gridPricePerKwh = s.prices.gridPricePerKwh, generatorPricePerKwh = s.prices.generatorPricePerKwh,
+                        coldRoomKw = coolingProfile?.averagePowerKw(now, zone, null)),
+                    now, soc, socKind, pvAt, loadAt,
+                )
+            }
+            _diagnostics.value = _diagnostics.value.copy(radar = radar, mission = mission)
+        }
         storeForecasts(pv, now, nowcast)
         recomputeInsights(s, pv, load, nowcast, soc, now)
     }
@@ -559,6 +637,7 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
         if (calibrationModel != null && at != null && Duration.between(at, now) < Duration.ofHours(1)) return calibrationModel
         val observations = withContext(Dispatchers.IO) { runCatching { db.observations(now.minus(Duration.ofDays(60))) }.getOrDefault(emptyList()) }
         val built = withContext(Dispatchers.Default) { autoCalibration.buildModel(observations, zone) }
+        runCatching { updateLongTerm(observations, now) }
         calibrationModel = built
         calibrationModelAt = now
         _model.value = _model.value.copy(calibrationModel = built)
@@ -739,6 +818,129 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Export of recorded history (summary rows) as CSV or JSON text. */
+    // ---- PV Reality & Diagnostics -------------------------------------------------------------
+
+    private fun updateReality(
+        s: AppSettings, t: InverterTelemetry, weather: WeatherAwareIrradianceModel, estimate: PvPointEstimate,
+        hourNow: HourlyWeather?, irradiance: Irradiance, shadeFactor: Double,
+    ) {
+        val inv = inverterConfig.value?.takeIf { it.enabled }
+        val simulated = _live.value.info?.simulated == true
+        val position = estimate.sun.position
+        val basis = when (weather.sourceAt(t.timestamp)) {
+            WeatherSource.FORECAST -> IrradianceBasis.FORECAST
+            WeatherSource.CLIMATE -> IrradianceBasis.CLIMATE
+            WeatherSource.CLEAR_SKY -> IrradianceBasis.CLEAR_SKY
+        }
+        val csi = WeatherEffects.clearSkyIndex(hourNow, position, t.timestamp)
+        // The learned calibration belongs to the PR model, not to the loss chain, so it is not applied here.
+        val reality = PvRealityEngine.assess(
+            PvArrayConfig(1, s.system.peakPowerKw * 1000, s.system.tiltDeg, s.system.azimuthDeg),
+            LossProfile(inverterLimitW = inv?.ratedPowerW, inverterRatedW = inv?.ratedPowerW),
+            s.location, t.timestamp,
+            PvConditions(irradiance, irradiance.ambientTemperatureC, hourNow?.windSpeedMs, hourNow?.snowDepthM),
+            t.pv.powerW?.let { Quantity(it, "W", if (simulated) DataKind.SIMULATED else DataKind.MEASURED, _live.value.info?.manufacturer ?: "falownik", t.timestamp) },
+            basis, shadingFactor = shadeFactor, shadingConfidence = _shading.value.confidence?.score ?: 0.5, clearSkyIndex = csi,
+        )
+        if (reality.deviationPercent != null) {
+            val last = lastRealitySampleAt
+            if (last == null || Duration.between(last, t.timestamp) >= Duration.ofMinutes(1)) {
+                lastRealitySampleAt = t.timestamp
+                synchronized(realitySamples) {
+                    realitySamples.addLast(RealitySample(t.timestamp, reality.expectedW, reality.actualW!!, csi, WeatherEffects.snowCovered(hourNow, s.system.tiltDeg)))
+                    while (realitySamples.size > 3 * 24 * 60) realitySamples.removeFirst()
+                }
+            }
+        }
+        val mppt = t.mppts.takeIf { it.isNotEmpty() }?.let { readings ->
+            // Without per-MPPT configuration the array is assumed split evenly (stated in the UI).
+            val configs = readings.map { MpptConfig(it.index, s.system.peakPowerKw * 1000 / readings.size) }
+            MpptAnalyzer.analyze(readings, configs, MpptAnalyzer.splitByPeak(reality.breakdown.dcInputW, configs))
+        }
+        _diagnostics.value = _diagnostics.value.copy(reality = reality, mppt = mppt)
+        rediagnose(t)
+    }
+
+    /** Re-runs PV Doctor with the newest reality check (also when the link drops). */
+    private fun rediagnose(t: InverterTelemetry? = _live.value.telemetry) {
+        val s = settings.value ?: return
+        val d = _diagnostics.value
+        val live = _live.value
+        val battery = s.activeBattery
+        val (eff, n) = synchronized(recentTelemetry) { ConversionEfficiency.median(recentTelemetry.toList()) }
+        val input = DiagnosticInput(
+            now = Instant.now(), zone = zone, peakW = s.system.peakPowerKw * 1000, reality = d.reality,
+            recent = synchronized(realitySamples) { realitySamples.toList() },
+            link = live.connection.status, freshness = manager?.freshness(Instant.now()) ?: live.freshness,
+            linkFailures = live.connection.consecutiveFailures,
+            validationIssues = manager?.validation?.value?.issues.orEmpty(),
+            simulated = live.info?.simulated == true,
+            snowExpected = WeatherEffects.snowCovered(_weather.value.first?.at(Instant.now()), s.system.tiltDeg),
+            soiling = d.soiling, degradation = d.degradation, mppt = d.mppt,
+            flow = t?.let { FlowContext(it.battery.socPercent, battery?.maxSocPercent ?: 100.0, it.load.powerW, it.battery.powerW, siteConfig.value?.gridExportAllowed == true) },
+            conversionEfficiency = eff, conversionSamples = n,
+        )
+        _diagnostics.value = _diagnostics.value.copy(diagnosis = PvDiagnosticEngine.diagnose(input))
+    }
+
+    /** Soiling (last 60 days) and degradation (monthly index kept for years) from the stored observations. */
+    private suspend fun updateLongTerm(observations: List<CalibrationObservation>, now: Instant) {
+        val s = settings.value ?: return
+        val forecast = _weather.value.first
+        val rain = forecast?.hours?.filter { it.precipitationMm != null }?.groupBy { it.startTime.atZone(zone).toLocalDate() }
+            ?.filterValues { it.size >= 20 }?.mapValues { (_, h) -> h.sumOf { it.precipitationMm!! } } ?: emptyMap()
+        val snow = forecast?.hours?.filter { WeatherEffects.snowCovered(it, s.system.tiltDeg) }?.map { it.startTime.atZone(zone).toLocalDate() }?.toSet() ?: emptySet()
+        val days = PerformanceHistory.daily(observations, zone, rain, snow)
+        val months = PerformanceHistory.monthly(days)
+        val stored = withContext(Dispatchers.IO) {
+            runCatching {
+                // Months fully inside the observation window are final; the current one is refreshed each time.
+                val windowStart = YearMonth.from(now.minus(Duration.ofDays(60)).atZone(zone)).plusMonths(1)
+                months.filter { !it.month.isBefore(windowStart) }.forEach { db.putMonthlyPerformance(it) }
+                db.monthlyPerformance()
+            }.getOrDefault(months)
+        }
+        val year = now.atZone(zone).year
+        val soiling = SoilingDetector.assess(days)
+        val degradation = DegradationAnalyzer.assess(stored, s.system.peakPowerKw, null, listOf(year, year + 4, year + 9))
+        _diagnostics.value = _diagnostics.value.copy(soiling = soiling, degradation = degradation)
+    }
+
+    private fun onRegisterRecord(r: RegisterLogRecord) {
+        val d = _diagnostics.value
+        if (!d.registerRecording) {
+            _diagnostics.value = d.copy(lastRegisters = r)
+            return
+        }
+        val count = synchronized(registerLog) {
+            registerLog.addLast(r)
+            while (registerLog.size > MAX_REGISTER_RECORDS) registerLog.removeFirst()
+            registerLog.size
+        }
+        val summary = synchronized(registerLog) { RegisterDiagnostics.summary(registerLog.toList()) }
+        _diagnostics.value = d.copy(lastRegisters = r, registerRecords = count, registerSummary = summary)
+    }
+
+    fun setRegisterRecording(on: Boolean) {
+        _diagnostics.value = _diagnostics.value.copy(registerRecording = on)
+    }
+
+    fun clearRegisterLog() {
+        synchronized(registerLog) { registerLog.clear() }
+        _diagnostics.value = _diagnostics.value.copy(registerRecords = 0, registerSummary = emptyMap())
+    }
+
+    fun setMissionGoal(goal: MissionGoal) {
+        _diagnostics.value = _diagnostics.value.copy(missionGoal = goal)
+        viewModelScope.launch(Dispatchers.Default) { recomputeForecast() }
+    }
+
+    suspend fun exportRegisterLog(json: Boolean): String = withContext(Dispatchers.IO) {
+        val records = synchronized(registerLog) { registerLog.toList() }
+        if (json) RegisterLogExport.json(records, Instant.now(), BuildConfig.VERSION_NAME, _live.value.info?.let { "${it.manufacturer} ${it.model} · ${it.protocol}" } ?: "?")
+        else RegisterLogExport.csv(records)
+    }
+
     suspend fun exportHistory(json: Boolean): String = withContext(Dispatchers.IO) {
         val now = Instant.now()
         val rows = db.history(Instant.EPOCH, now, summary = true)

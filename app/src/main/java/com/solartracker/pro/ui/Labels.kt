@@ -130,3 +130,108 @@ val com.solartracker.pro.core.analytics.AccuracyPeriod.uiLabel: String
         com.solartracker.pro.core.analytics.AccuracyPeriod.WEEK -> tr(label, "week")
         com.solartracker.pro.core.analytics.AccuracyPeriod.MONTH -> tr(label, "month")
     }
+
+val com.solartracker.pro.core.diagnostics.DiagnosisType.uiLabel: String
+    get() = when (this) {
+        com.solartracker.pro.core.diagnostics.DiagnosisType.NORMAL -> tr(label, "Installation works normally")
+        com.solartracker.pro.core.diagnostics.DiagnosisType.CURTAILMENT_BATTERY_FULL -> tr(label, "Output limited – battery full")
+        com.solartracker.pro.core.diagnostics.DiagnosisType.SOILING_SUSPECTED -> tr(label, "Soiling suspected")
+        com.solartracker.pro.core.diagnostics.DiagnosisType.SNOW_SUSPECTED -> tr(label, "Snow on panels suspected")
+        com.solartracker.pro.core.diagnostics.DiagnosisType.SHADING_SUSPECTED -> tr(label, "Unmodelled shading suspected")
+        com.solartracker.pro.core.diagnostics.DiagnosisType.TEMPERATURE_LOSS -> tr(label, "High temperature loss")
+        com.solartracker.pro.core.diagnostics.DiagnosisType.MPPT_ANOMALY -> tr(label, "MPPT anomaly")
+        com.solartracker.pro.core.diagnostics.DiagnosisType.INVERTER_EFFICIENCY_ANOMALY -> tr(label, "Low conversion efficiency")
+        com.solartracker.pro.core.diagnostics.DiagnosisType.STRING_MISMATCH -> tr(label, "String mismatch")
+        com.solartracker.pro.core.diagnostics.DiagnosisType.SENSOR_ANOMALY -> tr(label, "Reading / sensor anomaly")
+        com.solartracker.pro.core.diagnostics.DiagnosisType.COMMUNICATION_PROBLEM -> tr(label, "Communication problem")
+        com.solartracker.pro.core.diagnostics.DiagnosisType.PV_DEGRADATION -> tr(label, "Module degradation")
+        com.solartracker.pro.core.diagnostics.DiagnosisType.UNEXPECTED_LOW_OUTPUT -> tr(label, "Unexpectedly low output")
+        com.solartracker.pro.core.diagnostics.DiagnosisType.UNEXPECTED_HIGH_OUTPUT -> tr(label, "Unexpectedly high output")
+    }
+
+val com.solartracker.pro.core.diagnostics.LossStep.uiLabel: String
+    get() = when (this) {
+        com.solartracker.pro.core.diagnostics.LossStep.AOI -> tr(label, "Angle of incidence (AOI)")
+        com.solartracker.pro.core.diagnostics.LossStep.TEMPERATURE -> tr(label, "Temperature")
+        com.solartracker.pro.core.diagnostics.LossStep.SPECTRAL -> tr(label, "Spectrum")
+        com.solartracker.pro.core.diagnostics.LossStep.SNOW -> tr(label, "Snow")
+        com.solartracker.pro.core.diagnostics.LossStep.SOILING -> tr(label, "Soiling")
+        com.solartracker.pro.core.diagnostics.LossStep.SHADING -> tr(label, "Shading")
+        com.solartracker.pro.core.diagnostics.LossStep.MISMATCH -> label
+        com.solartracker.pro.core.diagnostics.LossStep.DEGRADATION -> tr(label, "Degradation")
+        com.solartracker.pro.core.diagnostics.LossStep.DC_WIRING -> tr(label, "DC wiring")
+        com.solartracker.pro.core.diagnostics.LossStep.MPPT -> label
+        com.solartracker.pro.core.diagnostics.LossStep.INVERTER -> tr(label, "Inverter")
+        com.solartracker.pro.core.diagnostics.LossStep.CLIPPING -> label
+        com.solartracker.pro.core.diagnostics.LossStep.AC_WIRING -> tr(label, "AC wiring")
+        com.solartracker.pro.core.diagnostics.LossStep.CALIBRATION -> tr(label, "Calibration correction")
+        com.solartracker.pro.core.diagnostics.LossStep.UNEXPLAINED -> tr(label, "Unexplained")
+    }
+
+val com.solartracker.pro.core.diagnostics.PvHealthStatus.uiLabel: String
+    get() = when (this) {
+        com.solartracker.pro.core.diagnostics.PvHealthStatus.OK -> label
+        com.solartracker.pro.core.diagnostics.PvHealthStatus.ATTENTION -> tr(label, "ATTENTION")
+        com.solartracker.pro.core.diagnostics.PvHealthStatus.PROBLEM -> label
+        com.solartracker.pro.core.diagnostics.PvHealthStatus.UNKNOWN -> tr(label, "NOT ASSESSED")
+    }
+
+val com.solartracker.pro.core.diagnostics.RealityStatus.uiLabel: String
+    get() = when (this) {
+        com.solartracker.pro.core.diagnostics.RealityStatus.OK -> tr(label, "Output matches the expectation")
+        com.solartracker.pro.core.diagnostics.RealityStatus.BELOW -> tr(label, "Output below the expectation")
+        com.solartracker.pro.core.diagnostics.RealityStatus.ABOVE -> tr(label, "Output above the expectation")
+        com.solartracker.pro.core.diagnostics.RealityStatus.NO_MEASUREMENT -> tr(label, "No current measurement")
+        com.solartracker.pro.core.diagnostics.RealityStatus.LOW_LIGHT -> tr(label, "Too little light to judge")
+        com.solartracker.pro.core.diagnostics.RealityStatus.NIGHT -> tr(label, "Night")
+    }
+
+val com.solartracker.pro.core.diagnostics.IrradianceBasis.uiLabel: String
+    get() = when (this) {
+        com.solartracker.pro.core.diagnostics.IrradianceBasis.SENSOR -> tr(label, "irradiance sensor")
+        com.solartracker.pro.core.diagnostics.IrradianceBasis.FORECAST -> tr(label, "weather forecast (Open-Meteo)")
+        com.solartracker.pro.core.diagnostics.IrradianceBasis.CLIMATE -> tr(label, "climate averages")
+        com.solartracker.pro.core.diagnostics.IrradianceBasis.CLEAR_SKY -> tr(label, "clear-sky model")
+    }
+
+val com.solartracker.pro.core.forecast.MissionGoal.uiLabel: String
+    get() = when (this) {
+        com.solartracker.pro.core.forecast.MissionGoal.SURVIVE_NIGHT -> tr(label, "Survive the night")
+        com.solartracker.pro.core.forecast.MissionGoal.MAXIMIZE_SELF_CONSUMPTION -> tr(label, "Max self-consumption")
+        com.solartracker.pro.core.forecast.MissionGoal.PROTECT_BATTERY -> tr(label, "Protect battery")
+        com.solartracker.pro.core.forecast.MissionGoal.RUN_COLD_ROOM -> tr(label, "Keep the cold room")
+        com.solartracker.pro.core.forecast.MissionGoal.MINIMIZE_GENERATOR -> tr(label, "Min generator")
+        com.solartracker.pro.core.forecast.MissionGoal.MINIMIZE_GRID_COST -> tr(label, "Min grid cost")
+    }
+
+val com.solartracker.pro.core.inverter.RegisterQuality.uiLabel: String
+    get() = when (this) {
+        com.solartracker.pro.core.inverter.RegisterQuality.VERIFIED -> tr(label, "verified")
+        com.solartracker.pro.core.inverter.RegisterQuality.UNVERIFIED -> tr(label, "unverified")
+        com.solartracker.pro.core.inverter.RegisterQuality.SUSPECTED -> tr(label, "suspected")
+        com.solartracker.pro.core.inverter.RegisterQuality.INVALID -> tr(label, "invalid")
+    }
+
+val com.solartracker.pro.core.diagnostics.SoilingState.uiLabel: String
+    get() = when (this) {
+        com.solartracker.pro.core.diagnostics.SoilingState.INSUFFICIENT_DATA -> tr(label, "Not enough clear days to judge")
+        com.solartracker.pro.core.diagnostics.SoilingState.NONE -> tr(label, "No signs of soiling")
+        com.solartracker.pro.core.diagnostics.SoilingState.SUSPECTED -> tr(label, "Soiling suspected")
+        com.solartracker.pro.core.diagnostics.SoilingState.CONFIRMED -> tr(label, "Soiling confirmed (recovery after rain)")
+    }
+
+val com.solartracker.pro.core.diagnostics.DegradationTrend.uiLabel: String
+    get() = when (this) {
+        com.solartracker.pro.core.diagnostics.DegradationTrend.INSUFFICIENT_DATA -> tr(label, "History too short")
+        com.solartracker.pro.core.diagnostics.DegradationTrend.STABLE -> tr(label, "Stable")
+        com.solartracker.pro.core.diagnostics.DegradationTrend.NORMAL -> tr(label, "Typical degradation")
+        com.solartracker.pro.core.diagnostics.DegradationTrend.ELEVATED -> tr(label, "Elevated degradation")
+    }
+
+val com.solartracker.pro.core.diagnostics.MpptFlag.uiLabel: String
+    get() = when (this) {
+        com.solartracker.pro.core.diagnostics.MpptFlag.NORMAL -> label
+        com.solartracker.pro.core.diagnostics.MpptFlag.ABNORMAL -> tr(label, "Abnormal")
+        com.solartracker.pro.core.diagnostics.MpptFlag.NO_DATA -> tr(label, "No data")
+        com.solartracker.pro.core.diagnostics.MpptFlag.LOW_LIGHT -> tr(label, "Too little light")
+    }
