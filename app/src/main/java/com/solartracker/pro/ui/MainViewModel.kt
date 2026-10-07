@@ -1,5 +1,6 @@
 package com.solartracker.pro.ui
 
+import com.solartracker.pro.i18n.tr
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
@@ -40,6 +41,7 @@ import com.solartracker.pro.data.LocationProvider
 import com.solartracker.pro.data.LocationRepository
 import com.solartracker.pro.data.LocationSource
 import com.solartracker.pro.data.SettingsRepository
+import com.solartracker.pro.data.AppLanguage
 import com.solartracker.pro.data.ThemeMode
 import com.solartracker.pro.data.WeatherProvider
 import com.solartracker.pro.data.WeatherRepository
@@ -118,13 +120,13 @@ data class WeatherNow(
     val cloudTomorrow: CloudImpact? = null,
 )
 
-/** Short Polish description of the data behind the estimates. */
+/** Short description of the data behind the estimates (in the app language). */
 fun describeSources(state: WeatherState): String = when {
-    !state.enabled -> "model bezchmurnego nieba (pogoda wyłączona)"
-    state.forecast != null && state.climate != null -> "prognoza pogody na najbliższe dni + średnie klimatyczne"
-    state.forecast != null -> "prognoza pogody (dalej: bezchmurne niebo)"
-    state.climate != null -> "średnie klimatyczne (brak prognozy)"
-    else -> "model bezchmurnego nieba (brak danych pogodowych)"
+    !state.enabled -> tr("model bezchmurnego nieba (pogoda wyłączona)", "clear-sky model (weather off)")
+    state.forecast != null && state.climate != null -> tr("prognoza pogody na najbliższe dni + średnie klimatyczne", "weather forecast for the coming days + climate averages")
+    state.forecast != null -> tr("prognoza pogody (dalej: bezchmurne niebo)", "weather forecast (beyond it: clear sky)")
+    state.climate != null -> tr("średnie klimatyczne (brak prognozy)", "climate averages (no forecast)")
+    else -> tr("model bezchmurnego nieba (brak danych pogodowych)", "clear-sky model (no weather data)")
 }
 
 /** Battery state at the current moment, from today's energy-flow simulation. */
@@ -137,13 +139,15 @@ data class BatteryNow(
 )
 
 /** Simulation horizons. Every horizon starts today with the configured initial SOC. */
-enum class EnergyPeriod(val label: String, val simulatedDays: Int, val firstShownDay: Int) {
-    TODAY("Dziś", 1, 0),
-    TOMORROW("Jutro", 2, 1),
-    WEEK("7 dni", 7, 0),
-    MONTH("Miesiąc", 30, 0),
-    YEAR("Rok", 365, 0),
+enum class EnergyPeriod(private val labelPl: String, private val labelEn: String, val simulatedDays: Int, val firstShownDay: Int) {
+    TODAY("Dziś", "Today", 1, 0),
+    TOMORROW("Jutro", "Tomorrow", 2, 1),
+    WEEK("7 dni", "7 days", 7, 0),
+    MONTH("Miesiąc", "Month", 30, 0),
+    YEAR("Rok", "Year", 365, 0),
     ;
+
+    val label: String get() = tr(labelPl, labelEn)
 
     val shownDays: Int get() = simulatedDays - firstShownDay
 }
@@ -352,7 +356,7 @@ class MainViewModel(
             locationName = s.locationName,
             weatherEnabled = e.weather.enabled,
             usableKwh = battery?.usableCapacityKwh,
-            backupLabel = if (s.prices.backupSource == BackupSource.GENERATOR) "Agregat" else "Sieć",
+            backupLabel = if (s.prices.backupSource == BackupSource.GENERATOR) tr("Agregat", "Generator") else tr("Sieć", "Grid"),
         )
     }
 
@@ -544,22 +548,26 @@ class MainViewModel(
         viewModelScope.launch { settingsRepository.setThemeMode(mode) }
     }
 
+    fun setLanguage(language: AppLanguage) {
+        viewModelScope.launch { settingsRepository.setLanguage(language) }
+    }
+
     /** Call after the location permission has been granted. */
     fun locateWithGps() {
         if (_gpsStatus.value == GpsStatus.Locating) return
         viewModelScope.launch {
             if (!locationRepository.hasPermission()) {
-                _gpsStatus.value = GpsStatus.Error("Brak uprawnień do lokalizacji")
+                _gpsStatus.value = GpsStatus.Error(tr("Brak uprawnień do lokalizacji", "No location permission"))
                 return@launch
             }
             if (!locationRepository.isLocationEnabled()) {
-                _gpsStatus.value = GpsStatus.Error("Lokalizacja w telefonie jest wyłączona")
+                _gpsStatus.value = GpsStatus.Error(tr("Lokalizacja w telefonie jest wyłączona", "Location is turned off on the phone"))
                 return@launch
             }
             _gpsStatus.value = GpsStatus.Locating
             val location = locationRepository.currentLocation()
             if (location == null) {
-                _gpsStatus.value = GpsStatus.Error("Nie udało się ustalić lokalizacji. Wpisz ją ręcznie.")
+                _gpsStatus.value = GpsStatus.Error(tr("Nie udało się ustalić lokalizacji. Wpisz ją ręcznie.", "Could not determine the location. Enter it manually."))
             } else {
                 settingsRepository.setLocation(location, GPS_LOCATION_NAME, LocationSource.GPS)
                 _gpsStatus.value = GpsStatus.Success
@@ -568,7 +576,7 @@ class MainViewModel(
     }
 
     fun onGpsPermissionDenied() {
-        _gpsStatus.value = GpsStatus.Error("Odmówiono dostępu do lokalizacji. Możesz wpisać ją ręcznie.")
+        _gpsStatus.value = GpsStatus.Error(tr("Odmówiono dostępu do lokalizacji. Możesz wpisać ją ręcznie.", "Location access denied. You can enter it manually."))
     }
 
     companion object {

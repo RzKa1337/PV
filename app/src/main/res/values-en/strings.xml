@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- UI texts. values/ = Polish (default), values-en/ = English. Keep keys in both files. -->
+<resources>
+    <string name="battery_capacity">Capacity [kWh]</string>
+    <string name="battery_charge">Charging [kW]</string>
+    <string name="battery_charge_eff" formatted="false">Charge eff. [%]</string>
+    <string name="battery_discharge">Discharging [kW]</string>
+    <string name="battery_discharge_eff" formatted="false">Discharge eff. [%]</string>
+    <string name="battery_err_capacity">Capacity must be greater than 0</string>
+    <string name="battery_err_charge">Charge power must be greater than 0</string>
+    <string name="battery_err_discharge">Discharge power must be greater than 0</string>
+    <string name="battery_err_eff" formatted="false">Efficiency must be within 1–100%</string>
+    <string name="battery_err_order">Minimum SOC must be lower than maximum</string>
+    <string name="battery_err_soc" formatted="false">SOC must be within 0–100%</string>
+    <string name="battery_err_usable" formatted="false">Usable capacity: 1–100%</string>
+    <string name="battery_have">I have energy storage</string>
+    <string name="battery_lead_acid">Lead-acid</string>
+    <string name="battery_not_saved">Invalid configuration – not saved</string>
+    <string name="battery_save">Save storage</string>
+    <string name="battery_saved">Battery storage saved</string>
+    <string name="battery_soc_max" formatted="false">SOC max [%]</string>
+    <string name="battery_title">Energy storage</string>
+    <string name="battery_usable" formatted="false">Usable [%]</string>
+    <string name="battery_usable_energy">Usable energy: %1$s (100%% SOC), operating window %2$s–%3$s = %4$s</string>
+    <string name="consumption_add_period">Add period</string>
+    <string name="consumption_constant">Constant load</string>
+    <string name="consumption_constant_field">Constant load [W] for 24 h</string>
+    <string name="consumption_daily">Daily consumption: %1$s</string>
+    <string name="consumption_hourly">Hourly</string>
+    <string name="consumption_hourly_hint">Hours 0–24, power in kW. Hours outside the periods = 0 kW.</string>
+    <string name="consumption_not_saved">Invalid profile – not saved</string>
+    <string name="consumption_remove_period">Remove period</string>
+    <string name="consumption_save">Save consumption profile</string>
+    <string name="consumption_saved">Consumption profile saved</string>
+    <string name="consumption_title">Consumption profile</string>
+    <string name="defaults">Defaults</string>
+    <string name="downloading">Downloading…</string>
+    <string name="elevation_asl_m">" · %1$s m a.s.l."</string>
+    <string name="fill_all_numbers">Enter numbers in all fields.</string>
+    <string name="fill_all_numbers_short">Enter numbers in all fields</string>
+    <string name="from">From</string>
+    <string name="no_internet">no internet</string>
+    <string name="option_system">System</string>
+    <string name="other">Other</string>
+    <string name="press_back_again">Press again to exit</string>
+    <string name="price_battery">Storage cost [PLN]</string>
+    <string name="price_feed_in">Feed-in [PLN/kWh]</string>
+    <string name="price_generator">Generator [PLN/kWh]</string>
+    <string name="price_grid">Grid [PLN/kWh]</string>
+    <string name="prices_backup">Missing energy comes from:</string>
+    <string name="prices_invalid">Prices must be numbers ≥ 0 (empty field = none).</string>
+    <string name="prices_not_saved">Invalid prices – not saved</string>
+    <string name="prices_save">Save prices</string>
+    <string name="prices_saved">Prices saved</string>
+    <string name="prices_title">Energy prices (optional)</string>
+    <string name="save">Save</string>
+    <string name="saved_item">Saved: %1$s</string>
+    <string name="search">Search</string>
+    <string name="search_example">e.g. Kraków</string>
+    <string name="search_failed">Search failed (%1$s)</string>
+    <string name="search_not_found">Not found: %1$s</string>
+    <string name="search_prompt">Enter a city, address or postcode:</string>
+    <string name="settings_azimuth_hint">0° = north, 90° = east, 180° = south, 270° = west</string>
+    <string name="settings_azimuth_title">Panel azimuth: %1$s° %2$s</string>
+    <string name="settings_climate_archive">Climate: Open-Meteo archive for this location (%1$s years)</string>
+    <string name="settings_climate_default">Climate: approximate averages for Poland (offline)</string>
+    <string name="settings_elevation">Elevation a.s.l. [m] (optional)</string>
+    <string name="settings_forecast_until">Forecast until: %1$s</string>
+    <string name="settings_gps_locating">Locating…</string>
+    <string name="settings_gps_saved">GPS location saved.</string>
+    <string name="settings_gps_use">Use the phone\'s GPS</string>
+    <string name="settings_language">Language / Język</string>
+    <string name="settings_language_hint">Some messages from the calculation engines (e.g. advisor answers, alerts) are still in Polish only.</string>
+    <string name="settings_latitude">Latitude</string>
+    <string name="settings_location_current">Current: %1$s (%2$s) · %3$s</string>
+    <string name="settings_location_manual">manual</string>
+    <string name="settings_location_name">Name (e.g. Home)</string>
+    <string name="settings_location_title">Location</string>
+    <string name="settings_longitude">Longitude</string>
+    <string name="settings_manual_coords">Or enter the coordinates manually:</string>
+    <string name="settings_power_error">Enter a value 0–%1$s kWp</string>
+    <string name="settings_power_label">Power [kWp]</string>
+    <string name="settings_power_title">System power</string>
+    <string name="settings_save_location">Save location</string>
+    <string name="settings_subtitle">Saved locally on this phone</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_tilt_hint">0° = horizontal, 90° = vertical</string>
+    <string name="settings_tilt_title">Panel tilt: %1$s°</string>
+    <string name="settings_title">Settings</string>
+    <string name="settings_weather">Weather</string>
+    <string name="settings_weather_hint">Hourly forecast (cloud cover, sunshine, temperature) for 16 days and climate averages from the last 3 years. Requires internet; data is stored for offline use.</string>
+    <string name="settings_weather_now">Now: %1$s</string>
+    <string name="settings_weather_off">Off: calculations assume a clear sky (upper limit of production).</string>
+    <string name="settings_weather_refresh">Refresh weather</string>
+    <string name="settings_weather_use">Use the weather</string>
+    <string name="source_generator">Generator</string>
+    <string name="source_grid">Grid</string>
+    <string name="tab_angles">Angles</string>
+    <string name="tab_center">Center</string>
+    <string name="tab_dashboard">Home</string>
+    <string name="tab_energy">Energy</string>
+    <string name="tab_live">Live</string>
+    <string name="tab_monthly">Months</string>
+    <string name="tab_settings">Settings</string>
+    <string name="tab_tools">Tools</string>
+    <string name="theme_dark">Dark</string>
+    <string name="theme_light">Light</string>
+    <string name="to">To</string>
+    <string name="widget_description">Estimated PV power, today\'s forecast and the latest inverter reading</string>
+    <string name="widget_inverter">Inverter %1$s: PV %2$s</string>
+    <string name="widget_last_reading">Last reading %1$s</string>
+    <string name="widget_no_inverter">No inverter data</string>
+    <string name="widget_outdated">" (outdated)"</string>
+    <string name="widget_refresh">Refresh</string>
+    <string name="widget_refresh_failed">Refresh failed: %1$s</string>
+    <string name="widget_source_clear_sky">model, clear sky</string>
+    <string name="widget_source_climate">model + climate averages</string>
+    <string name="widget_source_forecast">model + weather forecast</string>
+    <string name="widget_sun_down">Sun below the horizon · sunrise %1$s</string>
+    <string name="widget_sun_up">Sun %1$s° · sunset %2$s</string>
+    <string name="widget_today">Today %1$s kWh · %2$s kWh left</string>
+</resources>

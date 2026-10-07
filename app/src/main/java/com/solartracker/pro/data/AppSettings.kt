@@ -1,5 +1,6 @@
 package com.solartracker.pro.data
 
+import com.solartracker.pro.i18n.tr
 import com.solartracker.pro.core.energy.BatteryStorage
 import com.solartracker.pro.core.energy.ConsumptionPeriod
 import com.solartracker.pro.core.energy.ConsumptionProfile
@@ -11,6 +12,9 @@ enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
 enum class LocationSource { MANUAL, GPS }
 
+/** UI language. Polish is the default; [SYSTEM] follows the phone (English for English phones, else Polish). */
+enum class AppLanguage(val tag: String?) { POLISH("pl"), ENGLISH("en"), SYSTEM(null) }
+
 /** Everything the user can configure, persisted locally in DataStore. */
 data class AppSettings(
     val system: PvSystem = PvSystem(),
@@ -18,6 +22,7 @@ data class AppSettings(
     val locationName: String = DEFAULT_LOCATION_NAME,
     val locationSource: LocationSource = LocationSource.MANUAL,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val language: AppLanguage = AppLanguage.POLISH,
     val batteryEnabled: Boolean = false,
     val battery: BatteryStorage = BatteryStorage(),
     val consumption: ConsumptionSettings = ConsumptionSettings(),
@@ -45,9 +50,9 @@ data class ConsumptionSettings(
     fun validate(): List<String> = when (mode) {
         ConsumptionMode.CONSTANT ->
             if (constantKw.isFinite() && constantKw >= 0.0 && constantKw <= MAX_KW) emptyList()
-            else listOf("Zużycie musi wynosić 0–${MAX_KW.toInt()} kW")
+            else listOf(tr("Zużycie musi wynosić 0–${MAX_KW.toInt()} kW", "Consumption must be 0–${MAX_KW.toInt()} kW"))
         ConsumptionMode.HOURLY -> ConsumptionProfile.validatePeriods(periods) +
-            if (periods.any { it.powerKw > MAX_KW }) listOf("Moc przedziału maks. ${MAX_KW.toInt()} kW") else emptyList()
+            if (periods.any { it.powerKw > MAX_KW }) listOf(tr("Moc przedziału maks. ${MAX_KW.toInt()} kW", "Period power max. ${MAX_KW.toInt()} kW")) else emptyList()
     }
 
     fun profile(): ConsumptionProfile = when (mode) {

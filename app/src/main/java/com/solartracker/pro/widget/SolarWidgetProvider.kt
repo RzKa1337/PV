@@ -18,6 +18,8 @@ import com.solartracker.pro.core.widget.SolarSummaryBuilder
 import com.solartracker.pro.data.SettingsRepository
 import com.solartracker.pro.data.WeatherRepository
 import com.solartracker.pro.energy.HistoryDatabase
+import com.solartracker.pro.i18n.AppLocale
+import com.solartracker.pro.ui.dataKindLabel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -52,8 +54,10 @@ class SolarWidgetProvider : AppWidgetProvider() {
         val pending = goAsync()
         CoroutineScope(Dispatchers.Default).launch {
             try {
-                val views = runCatching { withTimeout(8_000) { render(context.applicationContext, build(context.applicationContext)) } }
-                    .getOrElse { error(context, it.message ?: it.javaClass.simpleName) }
+                // Texts in the app language chosen in the settings (Polish by default).
+                val localized = AppLocale.wrap(context.applicationContext)
+                val views = runCatching { withTimeout(8_000) { render(localized, build(context.applicationContext)) } }
+                    .getOrElse { error(localized, it.message ?: it.javaClass.simpleName) }
                 AppWidgetManager.getInstance(context).updateAppWidget(ids, views)
             } finally {
                 pending.finish()
@@ -83,27 +87,29 @@ class SolarWidgetProvider : AppWidgetProvider() {
             setTextViewText(R.id.widget_power, "${f(s.modelPvKw)} kW")
             setTextViewText(
                 R.id.widget_power_label,
-                "${s.modelKind.label} – " + when (s.weatherSource) {
-                    WeatherSource.FORECAST -> "model + prognoza pogody"
-                    WeatherSource.CLIMATE -> "model + średnie klimatyczne"
-                    WeatherSource.CLEAR_SKY -> "model, bezchmurne niebo"
-                } + " · ${hm.format(s.time)}",
+                "${dataKindLabel(s.modelKind)} – " + context.getString(
+                    when (s.weatherSource) {
+                        WeatherSource.FORECAST -> R.string.widget_source_forecast
+                        WeatherSource.CLIMATE -> R.string.widget_source_climate
+                        WeatherSource.CLEAR_SKY -> R.string.widget_source_clear_sky
+                    },
+                ) + " · ${hm.format(s.time)}",
             )
-            setTextViewText(R.id.widget_today, "Dziś ${f(s.todayExpectedKwh, 1)} kWh · zostało ${f(s.remainingTodayKwh, 1)} kWh")
+            setTextViewText(R.id.widget_today, context.getString(R.string.widget_today, f(s.todayExpectedKwh, 1), f(s.remainingTodayKwh, 1)))
             setTextViewText(
                 R.id.widget_measured,
                 when (s.measuredKind) {
-                    DataKind.MEASURED -> "Falownik ${hm.format(s.measuredAt!!)}: PV ${s.measuredPvKw?.let { f(it) + " kW" } ?: "N/A"}" +
+                    DataKind.MEASURED -> context.getString(R.string.widget_inverter, hm.format(s.measuredAt!!), s.measuredPvKw?.let { f(it) + " kW" } ?: "N/A") +
                         (s.measuredSoc?.let { " · SOC ${it.toInt()}%" } ?: "")
-                    DataKind.LAST_KNOWN -> "Ostatni pomiar ${DateTimeFormatter.ofPattern("dd.MM HH:mm").withZone(ZoneId.systemDefault()).format(s.measuredAt!!)}" +
-                        (s.measuredSoc?.let { " · SOC ${it.toInt()}%" } ?: "") + " (nieaktualny)"
-                    else -> "Brak danych z falownika"
+                    DataKind.LAST_KNOWN -> context.getString(R.string.widget_last_reading, DateTimeFormatter.ofPattern("dd.MM HH:mm").withZone(ZoneId.systemDefault()).format(s.measuredAt!!)) +
+                        (s.measuredSoc?.let { " · SOC ${it.toInt()}%" } ?: "") + context.getString(R.string.widget_outdated)
+                    else -> context.getString(R.string.widget_no_inverter)
                 },
             )
             setTextViewText(
                 R.id.widget_sun,
-                if (s.sunElevationDeg > 0) "Słońce ${s.sunElevationDeg.toInt()}° · zachód ${s.sunset?.let(hm::format) ?: "—"}"
-                else "Słońce pod horyzontem · wschód ${s.sunrise?.let(hm::format) ?: "—"}",
+                if (s.sunElevationDeg > 0) context.getString(R.string.widget_sun_up, s.sunElevationDeg.toInt(), s.sunset?.let(hm::format) ?: "—")
+                else context.getString(R.string.widget_sun_down, s.sunrise?.let(hm::format) ?: "—"),
             )
             bindClicks(context, this)
         }
@@ -111,7 +117,7 @@ class SolarWidgetProvider : AppWidgetProvider() {
 
     private fun error(context: Context, message: String) = RemoteViews(context.packageName, R.layout.widget_solar).apply {
         setTextViewText(R.id.widget_power, "—")
-        setTextViewText(R.id.widget_power_label, "Nie udało się odświeżyć: $message")
+        setTextViewText(R.id.widget_power_label, context.getString(R.string.widget_refresh_failed, message))
         bindClicks(context, this)
     }
 

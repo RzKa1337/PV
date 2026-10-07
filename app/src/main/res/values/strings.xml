@@ -1,5 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- UI texts. values/ = Polish (default), values-en/ = English. Keep keys in both files. -->
 <resources>
-    <string name="app_name">Solar Tracker PRO</string>
+    <string name="app_name" translatable="false">Solar Tracker PRO</string>
+    <string name="battery_capacity">Pojemność [kWh]</string>
+    <string name="battery_charge">Ładowanie [kW]</string>
+    <string name="battery_charge_eff" formatted="false">Sprawn. ładow. [%]</string>
+    <string name="battery_discharge">Rozładowanie [kW]</string>
+    <string name="battery_discharge_eff" formatted="false">Sprawn. rozład. [%]</string>
+    <string name="battery_err_capacity">Pojemność musi być większa od 0</string>
+    <string name="battery_err_charge">Moc ładowania musi być większa od 0</string>
+    <string name="battery_err_discharge">Moc rozładowania musi być większa od 0</string>
+    <string name="battery_err_eff" formatted="false">Sprawność musi mieścić się w zakresie 1–100%</string>
+    <string name="battery_err_order">Minimalny SOC musi być mniejszy niż maksymalny</string>
+    <string name="battery_err_soc" formatted="false">SOC musi mieścić się w zakresie 0–100%</string>
+    <string name="battery_err_usable" formatted="false">Użyteczna pojemność: 1–100%</string>
+    <string name="battery_have">Mam magazyn energii</string>
+    <string name="battery_lead_acid">Kwasowo-ołowiowy</string>
+    <string name="battery_not_saved">Błędna konfiguracja – nie zapisano</string>
+    <string name="battery_save">Zapisz magazyn</string>
+    <string name="battery_saved">Zapisano magazyn energii</string>
+    <string name="battery_soc_max" formatted="false">SOC maks [%]</string>
+    <string name="battery_title">Magazyn energii</string>
+    <string name="battery_usable" formatted="false">Użyteczna [%]</string>
+    <string name="battery_usable_energy">Użyteczna energia: %1$s (100%% SOC), praca w oknie %2$s–%3$s = %4$s</string>
+    <string name="consumption_add_period">Dodaj przedział</string>
+    <string name="consumption_constant">Stałe zużycie</string>
+    <string name="consumption_constant_field">Stały pobór [W] przez 24 h</string>
+    <string name="consumption_daily">Zużycie dobowe: %1$s</string>
+    <string name="consumption_hourly">Godzinowe</string>
+    <string name="consumption_hourly_hint">Godziny 0–24, moc w kW. Godziny poza przedziałami = 0 kW.</string>
+    <string name="consumption_not_saved">Błędny profil – nie zapisano</string>
+    <string name="consumption_remove_period">Usuń przedział</string>
+    <string name="consumption_save">Zapisz profil zużycia</string>
+    <string name="consumption_saved">Zapisano profil zużycia</string>
+    <string name="consumption_title">Profil zużycia</string>
+    <string name="defaults">Domyślne</string>
+    <string name="downloading">Pobieranie…</string>
+    <string name="elevation_asl_m">" · %1$s m n.p.m."</string>
+    <string name="fill_all_numbers">Wpisz liczby we wszystkich polach.</string>
+    <string name="fill_all_numbers_short">Wpisz liczby we wszystkich polach</string>
+    <string name="from">Od</string>
+    <string name="no_internet">brak internetu</string>
+    <string name="option_system">Systemowy</string>
+    <string name="other">Inne</string>
+    <string name="press_back_again">Naciśnij ponownie, aby wyjść</string>
+    <string name="price_battery">Koszt magazynu [zł]</string>
+    <string name="price_feed_in">Sprzedaż [zł/kWh]</string>
+    <string name="price_generator">Agregat [zł/kWh]</string>
+    <string name="price_grid">Sieć [zł/kWh]</string>
+    <string name="prices_backup">Brakującą energię pokrywa:</string>
+    <string name="prices_invalid">Ceny muszą być liczbami ≥ 0 (puste pole = brak).</string>
+    <string name="prices_not_saved">Błędne ceny – nie zapisano</string>
+    <string name="prices_save">Zapisz ceny</string>
+    <string name="prices_saved">Zapisano ceny</string>
+    <string name="prices_title">Ceny energii (opcjonalnie)</string>
+    <string name="save">Zapisz</string>
+    <string name="saved_item">Zapisano: %1$s</string>
+    <string name="search">Szukaj</string>
+    <string name="search_example">np. Kraków</string>
+    <string name="search_failed">Nie udało się wyszukać (%1$s)</string>
+    <string name="search_not_found">Nie znaleziono: %1$s</string>
+    <string name="search_prompt">Wpisz miasto, adres lub kod pocztowy:</string>
+    <string name="settings_azimuth_hint">0° = północ, 90° = wschód, 180° = południe, 270° = zachód</string>
+    <string name="settings_azimuth_title">Azymut paneli: %1$s° %2$s</string>
+    <string name="settings_climate_archive">Klimat: archiwum Open-Meteo dla tej lokalizacji (%1$s lata)</string>
+    <string name="settings_climate_default">Klimat: przybliżone średnie dla Polski (offline)</string>
+    <string name="settings_elevation">Wysokość n.p.m. [m] (opcjonalnie)</string>
+    <string name="settings_forecast_until">Prognoza do: %1$s</string>
+    <string name="settings_gps_locating">Ustalanie pozycji…</string>
+    <string name="settings_gps_saved">Lokalizacja z GPS zapisana.</string>
+    <string name="settings_gps_use">Użyj GPS telefonu</string>
+    <string name="settings_language">Język / Language</string>
+    <string name="settings_language_hint">Część komunikatów z modułów obliczeniowych (np. odpowiedzi doradcy, alerty) jest na razie tylko po polsku.</string>
+    <string name="settings_latitude">Szerokość</string>
+    <string name="settings_location_current">Aktualnie: %1$s (%2$s) · %3$s</string>
+    <string name="settings_location_manual">ręcznie</string>
+    <string name="settings_location_name">Nazwa (np. Dom)</string>
+    <string name="settings_location_title">Lokalizacja</string>
+    <string name="settings_longitude">Długość</string>
+    <string name="settings_manual_coords">Lub wpisz współrzędne ręcznie:</string>
+    <string name="settings_power_error">Podaj wartość 0–%1$s kWp</string>
+    <string name="settings_power_label">Moc [kWp]</string>
+    <string name="settings_power_title">Moc instalacji</string>
+    <string name="settings_save_location">Zapisz lokalizację</string>
+    <string name="settings_subtitle">Zapisywane lokalnie w telefonie</string>
+    <string name="settings_theme">Motyw</string>
+    <string name="settings_tilt_hint">0° = poziomo, 90° = pionowo</string>
+    <string name="settings_tilt_title">Kąt paneli: %1$s°</string>
+    <string name="settings_title">Ustawienia</string>
+    <string name="settings_weather">Pogoda</string>
+    <string name="settings_weather_hint">Prognoza godzinowa (zachmurzenie, nasłonecznienie, temperatura) na 16 dni i średnie klimatyczne z ostatnich 3 lat. Wymaga internetu, dane są zapisywane do pracy offline.</string>
+    <string name="settings_weather_now">Obecnie: %1$s</string>
+    <string name="settings_weather_off">Wyłączone: obliczenia zakładają bezchmurne niebo (górna granica produkcji).</string>
+    <string name="settings_weather_refresh">Odśwież pogodę</string>
+    <string name="settings_weather_use">Uwzględniaj pogodę</string>
+    <string name="source_generator">Agregat</string>
+    <string name="source_grid">Sieć</string>
+    <string name="tab_angles">Kąty</string>
+    <string name="tab_center">Centrum</string>
+    <string name="tab_dashboard">Pulpit</string>
+    <string name="tab_energy">Energia</string>
+    <string name="tab_live">Live</string>
+    <string name="tab_monthly">Miesiące</string>
+    <string name="tab_settings">Ustawienia</string>
+    <string name="tab_tools">Narzędzia</string>
+    <string name="theme_dark">Ciemny</string>
+    <string name="theme_light">Jasny</string>
+    <string name="to">Do</string>
     <string name="widget_description">Szacowana moc PV, prognoza na dziś i ostatni pomiar z falownika</string>
+    <string name="widget_inverter">Falownik %1$s: PV %2$s</string>
+    <string name="widget_last_reading">Ostatni pomiar %1$s</string>
+    <string name="widget_no_inverter">Brak danych z falownika</string>
+    <string name="widget_outdated">" (nieaktualny)"</string>
     <string name="widget_refresh">Odśwież</string>
+    <string name="widget_refresh_failed">Nie udało się odświeżyć: %1$s</string>
+    <string name="widget_source_clear_sky">model, bezchmurne niebo</string>
+    <string name="widget_source_climate">model + średnie klimatyczne</string>
+    <string name="widget_source_forecast">model + prognoza pogody</string>
+    <string name="widget_sun_down">Słońce pod horyzontem · wschód %1$s</string>
+    <string name="widget_sun_up">Słońce %1$s° · zachód %2$s</string>
+    <string name="widget_today">Dziś %1$s kWh · zostało %2$s kWh</string>
 </resources>

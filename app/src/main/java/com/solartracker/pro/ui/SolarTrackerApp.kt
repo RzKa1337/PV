@@ -1,8 +1,11 @@
 package com.solartracker.pro.ui
 
+import androidx.compose.ui.res.stringResource
+import com.solartracker.pro.R
 import android.Manifest
 import android.app.Activity
 import android.os.SystemClock
+import androidx.annotation.StringRes
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -45,6 +48,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.solartracker.pro.core.energy.BatteryStorage
 import com.solartracker.pro.core.energy.EnergyPrices
 import com.solartracker.pro.data.ConsumptionSettings
+import com.solartracker.pro.data.AppLanguage
 import com.solartracker.pro.data.ThemeMode
 import com.solartracker.pro.ui.screens.AngleComparisonScreen
 import com.solartracker.pro.ui.screens.DashboardScreen
@@ -60,15 +64,15 @@ import com.solartracker.pro.ui.energy.EnergyOverview
 import com.solartracker.pro.energy.EnergyCenterViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 
-private enum class Tab(val label: String, val icon: ImageVector) {
-    DASHBOARD("Pulpit", Icons.Outlined.WbSunny),
-    LIVE("Live", Icons.Outlined.Speed),
-    ANGLES("Kąty", Icons.Outlined.Tune),
-    MONTHLY("Miesiące", Icons.Outlined.BarChart),
-    ENERGY("Energia", Icons.Outlined.BatteryChargingFull),
-    CENTER("Centrum", Icons.Outlined.Hub),
-    TOOLS("Narzędzia", Icons.Outlined.Build),
-    SETTINGS("Ustawienia", Icons.Outlined.Settings),
+private enum class Tab(@StringRes val label: Int, val icon: ImageVector) {
+    DASHBOARD(R.string.tab_dashboard, Icons.Outlined.WbSunny),
+    LIVE(R.string.tab_live, Icons.Outlined.Speed),
+    ANGLES(R.string.tab_angles, Icons.Outlined.Tune),
+    MONTHLY(R.string.tab_monthly, Icons.Outlined.BarChart),
+    ENERGY(R.string.tab_energy, Icons.Outlined.BatteryChargingFull),
+    CENTER(R.string.tab_center, Icons.Outlined.Hub),
+    TOOLS(R.string.tab_tools, Icons.Outlined.Build),
+    SETTINGS(R.string.tab_settings, Icons.Outlined.Settings),
 }
 
 @OptIn(ExperimentalComposeUiApi::class)
@@ -100,7 +104,7 @@ fun SolarTrackerApp(viewModel: MainViewModel, openSettingsRequest: Int = 0) {
                 (context as? Activity)?.finish()
             } else {
                 lastExitPress = now
-                Toast.makeText(context, "Naciśnij ponownie, aby wyjść", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.press_back_again), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -118,6 +122,7 @@ fun SolarTrackerApp(viewModel: MainViewModel, openSettingsRequest: Int = 0) {
             override fun setManualLocation(latitude: Double, longitude: Double, name: String, elevationM: Double) =
                 viewModel.setManualLocation(latitude, longitude, name, elevationM)
             override fun setThemeMode(mode: ThemeMode) = viewModel.setThemeMode(mode)
+            override fun setLanguage(language: AppLanguage) = viewModel.setLanguage(language)
             override fun setWeatherEnabled(enabled: Boolean) = viewModel.setWeatherEnabled(enabled)
             override fun refreshWeather() = viewModel.refreshWeather()
             override fun requestGpsLocation() {
@@ -147,11 +152,12 @@ fun SolarTrackerApp(viewModel: MainViewModel, openSettingsRequest: Int = 0) {
         bottomBar = {
             NavigationBar {
                 Tab.entries.forEach { t ->
+                    val label = stringResource(t.label)
                     NavigationBarItem(
                         selected = tab == t.ordinal,
                         onClick = { select(t.ordinal) },
-                        icon = { Icon(t.icon, contentDescription = t.label) },
-                        label = { Text(t.label, maxLines = 1) },
+                        icon = { Icon(t.icon, contentDescription = label) },
+                        label = { Text(label, maxLines = 1) },
                         alwaysShowLabel = false,
                     )
                 }

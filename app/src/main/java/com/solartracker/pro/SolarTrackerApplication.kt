@@ -3,6 +3,7 @@ package com.solartracker.pro
 import android.app.Activity
 import android.app.Application
 import android.os.Bundle
+import com.solartracker.pro.i18n.AppLocale
 import com.solartracker.pro.update.UpdateManager
 import com.solartracker.pro.update.UpdateRecovery
 import com.solartracker.pro.update.UpdateStore
@@ -23,6 +24,8 @@ class SolarTrackerApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // Language for texts built outside the Activity (widget, workers, view models); Polish by default.
+        AppLocale.apply(AppLocale.stored(this), resources.configuration.locales[0] ?: java.util.Locale.getDefault())
         // Must run before anything opens the settings DataStore (it may restore the settings file).
         val recovery = UpdateRecovery(this)
         val startResult = recovery.onAppStart(BuildConfig.VERSION_CODE.toLong())

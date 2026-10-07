@@ -1,5 +1,6 @@
 package com.solartracker.pro.ui
 
+import com.solartracker.pro.i18n.tr
 import androidx.compose.runtime.Immutable
 import com.solartracker.pro.core.live.LiveSolarSnapshot
 import com.solartracker.pro.core.live.SunPath
@@ -99,7 +100,6 @@ data class SunPathUi(
 )
 
 private val clockFormat = DateTimeFormatter.ofPattern("HH:mm:ss", Format.locale)
-private val dateFormat = DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy", Format.locale)
 
 fun liveClockText(instant: Instant, zone: ZoneId): String = instant.atZone(zone).format(clockFormat)
 
@@ -114,10 +114,11 @@ fun formatCountdown(d: Duration): String {
 }
 
 fun irradianceSourceLabel(source: WeatherSource, weatherEnabled: Boolean): String = when (source) {
-    WeatherSource.FORECAST -> "dane z prognozy (średnia godzinowa, Open-Meteo)"
-    WeatherSource.CLIMATE -> "średnie klimatyczne (brak prognozy na tę godzinę)"
+    WeatherSource.FORECAST -> tr("dane z prognozy (średnia godzinowa, Open-Meteo)", "forecast data (hourly average, Open-Meteo)")
+    WeatherSource.CLIMATE -> tr("średnie klimatyczne (brak prognozy na tę godzinę)", "climate averages (no forecast for this hour)")
     WeatherSource.CLEAR_SKY ->
-        if (weatherEnabled) "model bezchmurnego nieba (brak danych pogodowych)" else "model bezchmurnego nieba (pogoda wyłączona)"
+        if (weatherEnabled) tr("model bezchmurnego nieba (brak danych pogodowych)", "clear-sky model (no weather data)")
+        else tr("model bezchmurnego nieba (pogoda wyłączona)", "clear-sky model (weather off)")
 }
 
 fun LiveSolarSnapshot.toUi(
@@ -132,9 +133,9 @@ fun LiveSolarSnapshot.toUi(
     return LiveUiState(
         epochMillis = instant.toEpochMilli(),
         clockText = liveClockText(instant, zone),
-        dateText = instant.atZone(zone).format(dateFormat),
-        locationText = "${locationName.ifBlank { "Lokalizacja" }} · ${Format.coordinates(location.latitude, location.longitude)}" +
-            if (location.elevationM != 0.0) " · ${Format.decimal(location.elevationM, 0)} m n.p.m." else "",
+        dateText = instant.atZone(zone).format(DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy", Format.locale)),
+        locationText = "${locationName.ifBlank { tr("Lokalizacja", "Location") }} · ${Format.coordinates(location.latitude, location.longitude)}" +
+            if (location.elevationM != 0.0) " · ${Format.decimal(location.elevationM, 0)} ${tr("m n.p.m.", "m a.s.l.")}" else "",
         sun = LiveSunUi(
             azimuthDeg = est.sun.azimuthDeg,
             elevationDeg = est.sun.elevationDeg,

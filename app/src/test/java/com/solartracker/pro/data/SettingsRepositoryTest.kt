@@ -28,6 +28,7 @@ class SettingsRepositoryTest {
         assertEquals(AppSettings.DEFAULT_LOCATION, settings.location)
         assertEquals(LocationSource.MANUAL, settings.locationSource)
         assertEquals(ThemeMode.SYSTEM, settings.themeMode)
+        assertEquals(AppLanguage.POLISH, settings.language)
     }
 
     @Test
@@ -55,6 +56,15 @@ class SettingsRepositoryTest {
         val repo = SettingsRepository(FakeDataStore())
         repo.setThemeMode(ThemeMode.DARK)
         assertEquals(ThemeMode.DARK, repo.settings.first().themeMode)
+    }
+
+    @Test
+    fun setLanguage_persistsAndUnknownValueFallsBackToPolish() = runTest {
+        val repo = SettingsRepository(FakeDataStore())
+        repo.setLanguage(AppLanguage.ENGLISH)
+        assertEquals(AppLanguage.ENGLISH, repo.settings.first().language)
+        val corrupted = SettingsRepository(FakeDataStore(mutablePreferencesOf(stringPreferencesKey("app_language") to "KLINGON")))
+        assertEquals(AppLanguage.POLISH, corrupted.settings.first().language)
     }
 
     @Test

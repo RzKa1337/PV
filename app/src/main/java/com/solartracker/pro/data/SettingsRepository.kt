@@ -55,6 +55,10 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         dataStore.edit { prefs -> prefs[Keys.THEME_MODE] = mode.name }
     }
 
+    suspend fun setLanguage(language: AppLanguage) {
+        dataStore.edit { prefs -> prefs[Keys.LANGUAGE] = language.name }
+    }
+
     /**
      * Saves the battery configuration. An invalid configuration is rejected (nothing is saved).
      * @return true when saved
@@ -173,6 +177,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             locationName = if (hasLocation) this[Keys.LOCATION_NAME].orEmpty() else defaults.locationName,
             locationSource = enumValueOrDefault(this[Keys.LOCATION_SOURCE], defaults.locationSource),
             themeMode = enumValueOrDefault(this[Keys.THEME_MODE], defaults.themeMode),
+            language = enumValueOrDefault(this[Keys.LANGUAGE], defaults.language),
             batteryEnabled = this[Keys.BATTERY_ENABLED] ?: defaults.batteryEnabled,
             battery = toBattery(),
             consumption = toConsumption(),
@@ -194,6 +199,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         val LOCATION_NAME = stringPreferencesKey("location_name")
         val LOCATION_SOURCE = stringPreferencesKey("location_source")
         val THEME_MODE = stringPreferencesKey("theme_mode")
+        val LANGUAGE = stringPreferencesKey("app_language")
         val BATTERY_ENABLED = booleanPreferencesKey("battery_enabled")
         val BAT_CAPACITY = doublePreferencesKey("battery_capacity_kwh")
         val BAT_USABLE = doublePreferencesKey("battery_usable_percent")

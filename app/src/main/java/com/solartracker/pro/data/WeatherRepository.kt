@@ -1,5 +1,6 @@
 package com.solartracker.pro.data
 
+import com.solartracker.pro.i18n.tr
 import android.content.Context
 import com.solartracker.pro.core.solar.GeoLocation
 import com.solartracker.pro.core.weather.MonthlyClimate
@@ -68,9 +69,9 @@ class WeatherRepository(
         } catch (e: Exception) {
             val stale = cached?.takeIf { it.age() < FORECAST_STALE_LIMIT }?.let(::parseForecastOrNull)
             errors += if (stale != null) {
-                "Brak aktualnej prognozy (${reason(e)}). Używam zapisanej."
+                tr("Brak aktualnej prognozy (${reason(e)}). Używam zapisanej.", "No current forecast (${reason(e)}). Using the saved one.")
             } else {
-                "Nie udało się pobrać prognozy pogody (${reason(e)})."
+                tr("Nie udało się pobrać prognozy pogody (${reason(e)}).", "Could not download the weather forecast (${reason(e)}).")
             }
             stale
         }
@@ -90,7 +91,7 @@ class WeatherRepository(
         } catch (e: Exception) {
             val fallback = cached?.let { runCatching { OpenMeteo.parseClimate(it.json) }.getOrNull() }
                 ?: MonthlyClimate.defaultFor(location)
-            if (fallback == null) errors += "Nie udało się pobrać danych klimatycznych (${reason(e)})."
+            if (fallback == null) errors += tr("Nie udało się pobrać danych klimatycznych (${reason(e)}).", "Could not download climate data (${reason(e)}).")
             fallback
         }
     }
@@ -115,8 +116,8 @@ class WeatherRepository(
     }
 
     private fun reason(e: Exception): String = when (e) {
-        is java.net.UnknownHostException -> "brak internetu"
-        is java.net.SocketTimeoutException -> "przekroczono czas"
+        is java.net.UnknownHostException -> tr("brak internetu", "no internet")
+        is java.net.SocketTimeoutException -> tr("przekroczono czas", "timed out")
         else -> e.message ?: e.javaClass.simpleName
     }
 

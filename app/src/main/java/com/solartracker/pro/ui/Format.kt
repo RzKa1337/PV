@@ -10,9 +10,11 @@ import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-/** Polish number/time formatting helpers. */
+/** Number/time formatting helpers in the app language (Polish by default, see AppLocale). */
 object Format {
-    val locale: Locale = Locale.forLanguageTag("pl-PL")
+    /** Set by AppLocale when the UI language is applied; Polish unless the user picked English. */
+    @Volatile
+    var locale: Locale = Locale.forLanguageTag("pl-PL")
     private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm", locale)
 
     fun decimal(value: Double, digits: Int = 2): String = String.format(locale, "%.${digits}f", value)
