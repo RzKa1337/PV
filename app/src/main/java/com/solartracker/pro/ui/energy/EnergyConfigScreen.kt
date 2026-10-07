@@ -23,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -36,6 +37,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.solartracker.pro.core.ems.FlexibleLoad
 import com.solartracker.pro.core.energy.CoolingLoadProfile
 import com.solartracker.pro.core.energy.CoolingMode
+import com.solartracker.pro.core.energy.CoolingScheduleEntry
 import com.solartracker.pro.core.ems.GeneratorConfig
 import com.solartracker.pro.core.ems.validate
 import com.solartracker.pro.core.inverter.InverterConfig
@@ -299,7 +301,11 @@ private fun CoolingForm(current: CoolingLoadProfile?, onSave: (CoolingLoadProfil
     var name by remember(current) { mutableStateOf(current?.name ?: "Chłodnia") }
     var nominal by remember(current) { mutableStateOf(current?.nominalPowerW?.toInt()?.toString() ?: "") }
     var minimum by remember(current) { mutableStateOf(current?.minimumPowerW?.toInt()?.toString() ?: "") }
-    var mode by remember(current) { mutableStateOf(current?.mode?.takeIf { it != CoolingMode.SCHEDULE } ?: CoolingMode.AVERAGE) }
+    var mode by remember(current) { mutableStateOf(current?.mode ?: CoolingMode.AVERAGE) }
+    val schedule = remember(current) { mutableStateListOf<CoolingScheduleEntry>().apply { addAll(current?.schedule.orEmpty()) } }
+    var schedFrom by remember(current) { mutableStateOf("") }
+    var schedTo by remember(current) { mutableStateOf("") }
+    var schedW by remember(current) { mutableStateOf("") }
     var average by remember(current) { mutableStateOf(current?.averagePowerW?.toInt()?.toString() ?: "") }
     var duty by remember(current) { mutableStateOf(current?.dutyAtReference?.let { (it * 100).toInt().toString() } ?: "") }
     var target by remember(current) { mutableStateOf(current?.targetTemperatureC?.toString() ?: "") }
@@ -331,10 +337,34 @@ private fun CoolingForm(current: CoolingLoadProfile?, onSave: (CoolingLoadProfil
                 FilterChip(selected = mode == CoolingMode.AVERAGE, onClick = { mode = CoolingMode.AVERAGE }, label = { Text("Znam średnią moc") })
                 FilterChip(selected = mode == CoolingMode.DUTY_CYCLE, onClick = { mode = CoolingMode.DUTY_CYCLE }, label = { Text("Znam cykl pracy") })
             }
+            FilterChip(selected = mode == CoolingMode.SCHEDULE, onClick = { mode = CoolingMode.SCHEDULE }, label = { Text("Harmonogram mocy") })
+            if (mode == CoolingMode.SCHEDULE) {
+                Text("Średni pobór w przedziałach godzin (np. z licznika). Godziny poza harmonogramem = moc w spoczynku.", style = MaterialTheme.typography.bodySmall)
+                schedule.forEachIndexed { i, e ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("${e.start}–${e.end}: ${e.powerW.toInt()} W", Modifier.weight(1f))
+                        TextButton(onClick = { schedule.removeAt(i) }) { Text("Usuń") }
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(schedFrom, { schedFrom = it.take(5) }, label = { Text("Od") }, singleLine = true, modifier = Modifier.weight(1f))
+                    OutlinedTextField(schedTo, { schedTo = it.take(5) }, label = { Text("Do") }, singleLine = true, modifier = Modifier.weight(1f))
+                    NumberField("Moc [W]", schedW, { schedW = it }, Modifier.weight(1f))
+                }
+                OutlinedButton(onClick = {
+                    val f = schedFrom.time(); val t = schedTo.time(); val w = schedW.num()
+                    if (f != null && t != null && w != null && f != t && w >= 0) {
+                        schedule += CoolingScheduleEntry(f, t, w); schedFrom = ""; schedTo = ""; schedW = ""
+                    } else errors = listOf("Harmonogram: podaj godziny GG:MM (różne) i moc")
+                }) { Text("Dodaj przedział") }
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (mode == CoolingMode.AVERAGE) NumberField("Średnia moc [W]", average, { average = it }, Modifier.weight(1f))
-                else NumberField("Praca sprężarki [%]", duty, { duty = it }, Modifier.weight(1f))
-                NumberField("Przy temp. otoczenia [°C]", reference, { reference = it }, Modifier.weight(1f))
+                when (mode) {
+                    CoolingMode.AVERAGE -> NumberField("Średnia moc [W]", average, { average = it }, Modifier.weight(1f))
+                    CoolingMode.DUTY_CYCLE -> NumberField("Praca sprężarki [%]", duty, { duty = it }, Modifier.weight(1f))
+                    CoolingMode.SCHEDULE -> Unit
+                }
+                if (mode != CoolingMode.SCHEDULE) NumberField("Przy temp. otoczenia [°C]", reference, { reference = it }, Modifier.weight(1f))
             }
             NumberField("Temperatura w chłodni [°C]", target, { target = it }, Modifier.fillMaxWidth())
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -364,6 +394,7 @@ private fun CoolingForm(current: CoolingLoadProfile?, onSave: (CoolingLoadProfil
             val p = CoolingLoadProfile(
                 name = name.trim().ifEmpty { "Chłodnia" }, nominalPowerW = nominal.num() ?: -1.0, minimumPowerW = minimum.num() ?: -1.0, mode = mode,
                 averagePowerW = average.num().takeIf { mode == CoolingMode.AVERAGE }, dutyAtReference = duty.num()?.div(100).takeIf { mode == CoolingMode.DUTY_CYCLE },
+                schedule = if (mode == CoolingMode.SCHEDULE) schedule.toList() else emptyList(),
                 targetTemperatureC = target.num() ?: 99.0, referenceAmbientC = reference.num() ?: 25.0,
                 operatingStart = o ?: LocalTime.MIDNIGHT, operatingEnd = c ?: LocalTime.MIDNIGHT, idleDutyFactor = (idle.num() ?: 100.0) / 100,
                 preCoolingEnabled = pre, preCoolingTargetC = preTarget.num(), preCoolingHours = preHours.num() ?: 2.0,

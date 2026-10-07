@@ -5,6 +5,14 @@ Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie 
 
 ## [Unreleased]
 
+### Added
+- Dashboard: cloud impact on today's and tomorrow's production ("X kWh zamiast Y kWh przy czystym niebie, chmury −Z%")
+- SOC estimated from the resting battery voltage (± uncertainty) when the inverter does not report SOC; used by energy security with reduced confidence
+- Cold-room power schedule editor in Konfiguracja
+
+### Changed
+- CI runners pinned to ubuntu-24.04 (ubuntu-latest moves to Ubuntu 26 on 2026-10-19)
+
 ## [v0.10.0] - 2026-10-06
 
 ### Added

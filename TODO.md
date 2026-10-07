@@ -133,7 +133,7 @@ Zaimplementowane, kompiluje się i przechodzi lint w CI — **czeka na ręczny t
 - [x] Chłodnia, mobile PV, optymalizator kąta
 - [x] Wydajność PV, alerty predykcyjne, raport dzienny, cyfrowy bliźniak, pulpit
 - [ ] **REAL DEVICE VALIDATION REQUIRED** – rejestry SMG, znaki mocy, temperatury, kody błędów
-- [ ] Edytor harmonogramu chłodni w UI
+- [x] Edytor harmonogramu chłodni w UI
 
 ## Później (pomysły)
 - [x] Śnieg na panelach z `snow_depth` w prognozie – v0.9.0
