@@ -46,9 +46,9 @@ fun EnergyOverview(vm: EnergyCenterViewModel, weather: WeatherState, modifier: M
         EnergySecurityCard(forecast.security, compact = true)
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Tile(stringResource(R.string.ov_pv_now), Fmt.kw(t?.pv?.powerW) ?: "—", if (t == null) null else kind, Modifier.weight(1f),
-                forecast.nowForecastKw?.let { stringResource(R.string.ov_forecast_value, Fmt.kwFromKw(it)) })
+                forecast.nowForecastKw?.let { stringResource(R.string.ov_forecast_value, Fmt.kwFromKw(it).toString()) })
             Tile(stringResource(R.string.ov_pv_today), Fmt.kwh(forecast.producedTodayKwh) ?: "—", if (forecast.producedTodayKwh == null) null else DataKind.CALCULATED, Modifier.weight(1f),
-                forecast.today?.let { stringResource(R.string.ov_expected, Fmt.kwh(it.expectedKwh)) })
+                forecast.today?.let { stringResource(R.string.ov_expected, Fmt.kwh(it.expectedKwh).toString()) })
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Tile(stringResource(R.string.ov_load_now), Fmt.kw(t?.load?.powerW) ?: "—", if (t == null) null else kind, Modifier.weight(1f))

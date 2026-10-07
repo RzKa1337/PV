@@ -120,3 +120,10 @@ val com.solartracker.pro.core.analytics.SkyCondition.uiLabel: String
         com.solartracker.pro.core.analytics.SkyCondition.SNOW -> tr(label, "snow")
         com.solartracker.pro.core.analytics.SkyCondition.UNKNOWN -> tr(label, "unknown")
     }
+
+val com.solartracker.pro.core.analytics.AccuracyPeriod.uiLabel: String
+    get() = when (this) {
+        com.solartracker.pro.core.analytics.AccuracyPeriod.DAY -> tr(label, "day")
+        com.solartracker.pro.core.analytics.AccuracyPeriod.WEEK -> tr(label, "week")
+        com.solartracker.pro.core.analytics.AccuracyPeriod.MONTH -> tr(label, "month")
+    }

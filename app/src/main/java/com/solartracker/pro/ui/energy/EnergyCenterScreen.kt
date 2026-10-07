@@ -183,7 +183,7 @@ private fun EnergyCenterMain(vm: EnergyCenterViewModel, onShading: () -> Unit, o
                     DataKind.CALCULATED, stringResource(R.string.ec_no_reading_or_zero))
             }
             model.comparison?.takeIf { live.freshness == Freshness.LIVE }?.causes?.take(3)?.forEach {
-                Text("• ${it.cause.uiLabel}: ${it.explanation}", style = MaterialTheme.typography.bodySmall)
+                Text("• ${it.cause.label}: ${it.explanation}", style = MaterialTheme.typography.bodySmall)
             }
             model.calibration?.let { Text(stringResource(R.string.ec_calibration, it.reason) + if (it.ready) stringResource(R.string.ec_calibration_factor, "%.2f".format(it.factor), Fmt.conf(it.confidence)) else "", style = MaterialTheme.typography.bodySmall) }
             model.calibrationModel?.let { Text(stringResource(R.string.ec_calibration3, it.describe()), style = MaterialTheme.typography.bodySmall) }

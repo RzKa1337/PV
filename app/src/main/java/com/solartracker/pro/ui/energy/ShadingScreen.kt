@@ -240,7 +240,7 @@ fun ShadingScreen(vm: EnergyCenterViewModel, onBack: () -> Unit, modifier: Modif
             Text(stringResource(R.string.sh_horizon), fontWeight = FontWeight.Bold)
             HorizonChart(engine.site.horizon, location, date, zone, snapshot?.sunAzimuthDeg, snapshot?.sunElevationDeg)
             Text(stringResource(R.string.sh_horizon_hint), style = MaterialTheme.typography.labelSmall)
-            Text(stringResource(R.string.sh_sky_view, Fmt.pct(engine.site.horizon.skyViewFactor * 100)), style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.sh_sky_view, Fmt.pct(engine.site.horizon.skyViewFactor * 100).toString()), style = MaterialTheme.typography.bodySmall)
         }
 
         // DAY
@@ -291,7 +291,7 @@ fun ShadingScreen(vm: EnergyCenterViewModel, onBack: () -> Unit, modifier: Modif
                 Text("${m.month}: −${Fmt.kwh(m.lossKwh)} (${"%.1f".format(pct)}%), dni z cieniem ok. ${m.eventDays}", style = MaterialTheme.typography.bodySmall)
             }
             val total = shading.year.sumOf { it.lossKwh }
-            Text(stringResource(R.string.sh_year_total, Fmt.kwh(total)), fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.sh_year_total, Fmt.kwh(total).toString()), fontWeight = FontWeight.SemiBold)
         }
     }
 
