@@ -1,7 +1,11 @@
 package com.solartracker.pro.ui.tools
 
+import androidx.compose.ui.res.stringResource
+import com.solartracker.pro.R
 import androidx.activity.compose.BackHandler
+import androidx.annotation.StringRes
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -65,18 +69,19 @@ import com.solartracker.pro.data.AppSettings
 import com.solartracker.pro.ui.components.EstimateBadge
 import com.solartracker.pro.ui.components.ScreenTitle
 import com.solartracker.pro.ui.components.SectionCard
+import com.solartracker.pro.ui.uiLabel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.ZoneId
 import java.util.Locale
 
-private enum class Tool(val label: String, val feature: Feature) {
-    DESIGNER("Projektant PV", Feature.DESIGNER),
-    ECONOMICS("Ekonomia", Feature.ECONOMICS),
-    LOCATIONS("Lokalizacje", Feature.LOCATION_COMPARISON),
-    VEHICLE("Pojazd", Feature.VEHICLE),
-    TILT("Kąt paneli", Feature.TILT_OPTIMIZER),
+private enum class Tool(@StringRes val label: Int, val feature: Feature) {
+    DESIGNER(R.string.tool_designer, Feature.DESIGNER),
+    ECONOMICS(R.string.tool_economics, Feature.ECONOMICS),
+    LOCATIONS(R.string.tool_locations, Feature.LOCATION_COMPARISON),
+    VEHICLE(R.string.tool_vehicle, Feature.VEHICLE),
+    TILT(R.string.tool_tilt, Feature.TILT_OPTIMIZER),
 }
 
 /** Planning tools. Pure calculations from core; inputs come from the user or the saved installation. */
@@ -86,13 +91,13 @@ fun ToolsScreen(settings: AppSettings, access: FeatureAccessManager, subscriptio
     // System Back returns to the first tool before leaving the tab.
     BackHandler(enabled = tool != 0) { tool = 0 }
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        ScreenTitle("Narzędzia", "Projekt, ekonomia, porównanie lokalizacji, pojazd")
+        ScreenTitle(stringResource(R.string.tab_tools), stringResource(R.string.tools_subtitle))
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Tool.entries.forEach { t ->
-                FilterChip(selected = tool == t.ordinal, onClick = { tool = t.ordinal }, label = { Text(t.label) }, modifier = Modifier.testTag("tool_${t.name}"))
+                FilterChip(selected = tool == t.ordinal, onClick = { tool = t.ordinal }, label = { Text(stringResource(t.label)) }, modifier = Modifier.testTag("tool_${t.name}"))
             }
         }
-        Text("Plan: ${subscription.plan.name} — ${subscription.source.label}", style = MaterialTheme.typography.bodySmall)
+        Text("Plan: ${subscription.plan.name} — ${subscription.source.uiLabel}", style = MaterialTheme.typography.bodySmall)
         val t = Tool.entries[tool]
         val locked = access.reason(t.feature)
         if (locked != null) {
@@ -135,9 +140,12 @@ private fun Line(label: String, value: String) {
 private fun DesignerTool(settings: AppSettings) {
     // Datasheet values are left empty on purpose: the user copies them from the real panel / inverter.
     val v = remember { mutableStateListOf(*Array(17) { if (it == 14) "-25" else "" }) }
+    val context = LocalContext.current
     val labels = listOf(
-        "Moc panelu [W]", "Voc [V]", "Vmp [V]", "Isc [A]", "Imp [A]", "Wsp. temp. Voc [%/°C]", "Wsp. temp. Pmax [%/°C]", "Długość [m]", "Szerokość [m]",
-        "Liczba MPPT", "MPPT min [V]", "MPPT max [V]", "Maks. napięcie wejścia [V]", "Maks. prąd na MPPT [A]", "Min. temp. otoczenia [°C]", "Moc AC falownika [W]", "Cel mocy [kWp] (opcj.)",
+        stringResource(R.string.ds_panel_power), "Voc [V]", "Vmp [V]", "Isc [A]", "Imp [A]", stringResource(R.string.ds_voc_coeff), stringResource(R.string.ds_pmax_coeff),
+        stringResource(R.string.cfg_length_m), stringResource(R.string.cfg_width_m),
+        stringResource(R.string.cfg_mppt_count), "MPPT min [V]", "MPPT max [V]", stringResource(R.string.ds_max_input_v), stringResource(R.string.ds_max_mppt_a),
+        stringResource(R.string.ds_min_ambient), stringResource(R.string.ds_ac_power), stringResource(R.string.ds_target_power),
     )
     var area by rememberSaveable { mutableStateOf("") }
     var cost by rememberSaveable { mutableStateOf("") }
@@ -148,22 +156,22 @@ private fun DesignerTool(settings: AppSettings) {
     var input by remember { mutableStateOf<DesignInput?>(null) }
 
     SectionCard {
-        Text("Panel (karta katalogowa)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(R.string.ds_panel_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         for (i in 0 until 9 step 2) {
             if (i + 1 < 9) Pair2({ Num(labels[i], v[i], { s -> v[i] = s }, it) }, { Num(labels[i + 1], v[i + 1], { s -> v[i + 1] = s }, it) })
             else Num(labels[i], v[i], { s -> v[i] = s }, Modifier.fillMaxWidth())
         }
-        Text("Falownik / regulator MPPT", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(R.string.ds_inverter_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         for (i in 9 until 17 step 2) {
             if (i + 1 < 17) Pair2({ Num(labels[i], v[i], { s -> v[i] = s }, it) }, { Num(labels[i + 1], v[i + 1], { s -> v[i + 1] = s }, it) })
             else Num(labels[i], v[i], { s -> v[i] = s }, Modifier.fillMaxWidth())
         }
-        Pair2({ Num("Powierzchnia [m²] (opcj.)", area, { s -> area = s }, it) }, { Num("Koszt [zł/Wp] (opcj.)", cost, { s -> cost = s }, it) })
+        Pair2({ Num(stringResource(R.string.ds_area), area, { s -> area = s }, it) }, { Num(stringResource(R.string.ds_cost), cost, { s -> cost = s }, it) })
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         Button(onClick = {
             val n = v.map { it.num() }
             val required = (0..15)
-            if (required.any { n[it] == null }) { error = "Uzupełnij wszystkie pola z kart katalogowych (cel mocy, powierzchnia i koszt są opcjonalne)"; return@Button }
+            if (required.any { n[it] == null }) { error = context.getString(R.string.ds_fill_all); return@Button }
             error = null
             input = DesignInput(
                 PanelSpec(n[0]!!, n[1]!!, n[2]!!, n[3]!!, n[4]!!, n[5]!! / 100, n[6]!! / 100, n[7]!!, n[8]!!),
@@ -171,7 +179,7 @@ private fun DesignerTool(settings: AppSettings) {
                 targetPowerW = n[16]?.let { it * 1000 }, areaM2 = area.num(), minAmbientC = n[14]!!, costPerWp = cost.num(),
             )
             run++
-        }, modifier = Modifier.testTag("designer_run")) { Text("Zaprojektuj") }
+        }, modifier = Modifier.testTag("designer_run")) { Text(stringResource(R.string.ds_run)) }
     }
     LaunchedEffect(run) {
         val i = input ?: return@LaunchedEffect
@@ -185,25 +193,25 @@ private fun DesignerTool(settings: AppSettings) {
     }
     result?.let { r ->
         SectionCard {
-            Text("Wynik", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.result), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             val l = r.layout
-            if (l == null) Text("Brak poprawnej konfiguracji", color = MaterialTheme.colorScheme.error) else {
-                Line("Układ", "${l.panelsPerString} szt. × ${l.stringsPerTracker} string × ${l.trackersUsed} MPPT")
-                Line("Paneli / moc DC", "${l.panels} szt. / ${f(r.dcPowerW / 1000, 2)} kWp")
-                Line("Powierzchnia paneli", "${f(r.areaM2)} m²")
-                Line("Voc stringu przy mrozie", "${f(r.vocColdV)} V")
-                Line("Vmp gorący / zimny", "${f(r.vmpHotV)} / ${f(r.vmpColdV)} V")
-                Line("Prąd na MPPT", "${f(r.trackerCurrentA)} A")
+            if (l == null) Text(stringResource(R.string.ds_no_config), color = MaterialTheme.colorScheme.error) else {
+                Line(stringResource(R.string.ds_layout), stringResource(R.string.ds_layout_value, l.panelsPerString.toString(), l.stringsPerTracker.toString(), l.trackersUsed.toString()))
+                Line(stringResource(R.string.ds_panels_dc), stringResource(R.string.ds_panels_dc_value, l.panels.toString(), f(r.dcPowerW / 1000, 2)))
+                Line(stringResource(R.string.ds_panel_area), "${f(r.areaM2)} m²")
+                Line(stringResource(R.string.ds_voc_cold), "${f(r.vocColdV)} V")
+                Line(stringResource(R.string.ds_vmp), "${f(r.vmpHotV)} / ${f(r.vmpColdV)} V")
+                Line(stringResource(R.string.ds_mppt_current), "${f(r.trackerCurrentA)} A")
                 Line("DC/AC", f(r.dcAcRatio, 2))
-                r.investment?.let { Line("Koszt paneli", "${f(it, 0)} zł") }
+                r.investment?.let { Line(stringResource(R.string.ds_panel_cost), "${f(it, 0)} zł") }
             }
-            Text("Zakres paneli w stringu: ${r.minSeries}–${r.maxSeries}, maks. stringów równolegle: ${r.maxParallel}", style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.ds_series_range, r.minSeries.toString(), r.maxSeries.toString(), r.maxParallel.toString()), style = MaterialTheme.typography.bodySmall)
             r.warnings.forEach { Text("⚠ $it", color = MaterialTheme.colorScheme.error) }
             yield?.let { y ->
-                Line("Produkcja roczna (czyste niebo)", "${f(y.clearSkyKwh, 0)} kWh")
-                Line("Uzysk jednostkowy (czyste niebo)", "${f(y.specificClearSkyKwhPerKwp, 0)} kWh/kWp")
-                EstimateBadge(text = "GÓRNA GRANICA — BEZ CHMUR")
-                Text("Kąt ${f(settings.system.tiltDeg, 0)}°, azymut ${f(settings.system.azimuthDeg, 0)}°, lokalizacja: ${settings.locationName}. Realna produkcja wymaga danych klimatycznych lub kalibracji.", style = MaterialTheme.typography.bodySmall)
+                Line(stringResource(R.string.ds_annual_clear), "${f(y.clearSkyKwh, 0)} kWh")
+                Line(stringResource(R.string.ds_specific_clear), "${f(y.specificClearSkyKwhPerKwp, 0)} kWh/kWp")
+                EstimateBadge(text = stringResource(R.string.badge_upper_bound))
+                Text(stringResource(R.string.ds_yield_hint, f(settings.system.tiltDeg, 0), f(settings.system.azimuthDeg, 0), settings.locationName), style = MaterialTheme.typography.bodySmall)
             }
         }
     }
@@ -229,21 +237,22 @@ private fun EconomicsTool(settings: AppSettings) {
     var error by remember { mutableStateOf<String?>(null) }
     var upperBound by remember { mutableStateOf<Double?>(null) }
     var fillRun by remember { mutableIntStateOf(0) }
+    val context = LocalContext.current
 
     SectionCard {
-        Text("Koszty i założenia", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        Pair2({ Num("Panele + konstrukcja [zł]", pv, { s -> pv = s }, it) }, { Num("Bateria [zł]", battery, { s -> battery = s }, it) })
-        Pair2({ Num("Montaż/falownik [zł]", install, { s -> install = s }, it) }, { Num("Serwis [zł/rok]", maintenance, { s -> maintenance = s }, it) })
-        Pair2({ Num("Cena z sieci [zł/kWh]", grid, { s -> grid = s }, it) }, { Num("Cena oddania [zł/kWh]", feedIn, { s -> feedIn = s }, it) })
-        Pair2({ Num("Produkcja [kWh/rok]", production, { s -> production = s }, it) }, { Num("Autokonsumpcja [%]", selfUse, { s -> selfUse = s }, it) })
-        OutlinedButton(onClick = { fillRun++ }) { Text("Pokaż górną granicę produkcji (czyste niebo)") }
-        upperBound?.let { Text("Czyste niebo dla ${settings.locationName}: ${f(it, 0)} kWh/rok — realna produkcja jest niższa (chmury). Wpisz wartość z pomiarów lub kalibracji.", style = MaterialTheme.typography.bodySmall) }
-        Pair2({ Num("Przepływ przez baterię [kWh/rok]", throughput, { s -> throughput = s }, it) }, { Num("Wzrost cen [%/rok]", escalation, { s -> escalation = s }, it) })
-        Pair2({ Num("Stopa dyskontowa [%]", discount, { s -> discount = s }, it) }, { Num("Okres [lat]", years, { s -> years = s }, it) })
+        Text(stringResource(R.string.eco_costs), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Pair2({ Num(stringResource(R.string.eco_pv), pv, { s -> pv = s }, it) }, { Num(stringResource(R.string.eco_battery), battery, { s -> battery = s }, it) })
+        Pair2({ Num(stringResource(R.string.eco_install), install, { s -> install = s }, it) }, { Num(stringResource(R.string.eco_service), maintenance, { s -> maintenance = s }, it) })
+        Pair2({ Num(stringResource(R.string.eco_grid_price), grid, { s -> grid = s }, it) }, { Num(stringResource(R.string.eco_feed_in), feedIn, { s -> feedIn = s }, it) })
+        Pair2({ Num(stringResource(R.string.eco_production), production, { s -> production = s }, it) }, { Num(stringResource(R.string.eco_self_use), selfUse, { s -> selfUse = s }, it) })
+        OutlinedButton(onClick = { fillRun++ }) { Text(stringResource(R.string.eco_show_upper)) }
+        upperBound?.let { Text(stringResource(R.string.eco_upper, settings.locationName, f(it, 0)), style = MaterialTheme.typography.bodySmall) }
+        Pair2({ Num(stringResource(R.string.eco_throughput), throughput, { s -> throughput = s }, it) }, { Num(stringResource(R.string.eco_escalation), escalation, { s -> escalation = s }, it) })
+        Pair2({ Num(stringResource(R.string.eco_discount), discount, { s -> discount = s }, it) }, { Num(stringResource(R.string.eco_period), years, { s -> years = s }, it) })
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         Button(onClick = {
             val g = grid.num(); val p = production.num(); val su = selfUse.num()
-            if (g == null || p == null || su == null || pv.num() == null) { error = "Wymagane: koszt paneli, cena z sieci, produkcja i autokonsumpcja"; return@Button }
+            if (g == null || p == null || su == null || pv.num() == null) { error = context.getString(R.string.eco_required); return@Button }
             error = null
             val self = p * (su / 100).coerceIn(0.0, 1.0)
             result = EconomicsEngine.evaluate(
@@ -252,7 +261,7 @@ private fun EconomicsTool(settings: AppSettings) {
                 EnergyYear(p, self, p - self, batteryThroughputKwh = throughput.num() ?: 0.0),
                 lifetimeYears = years.num()?.toInt()?.coerceIn(1, 40) ?: 25,
             )
-        }) { Text("Oblicz") }
+        }) { Text(stringResource(R.string.eco_calculate)) }
     }
     LaunchedEffect(fillRun) {
         if (fillRun == 0) return@LaunchedEffect
@@ -263,16 +272,16 @@ private fun EconomicsTool(settings: AppSettings) {
     }
     result?.let { r ->
         SectionCard {
-            Text("Wynik", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Line("Inwestycja", "${f(r.investment, 0)} zł")
-            Line("Oszczędność w 1. roku", "${f(r.firstYearSavings, 0)} zł")
-            Line("Prosty zwrot", r.simplePaybackYears?.let { "${f(it)} lat" } ?: "brak zwrotu")
-            Line("Zwrot zdyskontowany", r.paybackYears?.let { "${f(it)} lat" } ?: "brak zwrotu w okresie")
+            Text(stringResource(R.string.result), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Line(stringResource(R.string.eco_investment), "${f(r.investment, 0)} zł")
+            Line(stringResource(R.string.eco_first_year), "${f(r.firstYearSavings, 0)} zł")
+            Line(stringResource(R.string.eco_simple_payback), r.simplePaybackYears?.let { stringResource(R.string.eco_years_value, f(it)) } ?: stringResource(R.string.energy_no_payback))
+            Line(stringResource(R.string.eco_discounted), r.paybackYears?.let { stringResource(R.string.eco_years_value, f(it)) } ?: stringResource(R.string.eco_no_payback_period))
             Line("NPV", "${f(r.npv, 0)} zł")
             Line("ROI", "${f(r.roiPercent, 0)}%")
             r.lcoe?.let { Line("LCOE", "${f(it, 3)} zł/kWh") }
-            r.storageCostPerKwh?.let { Line("Koszt magazynowania", "${f(it, 3)} zł/kWh") }
-            EstimateBadge(text = "WYLICZENIE Z PODANYCH ZAŁOŻEŃ")
+            r.storageCostPerKwh?.let { Line(stringResource(R.string.eco_storage_cost), "${f(it, 3)} zł/kWh") }
+            EstimateBadge(text = stringResource(R.string.eco_badge))
         }
     }
 }
@@ -289,26 +298,27 @@ private fun LocationsTool(settings: AppSettings) {
     var results by remember { mutableStateOf<List<SiteYield>>(emptyList()) }
     var busy by remember { mutableStateOf(false) }
     var run by remember { mutableIntStateOf(0) }
+    val context = LocalContext.current
 
     SectionCard {
-        Text("Porównanie lokalizacji", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        Text("Ta sama instalacja (${f(settings.system.peakPowerKw, 2)} kWp, ${f(settings.system.tiltDeg, 0)}°) policzona dla różnych miejsc. Model czystego nieba — porównuje geometrię słońca, nie klimat.", style = MaterialTheme.typography.bodySmall)
+        Text(stringResource(R.string.loc_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(R.string.loc_hint, f(settings.system.peakPowerKw, 2), f(settings.system.tiltDeg, 0)), style = MaterialTheme.typography.bodySmall)
         sites.forEachIndexed { i, (n, l) ->
             Row(Modifier.fillMaxWidth()) {
                 Text("$n (${f(l.latitude, 2)}, ${f(l.longitude, 2)})", Modifier.weight(1f))
-                if (i > 0) TextButton(onClick = { sites.removeAt(i) }) { Text("Usuń") }
+                if (i > 0) TextButton(onClick = { sites.removeAt(i) }) { Text(stringResource(R.string.remove)) }
             }
         }
-        OutlinedTextField(name, { name = it.take(40) }, label = { Text("Nazwa") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        Pair2({ Num("Szerokość [°]", lat, { s -> lat = s }, it) }, { Num("Długość [°]", lon, { s -> lon = s }, it) })
+        OutlinedTextField(name, { name = it.take(40) }, label = { Text(stringResource(R.string.name)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        Pair2({ Num(stringResource(R.string.loc_lat), lat, { s -> lat = s }, it) }, { Num(stringResource(R.string.loc_lon), lon, { s -> lon = s }, it) })
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = {
                 val a = lat.num(); val b = lon.num()
-                if (a == null || b == null || a !in -90.0..90.0 || b !in -180.0..180.0 || name.isBlank()) { error = "Podaj nazwę i poprawne współrzędne"; return@OutlinedButton }
+                if (a == null || b == null || a !in -90.0..90.0 || b !in -180.0..180.0 || name.isBlank()) { error = context.getString(R.string.loc_error); return@OutlinedButton }
                 error = null; sites += name.trim() to GeoLocation(a, b); name = ""; lat = ""; lon = ""
-            }) { Text("Dodaj") }
-            Button(onClick = { run++ }, enabled = !busy) { Text(if (busy) "Liczenie…" else "Porównaj") }
+            }) { Text(stringResource(R.string.add)) }
+            Button(onClick = { run++ }, enabled = !busy) { Text(if (busy) stringResource(R.string.computing_short) else stringResource(R.string.compare)) }
         }
     }
     LaunchedEffect(run) {
@@ -323,10 +333,10 @@ private fun LocationsTool(settings: AppSettings) {
     if (results.isNotEmpty()) SectionCard {
         results.forEachIndexed { i, r ->
             Text("${i + 1}. ${r.name}", fontWeight = FontWeight.SemiBold)
-            Line("Uzysk (czyste niebo)", "${f(r.specificKwhPerKwp, 0)} kWh/kWp · ${f(r.clearSkyKwh, 0)} kWh")
-            Line("Optymalny kąt", "${f(r.optimalTiltDeg, 0)}° (+${f(r.optimalTiltGainPercent)}%)")
+            Line(stringResource(R.string.loc_yield), "${f(r.specificKwhPerKwp, 0)} kWh/kWp · ${f(r.clearSkyKwh, 0)} kWh")
+            Line(stringResource(R.string.loc_optimal), "${f(r.optimalTiltDeg, 0)}° (+${f(r.optimalTiltGainPercent)}%)")
         }
-        EstimateBadge(text = "GÓRNA GRANICA — BEZ CHMUR")
+        EstimateBadge(text = stringResource(R.string.badge_upper_bound))
     }
 }
 
@@ -352,24 +362,25 @@ private fun VehicleTool(settings: AppSettings) {
     var current by remember { mutableStateOf<VehicleEstimate?>(null) }
     var profile by remember { mutableStateOf<HeadingProfile?>(null) }
     var tilts by remember { mutableStateOf<List<Pair<Double, Double>>>(emptyList()) }
+    val context = LocalContext.current
 
     SectionCard {
-        Text("Tryb pojazdu (bus, kamper, łódź)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        Text("Pojazd (opcjonalnie – sprawdza, czy panele zmieszczą się na dachu)", fontWeight = FontWeight.SemiBold)
-        Pair2({ Num("Długość [m]", length, { s -> length = s }, it) }, { Num("Szerokość [m]", width, { s -> width = s }, it) })
-        Num("Użyteczna powierzchnia dachu [m²]", roofArea, { s -> roofArea = s }, Modifier.fillMaxWidth())
-        Text("Panele (ułożone kolejno wzdłuż dachu)", fontWeight = FontWeight.SemiBold)
-        Pair2({ Num("Liczba paneli", count, { s -> count = s }, it) }, { Num("Moc panelu [W]", power, { s -> power = s }, it) })
-        Pair2({ Num("Długość panelu [m]", panelLength, { s -> panelLength = s }, it) }, { Num("Szerokość panelu [m]", panelWidth, { s -> panelWidth = s }, it) })
-        Pair2({ Num("Kąt paneli [°]", tilt, { s -> tilt = s }, it) }, { Num("Kierunek wzgl. przodu [°]", relAz, { s -> relAz = s }, it) })
-        Pair2({ Num("Kurs pojazdu [°]", heading, { s -> heading = s }, it) }, { Num("Zużycie [kWh/100 km]", consumption, { s -> consumption = s }, it) })
-        Text("Kąt 0° = panele płasko. Kierunek: 0° = pochylone ku przodowi, 90° = ku prawej burcie. Lokalizacja: ${settings.locationName}. Okres: od teraz do końca dnia.",
+        Text(stringResource(R.string.veh_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(R.string.veh_body), fontWeight = FontWeight.SemiBold)
+        Pair2({ Num(stringResource(R.string.cfg_length_m), length, { s -> length = s }, it) }, { Num(stringResource(R.string.cfg_width_m), width, { s -> width = s }, it) })
+        Num(stringResource(R.string.veh_roof_area), roofArea, { s -> roofArea = s }, Modifier.fillMaxWidth())
+        Text(stringResource(R.string.veh_panels), fontWeight = FontWeight.SemiBold)
+        Pair2({ Num(stringResource(R.string.cfg_panel_count), count, { s -> count = s }, it) }, { Num(stringResource(R.string.ds_panel_power), power, { s -> power = s }, it) })
+        Pair2({ Num(stringResource(R.string.veh_panel_length), panelLength, { s -> panelLength = s }, it) }, { Num(stringResource(R.string.veh_panel_width), panelWidth, { s -> panelWidth = s }, it) })
+        Pair2({ Num(stringResource(R.string.veh_tilt), tilt, { s -> tilt = s }, it) }, { Num(stringResource(R.string.veh_rel_az), relAz, { s -> relAz = s }, it) })
+        Pair2({ Num(stringResource(R.string.veh_heading), heading, { s -> heading = s }, it) }, { Num(stringResource(R.string.veh_consumption), consumption, { s -> consumption = s }, it) })
+        Text(stringResource(R.string.veh_hint, settings.locationName),
             style = MaterialTheme.typography.bodySmall)
         errors.forEach { Text(it, color = MaterialTheme.colorScheme.error) }
         Button(onClick = {
             val n = count.num()?.toInt() ?: 0
             val p = power.num()
-            if (n !in 1..40 || p == null) { errors = listOf("Podaj liczbę paneli (1–40) i moc panelu"); return@Button }
+            if (n !in 1..40 || p == null) { errors = listOf(context.getString(R.string.veh_error)); return@Button }
             val pl = panelLength.num() ?: 0.0
             val pw = panelWidth.num() ?: 0.0
             val body = if (length.num() != null && width.num() != null) VehicleBody(length.num()!!, width.num()!!, roofArea.num()) else null
@@ -380,7 +391,7 @@ private fun VehicleTool(settings: AppSettings) {
                 panels = panels.takeIf { pl > 0 && pw > 0 } ?: emptyList(), tiltDeg = tilt.num() ?: 0.0, relativeAzimuthDeg = relAz.num() ?: 0.0)
             errors = c.validate()
             if (errors.isEmpty()) { cfg = c; run++ }
-        }, enabled = !busy) { Text(if (busy) "Liczenie…" else "Oblicz") }
+        }, enabled = !busy) { Text(if (busy) stringResource(R.string.computing_short) else stringResource(R.string.eco_calculate)) }
     }
     LaunchedEffect(run) {
         val c = cfg ?: return@LaunchedEffect
@@ -397,25 +408,25 @@ private fun VehicleTool(settings: AppSettings) {
     }
     current?.let { cur ->
         SectionCard {
-            Line("Moc paneli", "${f(cfg?.totalPowerW ?: 0.0, 0)} W")
-            Line("Energia do końca dnia (kurs ${f(cur.headingDeg, 0)}°)", "${f(cur.energyKwh, 2)} kWh")
-            cur.rangeKm?.let { Line("Zasięg z tej energii", "${f(it, 0)} km") }
+            Line(stringResource(R.string.veh_power), "${f(cfg?.totalPowerW ?: 0.0, 0)} W")
+            Line(stringResource(R.string.veh_energy, f(cur.headingDeg, 0)), "${f(cur.energyKwh, 2)} kWh")
+            cur.rangeKm?.let { Line(stringResource(R.string.veh_range), "${f(it, 0)} km") }
             profile?.let { p ->
-                if (p.flat) Text("Panele płaskie – kierunek parkowania prawie nie ma znaczenia (różnica ${f(p.sensitivity * 100, 1)}%).", style = MaterialTheme.typography.bodySmall)
+                if (p.flat) Text(stringResource(R.string.veh_flat, f(p.sensitivity * 100, 1)), style = MaterialTheme.typography.bodySmall)
                 else {
-                    Line("Najlepszy kurs parkowania", "${f(p.best.headingDeg, 0)}° → ${f(p.best.energyKwh, 2)} kWh")
-                    Line("Najgorszy kurs", "${f(p.worst.headingDeg, 0)}° → ${f(p.worst.energyKwh, 2)} kWh")
+                    Line(stringResource(R.string.veh_best_heading), "${f(p.best.headingDeg, 0)}° → ${f(p.best.energyKwh, 2)} kWh")
+                    Line(stringResource(R.string.veh_worst_heading), "${f(p.worst.headingDeg, 0)}° → ${f(p.worst.energyKwh, 2)} kWh")
                 }
-                Text("Kurs → energia: " + p.points.filter { it.headingDeg.toInt() % 45 == 0 }.joinToString(" · ") { "${f(it.headingDeg, 0)}°: ${f(it.energyKwh, 2)}" },
+                Text(stringResource(R.string.veh_heading_energy) + p.points.filter { it.headingDeg.toInt() % 45 == 0 }.joinToString(" · ") { "${f(it.headingDeg, 0)}°: ${f(it.energyKwh, 2)}" },
                     style = MaterialTheme.typography.bodySmall)
             }
             if (tilts.isNotEmpty()) {
                 val best = tilts.maxBy { it.second }
-                Line("Najlepszy kąt przy tym kursie", "${f(best.first, 0)}° → ${f(best.second, 2)} kWh")
-                Text("Kąt → energia: " + tilts.joinToString(" · ") { "${f(it.first, 0)}°: ${f(it.second, 2)}" }, style = MaterialTheme.typography.bodySmall)
-                Text("Tylko obliczenia – aplikacja nie steruje mechanizmem paneli.", style = MaterialTheme.typography.bodySmall)
+                Line(stringResource(R.string.veh_best_tilt), "${f(best.first, 0)}° → ${f(best.second, 2)} kWh")
+                Text(stringResource(R.string.veh_tilt_energy) + tilts.joinToString(" · ") { "${f(it.first, 0)}°: ${f(it.second, 2)}" }, style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(R.string.veh_no_control), style = MaterialTheme.typography.bodySmall)
             }
-            EstimateBadge(text = "GÓRNA GRANICA — BEZ CHMUR I CIENIA")
+            EstimateBadge(text = stringResource(R.string.veh_badge))
         }
     }
 }
@@ -431,12 +442,12 @@ private fun TiltTool(settings: AppSettings) {
     var rec by remember { mutableStateOf<TiltRecommendation?>(null) }
     val s = settings.system
     SectionCard {
-        Text("Optymalizator kąta paneli", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        Text("Instalacja ${f(s.peakPowerKw, 2)} kWp, azymut ${f(s.azimuthDeg, 0)}°, ${settings.locationName}. Porównanie kątów 0–90° co 5°: dziś, każdy miesiąc i cały rok.",
+        Text(stringResource(R.string.tilt_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(R.string.tilt_hint, f(s.peakPowerKw, 2), f(s.azimuthDeg, 0), settings.locationName),
             style = MaterialTheme.typography.bodySmall)
-        Text("Ruchomy stelaż (opcjonalnie): zakres regulacji", fontWeight = FontWeight.SemiBold)
-        Pair2({ Num("Min. kąt [°]", minTilt, { v -> minTilt = v }, it) }, { Num("Maks. kąt [°]", maxTilt, { v -> maxTilt = v }, it) })
-        Button(onClick = { run++ }, enabled = !busy) { Text(if (busy) "Liczenie…" else "Porównaj kąty") }
+        Text(stringResource(R.string.tilt_mount), fontWeight = FontWeight.SemiBold)
+        Pair2({ Num(stringResource(R.string.tilt_min), minTilt, { v -> minTilt = v }, it) }, { Num(stringResource(R.string.tilt_max), maxTilt, { v -> maxTilt = v }, it) })
+        Button(onClick = { run++ }, enabled = !busy) { Text(if (busy) stringResource(R.string.computing_short) else stringResource(R.string.angles_title)) }
     }
     LaunchedEffect(run) {
         if (run == 0) return@LaunchedEffect
@@ -449,17 +460,17 @@ private fun TiltTool(settings: AppSettings) {
     }
     rec?.let { r ->
         SectionCard {
-            Line("NAJLEPSZY KĄT STAŁY (rok)", "${f(r.bestStatic.tiltDeg, 0)}° → ${f(r.bestStatic.annualKwh, 0)} kWh")
-            Line("NAJLEPSZY KĄT DZIŚ", "${f(r.bestDaily.tiltDeg, 0)}° → ${f(r.bestDaily.dailyKwh, 1)} kWh")
-            Line("Obecny kąt ${f(s.tiltDeg, 0)}°", r.yields.minBy { kotlin.math.abs(it.tiltDeg - s.tiltDeg) }.let { "${f(it.annualKwh, 0)} kWh/rok" })
-            Text("NAJLEPSZY KĄT W MIESIĄCU", fontWeight = FontWeight.SemiBold)
-            Text(r.bestMonthly.entries.joinToString(" · ") { "${it.key.getDisplayName(java.time.format.TextStyle.SHORT, Locale.forLanguageTag("pl"))} ${f(it.value, 0)}°" },
+            Line(stringResource(R.string.tilt_best_static), "${f(r.bestStatic.tiltDeg, 0)}° → ${f(r.bestStatic.annualKwh, 0)} kWh")
+            Line(stringResource(R.string.tilt_best_today), "${f(r.bestDaily.tiltDeg, 0)}° → ${f(r.bestDaily.dailyKwh, 1)} kWh")
+            Line(stringResource(R.string.tilt_current, f(s.tiltDeg, 0)), r.yields.minBy { kotlin.math.abs(it.tiltDeg - s.tiltDeg) }.let { stringResource(R.string.tilt_per_year, f(it.annualKwh, 0)) })
+            Text(stringResource(R.string.tilt_best_month), fontWeight = FontWeight.SemiBold)
+            Text(r.bestMonthly.entries.joinToString(" · ") { "${it.key.getDisplayName(java.time.format.TextStyle.SHORT, com.solartracker.pro.ui.Format.locale)} ${f(it.value, 0)}°" },
                 style = MaterialTheme.typography.bodySmall)
-            Line("Zysk z ustawiania co miesiąc", "+${f(r.monthlyAdjustGainPercent, 1)}%")
-            Text("Kąt → rok: " + r.yields.filter { it.tiltDeg.toInt() % 10 == 0 }.joinToString(" · ") { "${f(it.tiltDeg, 0)}°: ${f(it.annualKwh, 0)}" },
+            Line(stringResource(R.string.tilt_monthly_gain), "+${f(r.monthlyAdjustGainPercent, 1)}%")
+            Text(stringResource(R.string.tilt_year_energy) + r.yields.filter { it.tiltDeg.toInt() % 10 == 0 }.joinToString(" · ") { "${f(it.tiltDeg, 0)}°: ${f(it.annualKwh, 0)}" },
                 style = MaterialTheme.typography.bodySmall)
-            Text("Tylko obliczenia – aplikacja nie steruje siłownikami.", style = MaterialTheme.typography.bodySmall)
-            EstimateBadge(text = "GÓRNA GRANICA — BEZ CHMUR")
+            Text(stringResource(R.string.tilt_no_control), style = MaterialTheme.typography.bodySmall)
+            EstimateBadge(text = stringResource(R.string.badge_upper_bound))
         }
     }
 }

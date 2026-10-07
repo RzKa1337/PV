@@ -1,5 +1,7 @@
 package com.solartracker.pro.ui.screens
 
+import androidx.compose.ui.res.stringResource
+import com.solartracker.pro.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -49,9 +51,8 @@ fun AngleComparisonScreen(state: TiltComparisonState?, modifier: Modifier = Modi
     ) {
         item {
             ScreenTitle(
-                "Porównaj kąty",
-                "Prognoza na $dateText · ${Format.decimal(state.system.peakPowerKw)} kWp · " +
-                    "azymut ${Format.degrees(state.system.azimuthDeg)} ${Format.compass(state.system.azimuthDeg)}",
+                stringResource(R.string.angles_title),
+                stringResource(R.string.angles_subtitle, dateText, Format.decimal(state.system.peakPowerKw), Format.degrees(state.system.azimuthDeg), Format.compass(state.system.azimuthDeg)),
             )
         }
         if (best != null) {
@@ -59,7 +60,7 @@ fun AngleComparisonScreen(state: TiltComparisonState?, modifier: Modifier = Modi
                 SectionCard(containerColor = MaterialTheme.colorScheme.primaryContainer) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            "Najlepszy kąt dziś: ${Format.degrees(best.tiltDeg)} → ${Format.kwh(best.energyKwh)}",
+                            stringResource(R.string.angles_best, Format.degrees(best.tiltDeg), Format.kwh(best.energyKwh)),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -80,7 +81,7 @@ fun AngleComparisonScreen(state: TiltComparisonState?, modifier: Modifier = Modi
         }
         item {
             Text(
-                "Obliczone dla bieżącej lokalizacji i azymutu paneli. Źródło: ${state.sourceDescription}.",
+                stringResource(R.string.angles_footer, state.sourceDescription.toString()),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -122,7 +123,7 @@ private fun TiltRow(estimate: TiltEstimate, fraction: Float, isBest: Boolean, is
         }
         if (isBest || isCurrent) {
             Text(
-                listOfNotNull(if (isBest) "★ najlepszy" else null, if (isCurrent) "• Twój kąt" else null).joinToString("  "),
+                listOfNotNull(if (isBest) stringResource(R.string.angles_best_tag) else null, if (isCurrent) stringResource(R.string.angles_your_tag) else null).joinToString("  "),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.primary,
             )

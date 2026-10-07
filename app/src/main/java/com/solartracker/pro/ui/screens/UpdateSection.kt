@@ -1,5 +1,7 @@
 package com.solartracker.pro.ui.screens
 
+import androidx.compose.ui.res.stringResource
+import com.solartracker.pro.R
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -79,10 +81,10 @@ fun UpdateSection(viewModel: UpdateViewModel = viewModel(factory = UpdateViewMod
     }
 
     SectionCard {
-        Text("Aktualizacje", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        Text("Zainstalowana wersja: ${manager.currentVersion}", style = MaterialTheme.typography.bodyMedium)
+        Text(stringResource(R.string.upd_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(R.string.upd_installed, manager.currentVersion.toString()), style = MaterialTheme.typography.bodyMedium)
         snapshot?.state?.lastCheck?.let {
-            Text("Ostatnie sprawdzenie: ${timeFormat.format(it)}", style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.upd_last_check, timeFormat.format(it)), style = MaterialTheme.typography.bodySmall)
         }
 
         StatusBlock(
@@ -116,18 +118,18 @@ private fun StatusBlock(
     onSkip: (String) -> Unit,
 ) {
     val text = when (status) {
-        UpdateStatus.Idle -> "Nie sprawdzano w tej sesji."
-        UpdateStatus.Checking -> "Sprawdzanie GitHuba…"
-        is UpdateStatus.UpToDate -> "Masz najnowszą wersję."
-        is UpdateStatus.Available -> "Dostępna wersja ${status.candidate.version} (${mb(status.candidate.apk.size)})."
-        is UpdateStatus.Downloading -> "Pobieranie ${status.candidate.version}: " +
-            (status.progress?.let { p -> p.fraction?.let { "${(it * 100).toInt()}%" } ?: mb(p.downloadedBytes) } ?: "łączenie…") +
-            (status.progress?.attempt?.takeIf { it > 1 }?.let { " (próba $it)" } ?: "")
-        is UpdateStatus.ReadyToInstall -> "Wersja ${status.download.candidate.version} pobrana i zweryfikowana (SHA-256, podpis, pakiet)."
-        is UpdateStatus.NeedsInstallPermission -> "Zezwól aplikacji na instalowanie aktualizacji, potem dotknij „Zainstaluj”."
-        is UpdateStatus.Installing -> "Instalacja ${status.version}… Potwierdź w oknie systemu. Aplikacja uruchomi się ponownie."
-        is UpdateStatus.NotInstallable -> "Wersja ${status.version} nie może być zainstalowana: ${status.reason}"
-        is UpdateStatus.Error -> "Błąd: ${status.message}"
+        UpdateStatus.Idle -> stringResource(R.string.upd_idle)
+        UpdateStatus.Checking -> stringResource(R.string.upd_checking)
+        is UpdateStatus.UpToDate -> stringResource(R.string.upd_up_to_date)
+        is UpdateStatus.Available -> stringResource(R.string.upd_available, status.candidate.version.toString(), (mb(status.candidate.apk.size)).toString())
+        is UpdateStatus.Downloading -> stringResource(R.string.upd_downloading, status.candidate.version.toString()) +
+            (status.progress?.let { p -> p.fraction?.let { "${(it * 100).toInt()}%" } ?: mb(p.downloadedBytes) } ?: stringResource(R.string.upd_connecting)) +
+            (status.progress?.attempt?.takeIf { it > 1 }?.let { stringResource(R.string.upd_attempt, it.toString()) } ?: "")
+        is UpdateStatus.ReadyToInstall -> stringResource(R.string.upd_ready, status.download.candidate.version.toString())
+        is UpdateStatus.NeedsInstallPermission -> stringResource(R.string.upd_needs_permission)
+        is UpdateStatus.Installing -> stringResource(R.string.upd_installing, status.version.toString())
+        is UpdateStatus.NotInstallable -> stringResource(R.string.upd_not_installable, status.version.toString(), status.reason)
+        is UpdateStatus.Error -> stringResource(R.string.upd_error, status.message)
     }
     val isError = status is UpdateStatus.Error || status is UpdateStatus.NotInstallable
     Text(
@@ -155,22 +157,22 @@ private fun StatusBlock(
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         when (status) {
             is UpdateStatus.Available -> {
-                Button(onClick = onDownload) { Text("Pobierz") }
-                OutlinedButton(onClick = { onSnooze(status.candidate.version.toString()) }) { Text("Później") }
-                TextButton(onClick = { onSkip(status.candidate.version.toString()) }) { Text("Pomiń") }
+                Button(onClick = onDownload) { Text(stringResource(R.string.upd_download)) }
+                OutlinedButton(onClick = { onSnooze(status.candidate.version.toString()) }) { Text(stringResource(R.string.upd_later)) }
+                TextButton(onClick = { onSkip(status.candidate.version.toString()) }) { Text(stringResource(R.string.upd_skip)) }
             }
-            is UpdateStatus.Downloading -> OutlinedButton(onClick = onCancel) { Text("Anuluj") }
+            is UpdateStatus.Downloading -> OutlinedButton(onClick = onCancel) { Text(stringResource(R.string.upd_cancel)) }
             is UpdateStatus.ReadyToInstall -> {
-                Button(onClick = onInstall) { Text("Zainstaluj") }
-                OutlinedButton(onClick = { onSnooze(status.download.candidate.version.toString()) }) { Text("Później") }
-                TextButton(onClick = { onSkip(status.download.candidate.version.toString()) }) { Text("Pomiń") }
+                Button(onClick = onInstall) { Text(stringResource(R.string.upd_install)) }
+                OutlinedButton(onClick = { onSnooze(status.download.candidate.version.toString()) }) { Text(stringResource(R.string.upd_later)) }
+                TextButton(onClick = { onSkip(status.download.candidate.version.toString()) }) { Text(stringResource(R.string.upd_skip)) }
             }
             is UpdateStatus.NeedsInstallPermission -> {
-                Button(onClick = onOpenPermission) { Text("Zezwól") }
-                FilledTonalButton(onClick = onInstall) { Text("Zainstaluj") }
+                Button(onClick = onOpenPermission) { Text(stringResource(R.string.upd_allow)) }
+                FilledTonalButton(onClick = onInstall) { Text(stringResource(R.string.upd_install)) }
             }
             UpdateStatus.Checking, is UpdateStatus.Installing -> Unit
-            else -> FilledTonalButton(onClick = onCheck, modifier = Modifier.testTag(UpdateTags.CHECK)) { Text("Sprawdź teraz") }
+            else -> FilledTonalButton(onClick = onCheck, modifier = Modifier.testTag(UpdateTags.CHECK)) { Text(stringResource(R.string.upd_check_now)) }
         }
     }
 }
@@ -181,11 +183,11 @@ private fun IgnoredVersions(state: UpdateState, onClear: () -> Unit) {
     if (ignored.isEmpty()) return
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
-            "Pominięte/wadliwe: ${ignored.sorted().joinToString()}",
+            stringResource(R.string.upd_ignored, ignored.sorted().joinToString()),
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.weight(1f),
         )
-        TextButton(onClick = onClear) { Text("Wyczyść") }
+        TextButton(onClick = onClear) { Text(stringResource(R.string.upd_clear)) }
     }
 }
 
@@ -193,7 +195,7 @@ private fun IgnoredVersions(state: UpdateState, onClear: () -> Unit) {
 @Composable
 private fun ConfigEditor(config: UpdateConfig, onSave: suspend (UpdateConfig) -> List<String>) {
     var expanded by rememberSaveable { mutableStateOf(false) }
-    TextButton(onClick = { expanded = !expanded }) { Text(if (expanded) "Ukryj ustawienia aktualizacji" else "Ustawienia aktualizacji") }
+    TextButton(onClick = { expanded = !expanded }) { Text(if (expanded) stringResource(R.string.upd_hide_settings) else stringResource(R.string.upd_settings)) }
     if (!expanded) return
 
     var draft by remember(config) { mutableStateOf(config) }
@@ -201,41 +203,41 @@ private fun ConfigEditor(config: UpdateConfig, onSave: suspend (UpdateConfig) ->
     var saved by remember(config) { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    SwitchRow("Automatyczne sprawdzanie", draft.enabled) { draft = draft.copy(enabled = it) }
-    Text("Repozytorium GitHub", style = MaterialTheme.typography.labelLarge)
+    SwitchRow(stringResource(R.string.upd_auto_check), draft.enabled) { draft = draft.copy(enabled = it) }
+    Text(stringResource(R.string.upd_repo_title), style = MaterialTheme.typography.labelLarge)
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(draft.owner, { draft = draft.copy(owner = it.trim()) }, label = { Text("Właściciel") }, singleLine = true, modifier = Modifier.weight(1f))
-        OutlinedTextField(draft.repo, { draft = draft.copy(repo = it.trim()) }, label = { Text("Repozytorium") }, singleLine = true, modifier = Modifier.weight(1f))
+        OutlinedTextField(draft.owner, { draft = draft.copy(owner = it.trim()) }, label = { Text(stringResource(R.string.upd_owner)) }, singleLine = true, modifier = Modifier.weight(1f))
+        OutlinedTextField(draft.repo, { draft = draft.copy(repo = it.trim()) }, label = { Text(stringResource(R.string.upd_repo)) }, singleLine = true, modifier = Modifier.weight(1f))
     }
-    Text("Kanał wydań", style = MaterialTheme.typography.labelLarge)
-    Segmented(listOf(UpdateChannel.STABLE to "Stabilny", UpdateChannel.BETA to "Beta"), draft.channel) { draft = draft.copy(channel = it) }
-    Text("Częstotliwość sprawdzania", style = MaterialTheme.typography.labelLarge)
+    Text(stringResource(R.string.upd_channel), style = MaterialTheme.typography.labelLarge)
+    Segmented(listOf(UpdateChannel.STABLE to stringResource(R.string.upd_stable), UpdateChannel.BETA to "Beta"), draft.channel) { draft = draft.copy(channel = it) }
+    Text(stringResource(R.string.upd_frequency), style = MaterialTheme.typography.labelLarge)
     Segmented(
-        listOf(CheckInterval.HOURS_6 to "6 h", CheckInterval.HOURS_12 to "12 h", CheckInterval.DAILY to "Dzień", CheckInterval.WEEKLY to "Tydz.", CheckInterval.MANUAL to "Ręcznie"),
+        listOf(CheckInterval.HOURS_6 to "6 h", CheckInterval.HOURS_12 to "12 h", CheckInterval.DAILY to stringResource(R.string.upd_day), CheckInterval.WEEKLY to stringResource(R.string.upd_week), CheckInterval.MANUAL to stringResource(R.string.upd_manual)),
         draft.interval,
     ) { draft = draft.copy(interval = it) }
-    SwitchRow("Pobieraj automatycznie", draft.autoDownload) { draft = draft.copy(autoDownload = it) }
-    SwitchRow("Tylko przez Wi-Fi (w tle)", draft.wifiOnly) { draft = draft.copy(wifiOnly = it) }
+    SwitchRow(stringResource(R.string.upd_auto_download), draft.autoDownload) { draft = draft.copy(autoDownload = it) }
+    SwitchRow(stringResource(R.string.upd_wifi_only), draft.wifiOnly) { draft = draft.copy(wifiOnly = it) }
     SwitchRow(
-        "Instaluj automatycznie",
+        stringResource(R.string.upd_auto_install),
         draft.autoInstall,
-        "Android 12+: bez pytania, gdy system na to pozwala; w przeciwnym razie powiadomienie do potwierdzenia.",
+        stringResource(R.string.upd_auto_install_hint),
     ) { draft = draft.copy(autoInstall = it) }
     OutlinedTextField(
         draft.token,
         { draft = draft.copy(token = it.trim()) },
-        label = { Text("Token GitHub (opcjonalny)") },
-        supportingText = { Text("Wymagany dla prywatnego repozytorium: fine-grained, tylko Contents: Read. Zapisany tylko na telefonie.") },
+        label = { Text(stringResource(R.string.upd_token)) },
+        supportingText = { Text(stringResource(R.string.upd_token_hint)) },
         singleLine = true,
         visualTransformation = PasswordVisualTransformation(),
         modifier = Modifier.fillMaxWidth(),
     )
     errors.forEach { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-    if (saved) Text("Zapisano.", style = MaterialTheme.typography.bodySmall)
+    if (saved) Text(stringResource(R.string.upd_saved), style = MaterialTheme.typography.bodySmall)
     Button(
         onClick = { scope.launch { errors = onSave(draft); saved = errors.isEmpty() } },
         enabled = draft != config,
-    ) { Text("Zapisz") }
+    ) { Text(stringResource(R.string.save)) }
 }
 
 @Composable
@@ -266,9 +268,9 @@ private fun <T> Segmented(options: List<Pair<T, String>>, selected: T, onSelect:
 @Composable
 private fun UpdateLogView(entries: List<Triple<java.time.Instant, LogLevel, String>>) {
     var expanded by rememberSaveable { mutableStateOf(false) }
-    TextButton(onClick = { expanded = !expanded }) { Text("Dziennik aktualizacji (${entries.size})") }
+    TextButton(onClick = { expanded = !expanded }) { Text(stringResource(R.string.upd_log, entries.size.toString())) }
     if (!expanded) return
-    if (entries.isEmpty()) Text("Brak wpisów.", style = MaterialTheme.typography.bodySmall)
+    if (entries.isEmpty()) Text(stringResource(R.string.upd_no_entries), style = MaterialTheme.typography.bodySmall)
     entries.takeLast(60).asReversed().forEach { (time, level, message) ->
         Text(
             "${timeFormat.format(time)} ${level.name.first()} $message",

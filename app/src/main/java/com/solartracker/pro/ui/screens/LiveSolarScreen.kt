@@ -1,5 +1,8 @@
 package com.solartracker.pro.ui.screens
 
+import com.solartracker.pro.i18n.tr
+import androidx.compose.ui.res.stringResource
+import com.solartracker.pro.R
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -106,8 +109,7 @@ fun LiveSolarScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
-            "Pozycja Słońca jest liczona lokalnie co sekundę. Irradiancja pochodzi z modelu/prognozy " +
-                "(bez zapytań do internetu co sekundę), dlatego moc PV to wartość modelowana, a nie pomiar.",
+            stringResource(R.string.live_footer),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -128,11 +130,11 @@ private fun LiveStatusRow(clock: String?, active: Boolean, paused: Boolean, onPa
                 modifier = Modifier.testTag(LiveTags.STATUS),
             )
             if (clock != null) {
-                Text("Updated $clock", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.live_updated, clock.toString()), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         FilledTonalButton(onClick = { onPausedChange(!paused) }) {
-            Text(if (paused) "▶ LIVE" else "⏸ Pauza")
+            Text(if (paused) "▶ LIVE" else stringResource(R.string.live_pause))
         }
     }
 }
@@ -153,7 +155,7 @@ private fun SunHeader(clock: String, date: String, sun: LiveSunUi) {
                     .testTag(LiveTags.CLOCK),
             )
             Text(
-                if (sun.isDay) "☀️ Dzień" else "🌙 Noc",
+                if (sun.isDay) stringResource(R.string.live_day) else stringResource(R.string.live_night),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = onColor,
@@ -181,16 +183,16 @@ private fun SunHeader(clock: String, date: String, sun: LiveSunUi) {
         when (sun.dayType) {
             DayType.NORMAL -> Text(
                 listOfNotNull(
-                    "Wschód ${sun.sunriseText}",
-                    "Zachód ${sun.sunsetText}",
+                    stringResource(R.string.live_sunrise, sun.sunriseText.toString()),
+                    stringResource(R.string.live_sunset, sun.sunsetText.toString()),
                 ).joinToString("  ·  "),
                 style = MaterialTheme.typography.bodyMedium,
                 color = onColor,
             )
-            DayType.POLAR_DAY -> Text("Dzień polarny – Słońce nie zachodzi", color = onColor)
-            DayType.POLAR_NIGHT -> Text("Noc polarna – Słońce nie wschodzi", color = onColor)
+            DayType.POLAR_DAY -> Text(stringResource(R.string.live_polar_day), color = onColor)
+            DayType.POLAR_NIGHT -> Text(stringResource(R.string.live_polar_night), color = onColor)
         }
-        val countdown = if (sun.isDay) sun.timeToSunsetText?.let { "Do zachodu: $it" } else sun.timeToSunriseText?.let { "Do wschodu: $it" }
+        val countdown = if (sun.isDay) sun.timeToSunsetText?.let { stringResource(R.string.live_to_sunset, it) } else sun.timeToSunriseText?.let { stringResource(R.string.live_to_sunrise, it) }
         if (countdown != null) {
             Text(countdown, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = onColor)
         }
@@ -202,7 +204,7 @@ private fun PowerCard(pv: LivePvUi, isDay: Boolean) {
     SectionCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                if (pv.measuredPowerKw != null) "Moc PV" else "Szacowana moc PV",
+                if (pv.measuredPowerKw != null) stringResource(R.string.live_pv_power) else stringResource(R.string.live_pv_estimated),
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f),
@@ -210,8 +212,8 @@ private fun PowerCard(pv: LivePvUi, isDay: Boolean) {
             EstimateBadge(text = "MODEL")
         }
         if (pv.measuredPowerKw != null) {
-            Text("Rzeczywista moc PV: ${Format.kw(pv.measuredPowerKw)}", fontSize = 26.sp, fontWeight = FontWeight.Bold)
-            Text("Model: ${Format.kw(pv.modeledPowerKw)}", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.live_real_power, Format.kw(pv.measuredPowerKw)), fontSize = 26.sp, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.live_model_power, Format.kw(pv.modeledPowerKw)), style = MaterialTheme.typography.titleMedium)
         } else {
             Text(
                 if (isDay) Format.kw(pv.modeledPowerKw) else "0 W",
@@ -221,18 +223,18 @@ private fun PowerCard(pv: LivePvUi, isDay: Boolean) {
             )
         }
         Text(
-            "${Format.decimal(pv.poa, 0)} W/m² na panelu (POA)",
+            stringResource(R.string.live_poa, Format.decimal(pv.poa, 0)),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
         )
         Text(
-            "Irradiancja: ${pv.sourceLabel}",
+            stringResource(R.string.live_irradiance, pv.sourceLabel),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         if (pv.measuredPowerKw == null) {
             Text(
-                "Brak danych z falownika – pokazywana jest wartość modelowana, nie pomiar.",
+                stringResource(R.string.live_no_inverter),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -255,29 +257,29 @@ private fun LiveCard(state: LiveUiState) {
     SectionCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("LIVE", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            Text("co 1 s", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.live_every_second), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        LiveRow("Czas", state.clockText)
-        LiveRow("Azymut", deg2(sun.azimuthDeg))
-        LiveRow("Wysokość (elevation)", deg2(sun.elevationDeg))
-        LiveRow("Zenit (odległość zenitalna)", deg2(sun.zenithDeg))
-        LiveRow("Kąt godzinowy", deg2(sun.hourAngleDeg))
-        LiveRow("Deklinacja", deg2(sun.declinationDeg))
-        LiveRow("Air mass", sun.airMass?.let { Format.decimal(it, 3) } ?: "— (pod horyzontem)")
+        LiveRow(stringResource(R.string.live_time), state.clockText)
+        LiveRow(stringResource(R.string.live_azimuth), deg2(sun.azimuthDeg))
+        LiveRow(stringResource(R.string.live_elevation), deg2(sun.elevationDeg))
+        LiveRow(stringResource(R.string.live_zenith), deg2(sun.zenithDeg))
+        LiveRow(stringResource(R.string.live_hour_angle), deg2(sun.hourAngleDeg))
+        LiveRow(stringResource(R.string.live_declination), deg2(sun.declinationDeg))
+        LiveRow("Air mass", sun.airMass?.let { Format.decimal(it, 3) } ?: stringResource(R.string.live_below_horizon))
         HorizontalDivider()
         LiveRow("POA", "${Format.decimal(pv.poa, 0)} W/m²")
         LiveRow("GHI / DNI / DHI", "${Format.decimal(pv.ghi, 0)} / ${Format.decimal(pv.dni, 0)} / ${Format.decimal(pv.dhi, 0)}")
         LiveRow("PV (model)", Format.kw(pv.modeledPowerKw))
         LiveRow("Panel", "${Format.degrees(pv.tiltDeg)} / ${Format.degrees(pv.panelAzimuthDeg)}")
-        LiveRow("Kąt padania", Format.decimal(pv.angleOfIncidenceDeg, 1) + "°")
-        LiveRow("Wykorzystanie geometrii", Format.percent(pv.geometricUtilization * 100, 1))
-        LiveRow("Temperatura powietrza", pv.ambientTemperatureC?.let { Format.decimal(it, 1) + "°C" } ?: "brak danych")
-        LiveRow("Temperatura ogniwa", pv.cellTemperatureC?.let { Format.decimal(it, 1) + "°C" } ?: "—")
+        LiveRow(stringResource(R.string.live_incidence), Format.decimal(pv.angleOfIncidenceDeg, 1) + "°")
+        LiveRow(stringResource(R.string.live_geometry), Format.percent(pv.geometricUtilization * 100, 1))
+        LiveRow(stringResource(R.string.live_air_temp), pv.ambientTemperatureC?.let { Format.decimal(it, 1) + "°C" } ?: stringResource(R.string.no_data))
+        LiveRow(stringResource(R.string.live_cell_temp), pv.cellTemperatureC?.let { Format.decimal(it, 1) + "°C" } ?: "—")
         HorizontalDivider()
-        LiveRow("Wschód / zachód", "${sun.sunriseText} / ${sun.sunsetText}")
-        LiveRow("Górowanie", sun.solarNoonText)
-        sun.timeToSunriseText?.let { LiveRow("Do wschodu", it) }
-        sun.timeToSunsetText?.let { LiveRow("Do zachodu", it) }
+        LiveRow(stringResource(R.string.live_sunrise_sunset), "${sun.sunriseText} / ${sun.sunsetText}")
+        LiveRow(stringResource(R.string.live_solar_noon), sun.solarNoonText)
+        sun.timeToSunriseText?.let { LiveRow(stringResource(R.string.live_until_sunrise), it) }
+        sun.timeToSunsetText?.let { LiveRow(stringResource(R.string.live_until_sunset), it) }
     }
 }
 
@@ -288,13 +290,14 @@ private fun CompassCard(path: SunPathUi, sun: LiveSunUi, panelAzimuthDeg: Double
     val labelColor = MaterialTheme.colorScheme.onSurface
     val pathColor = ChartColors.pv.copy(alpha = 0.6f)
     val panelColor = ChartColors.consumption
+    val compassDescription = stringResource(R.string.live_compass_desc, deg2(sun.azimuthDeg), deg2(sun.elevationDeg))
     SectionCard {
-        Text("Kompas – pozycja Słońca", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(R.string.live_compass), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
         Canvas(
             Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f)
-                .semantics { contentDescription = "Kompas: Słońce na azymucie ${deg2(sun.azimuthDeg)}, wysokość ${deg2(sun.elevationDeg)}" },
+                .semantics { contentDescription = compassDescription },
         ) {
             val c = Offset(size.width / 2, size.height / 2)
             val r = size.minDimension / 2 * 0.82f
@@ -340,7 +343,7 @@ private fun CompassCard(path: SunPathUi, sun: LiveSunUi, panelAzimuthDeg: Double
             }
         }
         Text(
-            "Środek = zenit, okrąg = horyzont. Niebieska linia: kierunek paneli. Przerywana: dzisiejsza droga Słońca.",
+            stringResource(R.string.live_compass_hint),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -352,13 +355,14 @@ private fun SunPathCard(path: SunPathUi, sun: LiveSunUi) {
     val textMeasurer = rememberTextMeasurer()
     val outline = MaterialTheme.colorScheme.outline
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val pathDescription = stringResource(R.string.live_path_desc, deg2(path.highestElevationDeg), path.highestText)
     SectionCard {
-        Text("Dzisiejsza droga Słońca (${path.dateText})", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(R.string.live_path_title, path.dateText.toString()), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
         Canvas(
             Modifier
                 .fillMaxWidth()
                 .height(180.dp)
-                .semantics { contentDescription = "Droga Słońca: najwyżej ${deg2(path.highestElevationDeg)} o ${path.highestText}" },
+                .semantics { contentDescription = pathDescription },
         ) {
             val left = 34.dp.toPx()
             val bottom = 18.dp.toPx()
@@ -408,12 +412,11 @@ private fun SunPathCard(path: SunPathUi, sun: LiveSunUi) {
             }
         }
         Text(
-            "Wschód ${path.sunriseText} · najwyżej ${Format.decimal(path.highestElevationDeg, 1)}° o ${path.highestText} " +
-                "(az ${Format.decimal(path.highestAzimuthDeg, 1)}°) · zachód ${path.sunsetText}",
+            stringResource(R.string.live_path_summary, path.sunriseText, Format.decimal(path.highestElevationDeg, 1), path.highestText, Format.decimal(path.highestAzimuthDeg, 1), path.sunsetText),
             style = MaterialTheme.typography.bodySmall,
         )
         Text(
-            "Teraz: az ${deg2(sun.azimuthDeg)}, wys. ${deg2(sun.elevationDeg)}" + if (!sun.isDay) " (pod horyzontem)" else "",
+            stringResource(R.string.live_now_position, deg2(sun.azimuthDeg), deg2(sun.elevationDeg)) + if (!sun.isDay) stringResource(R.string.live_below_horizon_suffix) else "",
             style = MaterialTheme.typography.bodySmall,
             fontWeight = FontWeight.SemiBold,
         )
@@ -424,15 +427,15 @@ private fun SunPathCard(path: SunPathUi, sun: LiveSunUi) {
 private fun EnergyNowCard(e: LiveEnergyUi) {
     SectionCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Energia teraz", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.live_energy_now), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
             EstimateBadge(text = "MODEL")
         }
         LiveRow("PV", Format.kw(e.pvKw))
-        LiveRow("Zużycie", Format.kw(e.loadKw))
-        LiveRow(if (e.netKw >= 0) "Nadwyżka" else "Deficyt", Format.kw(abs(e.netKw)))
+        LiveRow(stringResource(R.string.live_load), Format.kw(e.loadKw))
+        LiveRow(if (e.netKw >= 0) stringResource(R.string.ins_surplus) else stringResource(R.string.live_deficit), Format.kw(abs(e.netKw)))
         if (e.hasBattery) {
             val sign = if (e.batteryKw > 0) "+" else if (e.batteryKw < 0) "−" else ""
-            LiveRow("Bateria", "$sign${Format.kw(abs(e.batteryKw))}")
+            LiveRow(stringResource(R.string.live_battery), "$sign${Format.kw(abs(e.batteryKw))}")
             Row(Modifier.fillMaxWidth()) {
                 Text("SOC", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                 Text(
@@ -444,11 +447,11 @@ private fun EnergyNowCard(e: LiveEnergyUi) {
                 )
             }
             if (e.storedKwh != null && e.usableKwh != null) {
-                LiveRow("Zgromadzone", "${Format.decimal(e.storedKwh, 2)} / ${Format.decimal(e.usableKwh, 1)} kWh")
+                LiveRow(stringResource(R.string.live_stored), "${Format.decimal(e.storedKwh, 2)} / ${Format.decimal(e.usableKwh, 1)} kWh")
             }
         }
-        if (e.gridImportKw > 0.0005) LiveRow("${e.backupLabel} → odbiorniki", Format.kw(e.gridImportKw))
-        if (e.exportKw > 0.0005) LiveRow("Nadwyżka do ${e.backupLabel.lowercase()} / utracona", Format.kw(e.exportKw))
+        if (e.gridImportKw > 0.0005) LiveRow(stringResource(R.string.live_to_loads, e.backupLabel), Format.kw(e.gridImportKw))
+        if (e.exportKw > 0.0005) LiveRow(stringResource(R.string.live_export, e.backupLabel.lowercase().toString()), Format.kw(e.exportKw))
         EnergyFlowDiagram(e)
         Text(flowSummary(e), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
     }
@@ -457,12 +460,12 @@ private fun EnergyNowCard(e: LiveEnergyUi) {
 private const val FLOW_EPS = 0.0005
 
 fun flowSummary(e: LiveEnergyUi): String = buildList {
-    if (e.directKw > FLOW_EPS) add("PV → Dom")
-    if (e.chargeKw > FLOW_EPS) add("PV → Bateria")
-    if (e.dischargeKw > FLOW_EPS) add("Bateria → Dom")
+    if (e.directKw > FLOW_EPS) add(tr("PV → Dom", "PV → Home"))
+    if (e.chargeKw > FLOW_EPS) add(tr("PV → Bateria", "PV → Battery"))
+    if (e.dischargeKw > FLOW_EPS) add(tr("Bateria → Dom", "Battery → Home"))
     if (e.exportKw > FLOW_EPS) add("PV → ${e.backupLabel}")
-    if (e.gridImportKw > FLOW_EPS) add("${e.backupLabel} → Dom")
-}.ifEmpty { listOf("Brak przepływu energii") }.joinToString("   ")
+    if (e.gridImportKw > FLOW_EPS) add(tr("${e.backupLabel} → Dom", "${e.backupLabel} → Home"))
+}.ifEmpty { listOf(tr("Brak przepływu energii", "No energy flow")) }.joinToString("   ")
 
 @Composable
 private fun EnergyFlowDiagram(e: LiveEnergyUi) {
@@ -476,12 +479,13 @@ private fun EnergyFlowDiagram(e: LiveEnergyUi) {
     val textMeasurer = rememberTextMeasurer()
     val idle = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
     val labelColor = MaterialTheme.colorScheme.onSurface
+    val loadLabel = stringResource(R.string.live_load_value, Format.kw(e.loadKw))
     Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
         Canvas(
             Modifier
                 .fillMaxWidth()
                 .height(220.dp)
-                .semantics { contentDescription = "Przepływ energii: ${flowSummary(e)}" },
+                .semantics { contentDescription = tr("Przepływ energii: ", "Energy flow: ") + flowSummary(e) },
         ) {
             val hub = Offset(size.width / 2, size.height / 2)
             val pv = Offset(size.width / 2, size.height * 0.13f)
@@ -508,7 +512,7 @@ private fun EnergyFlowDiagram(e: LiveEnergyUi) {
                 drawText(l, topLeft = Offset(center.x - l.size.width / 2, center.y + m.size.height / 2))
             }
             node(pv, "☀️", "PV ${Format.kw(e.pvKw)}")
-            node(home, "🏠", "Zużycie ${Format.kw(e.loadKw)}")
+            node(home, "🏠", loadLabel)
             node(hub, "⚡", "")
             if (e.hasBattery) node(battery, "🔋", e.socPercent?.let { Format.percent(it) } ?: "")
             node(grid, "🌐", e.backupLabel)

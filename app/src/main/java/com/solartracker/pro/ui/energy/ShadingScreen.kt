@@ -1,5 +1,7 @@
 package com.solartracker.pro.ui.energy
 
+import androidx.compose.ui.res.stringResource
+import com.solartracker.pro.R
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -51,6 +53,7 @@ import com.solartracker.pro.core.shading.ShadowForecast
 import com.solartracker.pro.energy.EnergyCenterViewModel
 import com.solartracker.pro.ui.components.ScreenTitle
 import com.solartracker.pro.ui.components.SectionCard
+import com.solartracker.pro.ui.uiLabel
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -85,40 +88,40 @@ fun ShadingScreen(vm: EnergyCenterViewModel, onBack: () -> Unit, modifier: Modif
     LaunchedEffect(shading.engine, dateOffset) { dayResult = vm.shadingFor(date) }
 
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        TextButton(onClick = onBack) { Text("← Centrum energii") }
-        ScreenTitle("Analiza zacienienia", "Geometria przeszkód, teren i pozycja Słońca")
+        TextButton(onClick = onBack) { Text(stringResource(R.string.back_energy_center)) }
+        ScreenTitle(stringResource(R.string.ec_shading_analysis), stringResource(R.string.sh_subtitle))
         message?.let { SectionCard { Text(it); TextButton(onClick = vm::dismissMessage) { Text("OK") } } }
 
         val engine = shading.engine
         val location = settings?.location
         if (site?.locationConfirmed != true || engine == null || location == null) {
             SectionCard {
-                Text(shading.reason ?: if (shading.computing) "Obliczanie…" else "Model zacienienia niedostępny")
-                Text("Ustaw i potwierdź lokalizację w Konfiguracji (Centrum energii → Konfiguracja).", style = MaterialTheme.typography.bodySmall)
+                Text(shading.reason ?: if (shading.computing) stringResource(R.string.ec_computing) else stringResource(R.string.sh_unavailable))
+                Text(stringResource(R.string.sh_set_location), style = MaterialTheme.typography.bodySmall)
             }
             return@Column
         }
 
         // DATA + CONFIDENCE
         SectionCard {
-            Text("Dane i pewność", fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.sh_data_confidence), fontWeight = FontWeight.Bold)
             val conf = shading.confidence
-            Text("Pewność wyniku: ${Fmt.conf(conf?.score)} · ${conf?.kind?.label ?: ""}", fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.sh_result_confidence, Fmt.conf(conf?.score), conf?.kind?.uiLabel ?: ""), fontWeight = FontWeight.SemiBold)
             map?.let { m ->
                 Text("Budynki/drzewa: ${if (m.loaded) "OpenStreetMap (Overpass), pobrano ${m.fetchedAt?.atZone(zone)?.toLocalDate()}, ${m.automatic.size} obiektów" else "nie pobrano"}", style = MaterialTheme.typography.bodySmall)
                 Text("Teren: ${m.terrain?.let { "${it.source}, rozdzielczość ~${it.resolutionM?.toInt() ?: "?"} m" } ?: "brak danych"}", style = MaterialTheme.typography.bodySmall)
-                Text("Przeszkody użytkownika: ${m.user.size}", style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(R.string.sh_user_obstacles, m.user.size.toString()), style = MaterialTheme.typography.bodySmall)
             }
-            Text("Pozycja Słońca: algorytm NOAA (dokładność ok. 0,01°), z refrakcją; czas lokalny ${zone.id} z czasem letnim.", style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.sh_sun_algorithm, zone.id.toString()), style = MaterialTheme.typography.bodySmall)
             conf?.missing?.takeIf { it.isNotEmpty() }?.let { list ->
-                Text("Brakujące dane:", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error)
+                Text(stringResource(R.string.sh_missing), fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error)
                 list.forEach { Text("• $it", style = MaterialTheme.typography.bodySmall) }
             }
-            Text("Nieuwzględnione: odbicia od elewacji, śnieg, zabrudzenie miejscowe, dokładny kształt dachów (bryły jako graniastosłupy), elementy mniejsze niż w danych mapowych. Wynik nie jest pomiarem.",
+            Text(stringResource(R.string.sh_not_included),
                 style = MaterialTheme.typography.bodySmall)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilledTonalButton(onClick = vm::downloadMapData, enabled = !busy) { Text(if (busy) "Pobieranie…" else "Pobierz budynki i teren") }
-                OutlinedButton(onClick = vm::clearMapData, enabled = !busy) { Text("Usuń pobrane") }
+                FilledTonalButton(onClick = vm::downloadMapData, enabled = !busy) { Text(if (busy) stringResource(R.string.downloading) else stringResource(R.string.sh_download_map)) }
+                OutlinedButton(onClick = vm::clearMapData, enabled = !busy) { Text(stringResource(R.string.sh_delete_map)) }
             }
         }
 
@@ -129,24 +132,24 @@ fun ShadingScreen(vm: EnergyCenterViewModel, onBack: () -> Unit, modifier: Modif
                 TextButton(onClick = { dateOffset-- }) { Text("◀") }
                 Text(if (dateOffset == 0L) "Dziś, $date" else if (dateOffset == 1L) "Jutro, $date" else date.toString(), fontWeight = FontWeight.SemiBold)
                 TextButton(onClick = { dateOffset++ }) { Text("▶") }
-                TextButton(onClick = { dateOffset = 0 }) { Text("Dziś") }
+                TextButton(onClick = { dateOffset = 0 }) { Text(stringResource(R.string.today)) }
             }
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf(-1L to "-1 mies.", 1L to "+1 mies.").forEach { (m, label) ->
                     OutlinedButton(onClick = { dateOffset = java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(zone), date.plusMonths(m)) }) { Text(label) }
                 }
-                OutlinedButton(onClick = { dateOffset = java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(zone), LocalDate.of(date.year, 12, 21)) }) { Text("21 grudnia") }
-                OutlinedButton(onClick = { dateOffset = java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(zone), LocalDate.of(date.year, 6, 21)) }) { Text("21 czerwca") }
+                OutlinedButton(onClick = { dateOffset = java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(zone), LocalDate.of(date.year, 12, 21)) }) { Text(stringResource(R.string.sh_dec21)) }
+                OutlinedButton(onClick = { dateOffset = java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(zone), LocalDate.of(date.year, 6, 21)) }) { Text(stringResource(R.string.sh_jun21)) }
             }
             Text("Godzina: ${"%02d:%02d".format((minute / 60).toInt(), (minute % 60).toInt())}")
             Slider(value = minute, onValueChange = { minute = it }, valueRange = 0f..(24 * 60 - 1f))
             snapshot?.let { s ->
                 Text("Słońce: azymut ${Fmt.deg(s.sunAzimuthDeg)}, wysokość ${Fmt.deg(s.sunElevationDeg)}")
-                if (s.sunElevationDeg <= 0) Text("Słońce pod horyzontem")
+                if (s.sunElevationDeg <= 0) Text(stringResource(R.string.sun_below_horizon))
                 else {
                     Text("Zacienione: ${Fmt.pct(s.shadedAreaFraction * 100)} powierzchni · moc ${Fmt.pct(s.powerFactor * 100)} wartości bez cienia" +
                         if (s.total) " (cień całkowity)" else if (s.partial) " (cień częściowy)" else "")
-                    if (s.terrainBlocked) Text("Słońce zasłonięte przez ukształtowanie terenu")
+                    if (s.terrainBlocked) Text(stringResource(R.string.sh_terrain_blocked))
                     if (s.blockingObstacleIds.isNotEmpty()) Text("Przeszkody: ${s.blockingObstacleIds.joinToString { id -> engine.site.allObstacles.firstOrNull { it.obstacle.id == id }?.obstacle?.let { it.name ?: it.type.label } ?: id }}")
                     PanelGrid(s.panelShadedFraction, engine.site.array.columns)
                     if (s.stringPowerFactor.size > 1) Text("Stringi: ${s.stringPowerFactor.mapIndexed { i, f -> "S${i + 1} ${Fmt.pct(f * 100)}" }.joinToString()}", style = MaterialTheme.typography.bodySmall)
@@ -156,10 +159,11 @@ fun ShadingScreen(vm: EnergyCenterViewModel, onBack: () -> Unit, modifier: Modif
 
         // MAP
         SectionCard {
-            Text("Mapa", fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.sh_map), fontWeight = FontWeight.Bold)
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf("buildings" to "Budynki", "trees" to "Drzewa", "manual" to "Ręczne", "terrain" to "Teren", "current" to "Cień teraz",
-                    "forecast" to "Cień o wybranej godz.", "loss" to "Straty", "uncertainty" to "Niepewność").forEach { (k, label) ->
+                listOf("buildings" to stringResource(R.string.sh_layer_buildings), "trees" to stringResource(R.string.sh_layer_trees), "manual" to stringResource(R.string.sh_layer_manual),
+                    "terrain" to stringResource(R.string.sh_layer_terrain), "current" to stringResource(R.string.sh_layer_current),
+                    "forecast" to stringResource(R.string.sh_layer_forecast), "loss" to stringResource(R.string.sh_layer_loss), "uncertainty" to stringResource(R.string.sh_layer_uncertainty)).forEach { (k, label) ->
                     FilterChip(selected = k in layers, onClick = { layers = if (k in layers) layers - k else layers + k }, label = { Text(label) })
                 }
             }
@@ -213,44 +217,44 @@ fun ShadingScreen(vm: EnergyCenterViewModel, onBack: () -> Unit, modifier: Modif
                 OsmMap(center = origin, marker = origin, shapes = shapes, modifier = Modifier.fillMaxSize(), onTap = ::onMapTap)
                 Text("N ↑", Modifier.align(Alignment.TopEnd).padding(8.dp), fontWeight = FontWeight.Bold)
             }
-            Text("Niebieski – panele i ich azymut · zielony – wysokość potwierdzona · pomarańczowy – szacowana · czerwony – nieznana · szary – cień teraz · fioletowy – cień o wybranej godzinie · żółta linia – kierunek Słońca. Mapa © OpenStreetMap contributors.",
+            Text(stringResource(R.string.sh_legend),
                 style = MaterialTheme.typography.labelSmall)
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                FilterChip(selected = drawMode == DrawMode.POINT, onClick = { drawMode = if (drawMode == DrawMode.POINT) DrawMode.NONE else DrawMode.POINT; draft.clear() }, label = { Text("Dodaj punkt (drzewo, komin, słup)") })
-                FilterChip(selected = drawMode == DrawMode.POLYGON, onClick = { drawMode = if (drawMode == DrawMode.POLYGON) DrawMode.NONE else DrawMode.POLYGON; draft.clear() }, label = { Text("Rysuj budynek / obrys") })
+                FilterChip(selected = drawMode == DrawMode.POINT, onClick = { drawMode = if (drawMode == DrawMode.POINT) DrawMode.NONE else DrawMode.POINT; draft.clear() }, label = { Text(stringResource(R.string.sh_add_point)) })
+                FilterChip(selected = drawMode == DrawMode.POLYGON, onClick = { drawMode = if (drawMode == DrawMode.POLYGON) DrawMode.NONE else DrawMode.POLYGON; draft.clear() }, label = { Text(stringResource(R.string.sh_draw_building)) })
                 if (drawMode == DrawMode.POLYGON && draft.size >= 2) Button(onClick = {
                     val shape = if (draft.size >= 3) ObstacleShape.Polygon(draft.toList()) else ObstacleShape.Line(draft.toList())
                     editing = Obstacle("user-${UUID.randomUUID()}", if (draft.size >= 3) ObstacleType.BUILDING else ObstacleType.FENCE, shape,
                         com.solartracker.pro.core.shading.HeightValue.UNKNOWN, source = "Użytkownik", userDefined = true)
                     draft.clear(); drawMode = DrawMode.NONE
-                }) { Text("Zakończ (${draft.size} pkt)") }
+                }) { Text(stringResource(R.string.sh_finish, draft.size.toString())) }
                 OutlinedButton(onClick = {
                     editing = Obstacle("user-${UUID.randomUUID()}", ObstacleType.OTHER, ObstacleShape.Bearing(20.0, 170.0, 190.0),
                         com.solartracker.pro.core.shading.HeightValue.UNKNOWN, source = "Użytkownik", userDefined = true)
-                }) { Text("Przeszkoda: odległość + azymut") }
+                }) { Text(stringResource(R.string.sh_bearing_obstacle)) }
             }
         }
 
         // HORIZON
         SectionCard {
-            Text("Profil horyzontu 360°", fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.sh_horizon), fontWeight = FontWeight.Bold)
             HorizonChart(engine.site.horizon, location, date, zone, snapshot?.sunAzimuthDeg, snapshot?.sunElevationDeg)
-            Text("Środek = zenit, okrąg = horyzont, północ u góry. Szare – teren i przeszkody; pomarańczowe – droga Słońca (wybrany dzień, przesilenia).", style = MaterialTheme.typography.labelSmall)
-            Text("Współczynnik widoczności nieba: ${Fmt.pct(engine.site.horizon.skyViewFactor * 100)}", style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.sh_horizon_hint), style = MaterialTheme.typography.labelSmall)
+            Text(stringResource(R.string.sh_sky_view, Fmt.pct(engine.site.horizon.skyViewFactor * 100)), style = MaterialTheme.typography.bodySmall)
         }
 
         // DAY
         dayResult?.let { (day, events) ->
             SectionCard {
-                Text("Zacienienie w ciągu dnia", fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.sh_day), fontWeight = FontWeight.Bold)
                 HourlyShadingChart(day, zone)
-                Text("Słupek czerwony – produkcja bez cienia, niebieski – z cieniem.", style = MaterialTheme.typography.labelSmall)
-                MetricRow("Bez zacienienia", Fmt.kwh(day.unshadedKwh), com.solartracker.pro.core.quality.DataKind.ESTIMATED)
-                MetricRow("Strata przez zacienienie", "${Fmt.kwh(day.lossKwh)} (${"%.1f".format(day.lossPercent)}%)", shading.confidence?.kind ?: com.solartracker.pro.core.quality.DataKind.ESTIMATED)
-                MetricRow("Z zacienieniem", Fmt.kwh(day.shadedKwh), com.solartracker.pro.core.quality.DataKind.ESTIMATED)
+                Text(stringResource(R.string.sh_day_hint), style = MaterialTheme.typography.labelSmall)
+                MetricRow(stringResource(R.string.sh_unshaded), Fmt.kwh(day.unshadedKwh), com.solartracker.pro.core.quality.DataKind.ESTIMATED)
+                MetricRow(stringResource(R.string.ec_shading_loss), "${Fmt.kwh(day.lossKwh)} (${"%.1f".format(day.lossPercent)}%)", shading.confidence?.kind ?: com.solartracker.pro.core.quality.DataKind.ESTIMATED)
+                MetricRow(stringResource(R.string.sh_shaded), Fmt.kwh(day.shadedKwh), com.solartracker.pro.core.quality.DataKind.ESTIMATED)
                 lossBefore?.let { Text("Przed ostatnią korektą przeszkód (dziś): ${Fmt.kwh(it)} → teraz ${Fmt.kwh(shading.today?.lossKwh)}", fontWeight = FontWeight.SemiBold) }
-                Text("Cień – początek i koniec", fontWeight = FontWeight.SemiBold)
-                if (events.isEmpty()) Text("Brak cienia tego dnia.")
+                Text(stringResource(R.string.sh_shade_start_end), fontWeight = FontWeight.SemiBold)
+                if (events.isEmpty()) Text(stringResource(R.string.sh_no_shade))
                 events.forEach { e ->
                     Text("${hmFmt.format(e.event.start.atZone(zone))}–${hmFmt.format(e.event.end.atZone(zone))} (${e.event.duration.toMinutes()} min, ${e.dayPart.label}) · ${e.obstacleName} · wys. ${e.obstacleHeightLabel} · do ${Fmt.pct(e.event.maxShadedFraction * 100)} · panele ${e.event.panels.sorted().joinToString { "#${it + 1}" }} · −${Fmt.kwh(e.event.energyLossKwh)}",
                         style = MaterialTheme.typography.bodySmall)
@@ -260,8 +264,8 @@ fun ShadingScreen(vm: EnergyCenterViewModel, onBack: () -> Unit, modifier: Modif
 
         // OBSTACLES
         SectionCard {
-            Text("Przeszkody", fontWeight = FontWeight.Bold)
-            Text("Dotknij przeszkody, aby podać lub poprawić wysokość. Dane użytkownika mają pierwszeństwo przed automatycznymi.", style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.sh_obstacles), fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.sh_obstacles_hint), style = MaterialTheme.typography.bodySmall)
             engine.site.allObstacles.sortedWith(compareBy({ it.obstacle.height.known }, { it.distanceM })).take(80).forEach { g ->
                 val o = g.obstacle
                 TextButton(onClick = { editing = o }) {
@@ -276,18 +280,18 @@ fun ShadingScreen(vm: EnergyCenterViewModel, onBack: () -> Unit, modifier: Modif
                     }
                 }
             }
-            if (engine.site.allObstacles.isEmpty()) Text("Brak przeszkód – pobierz dane mapowe albo dodaj przeszkody ręcznie.")
+            if (engine.site.allObstacles.isEmpty()) Text(stringResource(R.string.sh_no_obstacles))
         }
 
         // YEAR
         if (shading.year.isNotEmpty()) SectionCard {
-            Text("Kalendarz roczny (strata energii)", fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.sh_year), fontWeight = FontWeight.Bold)
             shading.year.forEach { m ->
                 val pct = if (m.unshadedKwh > 0) m.lossKwh / m.unshadedKwh * 100 else 0.0
                 Text("${m.month}: −${Fmt.kwh(m.lossKwh)} (${"%.1f".format(pct)}%), dni z cieniem ok. ${m.eventDays}", style = MaterialTheme.typography.bodySmall)
             }
             val total = shading.year.sumOf { it.lossKwh }
-            Text("Razem rok: −${Fmt.kwh(total)}", fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.sh_year_total, Fmt.kwh(total)), fontWeight = FontWeight.SemiBold)
         }
     }
 
@@ -340,6 +344,6 @@ private fun PanelGrid(fractions: List<Double>, columns: Int) {
                 }
             }
         }
-        Text("Panele: jasny = w słońcu, ciemny = w cieniu", style = MaterialTheme.typography.labelSmall)
+        Text(stringResource(R.string.sh_panels_legend), style = MaterialTheme.typography.labelSmall)
     }
 }

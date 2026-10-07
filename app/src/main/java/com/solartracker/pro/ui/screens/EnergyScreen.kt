@@ -1,5 +1,8 @@
 package com.solartracker.pro.ui.screens
 
+import com.solartracker.pro.i18n.tr
+import androidx.compose.ui.res.stringResource
+import com.solartracker.pro.R
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -65,7 +68,7 @@ fun EnergyScreen(
     ) {
         val dateFormat = DateTimeFormatter.ofPattern("d MMM yyyy", Format.locale)
         ScreenTitle(
-            "Bilans energii",
+            stringResource(R.string.energy_title),
             state?.let {
                 if (it.startDate == it.endDate) it.startDate.format(dateFormat)
                 else "${it.startDate.format(dateFormat)} – ${it.endDate.format(dateFormat)}"
@@ -91,8 +94,7 @@ fun EnergyScreen(
         if (!state.result.hasBattery) {
             SectionCard(containerColor = MaterialTheme.colorScheme.secondaryContainer) {
                 Text(
-                    "Brak magazynu energii. Włącz go w Ustawieniach → Magazyn energii. " +
-                        "Poniżej bilans samej instalacji PV.",
+                    stringResource(R.string.energy_no_battery),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                 )
@@ -108,9 +110,7 @@ fun EnergyScreen(
         CostsCard(costs)
 
         Text(
-            "Symulacja co 15 minut (SZACUNEK). Źródło PV: ${state.sourceDescription}. " +
-                "Każdy dzień zaczyna się z SOC, z jakim zakończył się poprzedni. " +
-                "Dla dni bez prognozy użyto średnich klimatycznych – to wartości typowe, nie konkretna pogoda.",
+            stringResource(R.string.energy_footer, state.sourceDescription),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -118,8 +118,8 @@ fun EnergyScreen(
 }
 
 fun backupLabel(source: BackupSource): String = when (source) {
-    BackupSource.GRID -> "Sieć"
-    BackupSource.GENERATOR -> "Agregat"
+    BackupSource.GRID -> tr("Sieć", "Grid")
+    BackupSource.GENERATOR -> tr("Agregat", "Generator")
 }
 
 @Composable
@@ -141,23 +141,23 @@ private fun ValueRow(label: String, value: String, bold: Boolean = false) {
 @Composable
 private fun BalanceCard(b: EnergyBalance, backupLabel: String, dailyConsumption: Double) {
     SectionCard {
-        CardHeader("Bilans")
-        ValueRow("Produkcja PV", Format.kwh(b.pvKwh), bold = true)
-        ValueRow("Zużycie", Format.kwh(b.consumptionKwh), bold = true)
-        ValueRow("Wykorzystane bezpośrednio", Format.kwh(b.directUseKwh))
-        ValueRow("Do baterii", Format.kwh(b.toBatteryKwh))
-        ValueRow("Z baterii", Format.kwh(b.fromBatteryKwh))
-        ValueRow("$backupLabel (brakująca energia)", Format.kwh(b.gridKwh))
-        ValueRow("Nadwyżka PV", Format.kwh(b.surplusKwh))
-        ValueRow("Straty baterii", Format.kwh(b.batteryLossKwh))
+        CardHeader(stringResource(R.string.energy_balance))
+        ValueRow(stringResource(R.string.energy_pv_production), Format.kwh(b.pvKwh), bold = true)
+        ValueRow(stringResource(R.string.live_load), Format.kwh(b.consumptionKwh), bold = true)
+        ValueRow(stringResource(R.string.energy_direct), Format.kwh(b.directUseKwh))
+        ValueRow(stringResource(R.string.energy_to_battery), Format.kwh(b.toBatteryKwh))
+        ValueRow(stringResource(R.string.energy_from_battery), Format.kwh(b.fromBatteryKwh))
+        ValueRow(stringResource(R.string.energy_missing, backupLabel), Format.kwh(b.gridKwh))
+        ValueRow(stringResource(R.string.energy_pv_surplus), Format.kwh(b.surplusKwh))
+        ValueRow(stringResource(R.string.energy_battery_losses), Format.kwh(b.batteryLossKwh))
         val startSoc = b.startSocPercent
         val endSoc = b.endSocPercent
         if (startSoc != null && endSoc != null) {
             HorizontalDivider()
-            ValueRow("SOC początkowy → końcowy", "${Format.percent(startSoc)} → ${Format.percent(endSoc)}", bold = true)
+            ValueRow(stringResource(R.string.energy_soc_start_end), "${Format.percent(startSoc)} → ${Format.percent(endSoc)}", bold = true)
         }
         Text(
-            "Profil zużycia: ${Format.kwh(dailyConsumption)} na dobę",
+            stringResource(R.string.energy_profile, Format.kwh(dailyConsumption)),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -167,20 +167,20 @@ private fun BalanceCard(b: EnergyBalance, backupLabel: String, dailyConsumption:
 @Composable
 private fun ComparisonCard(without: EnergyBalance, with: EnergyBalance, backupLabel: String) {
     SectionCard {
-        CardHeader("Bez baterii vs z baterią")
+        CardHeader(stringResource(R.string.energy_without_vs_with))
         Row(Modifier.fillMaxWidth()) {
             Text("", modifier = Modifier.weight(1.4f))
-            Text("Bez", style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
-            Text("Z baterią", style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.energy_without), style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.energy_with), style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
         }
         HorizontalDivider()
         listOf(
             Triple("PV", without.pvKwh, with.pvKwh),
-            Triple("Zużycie", without.consumptionKwh, with.consumptionKwh),
-            Triple("Bezpośrednio", without.directUseKwh, with.directUseKwh),
-            Triple("Do baterii", without.toBatteryKwh, with.toBatteryKwh),
-            Triple("Z baterii", without.fromBatteryKwh, with.fromBatteryKwh),
-            Triple("Nadwyżka", without.surplusKwh, with.surplusKwh),
+            Triple(stringResource(R.string.live_load), without.consumptionKwh, with.consumptionKwh),
+            Triple(stringResource(R.string.energy_directly), without.directUseKwh, with.directUseKwh),
+            Triple(stringResource(R.string.energy_to_battery), without.toBatteryKwh, with.toBatteryKwh),
+            Triple(stringResource(R.string.energy_from_battery), without.fromBatteryKwh, with.fromBatteryKwh),
+            Triple(stringResource(R.string.ins_surplus), without.surplusKwh, with.surplusKwh),
             Triple(backupLabel, without.gridKwh, with.gridKwh),
         ).forEach { (label, a, b) ->
             Row(Modifier.fillMaxWidth()) {
@@ -191,7 +191,7 @@ private fun ComparisonCard(without: EnergyBalance, with: EnergyBalance, backupLa
         }
         with.endSocPercent?.let {
             HorizontalDivider()
-            ValueRow("SOC końcowy", Format.percent(it), bold = true)
+            ValueRow(stringResource(R.string.energy_soc_end), Format.percent(it), bold = true)
         }
     }
 }
@@ -232,20 +232,20 @@ private fun FlowChartCard(state: EnergyState, backupLabel: String) {
             r.days.map { d -> d.balance.let { pick(it.pvKwh, it.consumptionKwh, it.toBatteryKwh, it.fromBatteryKwh, it.gridKwh) } }
         }
     val series = buildList {
-        add(LineSeries("Produkcja PV", ChartColors.pv, values { pv, _, _, _, _ -> pv }, fill = true))
-        add(LineSeries("Zużycie", ChartColors.consumption, values { _, load, _, _, _ -> load }))
+        add(LineSeries(stringResource(R.string.energy_pv_production), ChartColors.pv, values { pv, _, _, _, _ -> pv }, fill = true))
+        add(LineSeries(stringResource(R.string.live_load), ChartColors.consumption, values { _, load, _, _, _ -> load }))
         if (r.hasBattery) {
-            add(LineSeries("Ładowanie", ChartColors.charge, values { _, _, c, _, _ -> c }))
-            add(LineSeries("Rozładowanie", ChartColors.discharge, values { _, _, _, d, _ -> d }))
+            add(LineSeries(stringResource(R.string.energy_charging), ChartColors.charge, values { _, _, c, _, _ -> c }))
+            add(LineSeries(stringResource(R.string.energy_discharging), ChartColors.discharge, values { _, _, _, d, _ -> d }))
         }
         add(LineSeries(backupLabel, ChartColors.grid, values { _, _, _, _, g -> g }))
     }
     SectionCard {
-        CardHeader(if (hourly) "Przepływ energii [kW, średnio w godzinie]" else "Przepływ energii [kWh na dzień]")
+        CardHeader(if (hourly) stringResource(R.string.energy_flow_hourly) else stringResource(R.string.energy_flow_daily))
         LineChart(
             series = series,
             xLabels = xLabels(state),
-            contentDescription = "Wykres produkcji PV, zużycia, ładowania, rozładowania i poboru z sieci",
+            contentDescription = stringResource(R.string.energy_flow_chart_desc),
         )
         ChartLegend(series)
     }
@@ -263,10 +263,10 @@ private fun SocChartCard(state: EnergyState) {
     val labels = xLabels(state).mapKeys { it.key + 1 }
     val series = listOf(LineSeries("SOC", ChartColors.soc, values, fill = true))
     SectionCard {
-        CardHeader(if (useHourly(state)) "SOC baterii [%]" else "SOC baterii na koniec dnia [%]")
-        LineChart(series, labels, fixedMax = 100.0, yUnit = "%", height = 160.dp, contentDescription = "Wykres SOC baterii")
+        CardHeader(if (useHourly(state)) stringResource(R.string.energy_soc_hourly) else stringResource(R.string.energy_soc_daily))
+        LineChart(series, labels, fixedMax = 100.0, yUnit = "%", height = 160.dp, contentDescription = stringResource(R.string.energy_soc_chart_desc))
         Text(
-            "Linia rośnie – bateria się ładuje, opada – rozładowuje.",
+            stringResource(R.string.energy_soc_hint),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -276,25 +276,25 @@ private fun SocChartCard(state: EnergyState) {
 @Composable
 private fun StatisticsCard(st: BatteryStatistics) {
     SectionCard {
-        CardHeader("Statystyki magazynu")
-        ValueRow("Pełne cykle (ekwiwalent)", Format.decimal(st.equivalentFullCycles, 2))
-        ValueRow("Średni SOC", Format.percent(st.averageSocPercent))
-        ValueRow("Minimalny SOC", Format.percent(st.minSocPercent))
-        ValueRow("Maksymalny SOC", Format.percent(st.maxSocPercent))
-        ValueRow("Energia naładowana", Format.kwh(st.chargedKwh))
-        ValueRow("Energia rozładowana", Format.kwh(st.dischargedKwh))
-        ValueRow("Straty magazynu", Format.kwh(st.lossesKwh))
-        ValueRow("Godziny z pustą baterią", Format.decimal(st.hoursEmpty, 1) + " h")
-        ValueRow("Godziny z pełną baterią", Format.decimal(st.hoursFull, 1) + " h")
+        CardHeader(stringResource(R.string.energy_stats))
+        ValueRow(stringResource(R.string.energy_cycles), Format.decimal(st.equivalentFullCycles, 2))
+        ValueRow(stringResource(R.string.energy_avg_soc), Format.percent(st.averageSocPercent))
+        ValueRow(stringResource(R.string.energy_min_soc), Format.percent(st.minSocPercent))
+        ValueRow(stringResource(R.string.energy_max_soc), Format.percent(st.maxSocPercent))
+        ValueRow(stringResource(R.string.energy_charged), Format.kwh(st.chargedKwh))
+        ValueRow(stringResource(R.string.energy_discharged), Format.kwh(st.dischargedKwh))
+        ValueRow(stringResource(R.string.energy_storage_losses), Format.kwh(st.lossesKwh))
+        ValueRow(stringResource(R.string.energy_hours_empty), Format.decimal(st.hoursEmpty, 1) + " h")
+        ValueRow(stringResource(R.string.energy_hours_full), Format.decimal(st.hoursFull, 1) + " h")
     }
 }
 
 @Composable
 private fun AutonomyCard(battery: BatteryStorage?, defaultDailyKwh: Double) {
     SectionCard {
-        CardHeader("Jak długo wytrzyma bateria?", estimate = false)
+        CardHeader(stringResource(R.string.energy_autonomy), estimate = false)
         if (battery == null) {
-            Text("Włącz magazyn energii w Ustawieniach, aby policzyć autonomię.", style = MaterialTheme.typography.bodyMedium)
+            Text(stringResource(R.string.energy_autonomy_off), style = MaterialTheme.typography.bodyMedium)
             return@SectionCard
         }
         var dailyText by rememberSaveable(defaultDailyKwh) { mutableStateOf(Format.decimal(defaultDailyKwh, 1)) }
@@ -302,15 +302,14 @@ private fun AutonomyCard(battery: BatteryStorage?, defaultDailyKwh: Double) {
         val daily = Format.parseDecimal(dailyText)?.takeIf { it > 0.0 }
 
         Text(
-            "Bez ładowania, od SOC maks. do min., z uwzględnieniem użytecznej pojemności i sprawności rozładowania: " +
-                "${Format.kwh(AutonomyCalculator.deliverableKwh(battery))} do dyspozycji.",
+            stringResource(R.string.energy_deliverable, Format.kwh(AutonomyCalculator.deliverableKwh(battery))),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         OutlinedTextField(
             value = dailyText,
             onValueChange = { dailyText = it.take(8); constantW = null },
-            label = { Text("Zużycie [kWh/dzień]") },
+            label = { Text(stringResource(R.string.energy_consumption_per_day)) },
             singleLine = true,
             isError = daily == null,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -330,23 +329,22 @@ private fun AutonomyCard(battery: BatteryStorage?, defaultDailyKwh: Double) {
             else -> null
         }
         if (result != null) {
-            val load = if (constantW != null) "stały pobór ${Format.decimal(result.loadKw, 1)} kW" else "${Format.kwh(daily ?: 0.0)}/dzień"
+            val load = if (constantW != null) stringResource(R.string.energy_constant_load, Format.decimal(result.loadKw, 1)) else stringResource(R.string.energy_per_day, Format.kwh(daily ?: 0.0))
             Text(
-                "${Format.decimal(battery.nominalCapacityKwh, 1)} kWh bateria, $load →",
+                stringResource(R.string.energy_battery_load, Format.decimal(battery.nominalCapacityKwh, 1), load.toString()),
                 style = MaterialTheme.typography.bodyMedium,
             )
             val hours = result.hours
             Text(
-                if (hours == null) "—" else if (hours >= 48) "około ${Format.decimal(hours / 24.0, 1)} dni autonomii"
-                else "około ${Format.decimal(hours, 1)} h autonomii",
+                if (hours == null) "—" else if (hours >= 48) stringResource(R.string.energy_autonomy_days, Format.decimal(hours / 24.0, 1))
+                else stringResource(R.string.energy_autonomy_hours, Format.decimal(hours, 1)),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary,
             )
             if (result.limitedByDischargePower) {
                 Text(
-                    "Uwaga: pobór przekracza maks. moc rozładowania (${Format.kw(battery.maxDischargePowerKw)}). " +
-                        "Bateria pokryje tylko tę moc, resztę musi dać sieć/agregat.",
+                    stringResource(R.string.energy_discharge_limit, Format.kw(battery.maxDischargePowerKw)),
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall,
                 )
@@ -358,38 +356,37 @@ private fun AutonomyCard(battery: BatteryStorage?, defaultDailyKwh: Double) {
 @Composable
 private fun CostsCard(costs: CostState?) {
     SectionCard {
-        CardHeader("Koszt energii (prognoza roczna)")
+        CardHeader(stringResource(R.string.energy_costs))
         if (costs == null) {
             Text(
-                "Wpisz cenę energii z sieci lub agregatu w Ustawieniach → Ceny energii, aby zobaczyć koszty i okres zwrotu.",
+                stringResource(R.string.energy_costs_need_prices),
                 style = MaterialTheme.typography.bodyMedium,
             )
             return@SectionCard
         }
         val c = costs.comparison
-        ValueRow("Koszt bez baterii / rok", Format.money(c.costWithoutBattery))
+        ValueRow(stringResource(R.string.energy_cost_without), Format.money(c.costWithoutBattery))
         if (costs.hasBattery) {
-            ValueRow("Koszt z baterią / rok", Format.money(c.costWithBattery))
+            ValueRow(stringResource(R.string.energy_cost_with), Format.money(c.costWithBattery))
             HorizontalDivider()
-            ValueRow("Oszczędność dzienna", Format.money(c.dailySavings))
-            ValueRow("Oszczędność miesięczna", Format.money(c.monthlySavings))
-            ValueRow("Oszczędność roczna", Format.money(c.yearlySavings), bold = true)
+            ValueRow(stringResource(R.string.energy_savings_day), Format.money(c.dailySavings))
+            ValueRow(stringResource(R.string.energy_savings_month), Format.money(c.monthlySavings))
+            ValueRow(stringResource(R.string.energy_savings_year), Format.money(c.yearlySavings), bold = true)
             val payback = c.paybackYears
             ValueRow(
-                "Okres zwrotu magazynu",
+                stringResource(R.string.energy_payback),
                 when {
-                    c.batteryCost == null -> "podaj koszt magazynu"
-                    payback == null -> "brak zwrotu"
-                    else -> "${Format.decimal(payback, 1)} lat"
+                    c.batteryCost == null -> stringResource(R.string.energy_enter_cost)
+                    payback == null -> stringResource(R.string.energy_no_payback)
+                    else -> stringResource(R.string.energy_years, Format.decimal(payback, 1))
                 },
                 bold = true,
             )
         } else {
-            Text("Włącz magazyn energii, aby zobaczyć oszczędności.", style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.energy_turn_on_battery), style = MaterialTheme.typography.bodySmall)
         }
         Text(
-            "Koszt = energia z sieci/agregatu × cena − nadwyżka × cena sprzedaży. Prognoza roczna " +
-                "opiera się na prognozie pogody i średnich klimatycznych – rzeczywiste oszczędności mogą się różnić.",
+            stringResource(R.string.energy_cost_hint),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

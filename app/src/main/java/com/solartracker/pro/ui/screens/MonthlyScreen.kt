@@ -1,5 +1,7 @@
 package com.solartracker.pro.ui.screens
 
+import androidx.compose.ui.res.stringResource
+import com.solartracker.pro.R
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -61,9 +63,8 @@ fun MonthlyScreen(state: MonthlyState?, modifier: Modifier = Modifier) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             ScreenTitle(
-                "Produkcja miesięczna ${state.year}",
-                "${Format.decimal(state.system.peakPowerKw)} kWp · azymut ${Format.degrees(state.system.azimuthDeg)} " +
-                    Format.compass(state.system.azimuthDeg),
+                stringResource(R.string.monthly_title, state.year.toString()),
+                stringResource(R.string.monthly_subtitle, Format.decimal(state.system.peakPowerKw), Format.degrees(state.system.azimuthDeg), Format.compass(state.system.azimuthDeg)),
             )
 
             Row(
@@ -93,7 +94,7 @@ fun MonthlyScreen(state: MonthlyState?, modifier: Modifier = Modifier) {
             SectionCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        "Energia [kWh] wg miesięcy",
+                        stringResource(R.string.monthly_chart_title),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.weight(1f),
@@ -105,7 +106,7 @@ fun MonthlyScreen(state: MonthlyState?, modifier: Modifier = Modifier) {
                     series = visible.map { e ->
                         BarSeries(Format.degrees(e.tiltDeg), colorOf(e.tiltDeg), Month.entries.map { e.energyByMonthKwh.getValue(it) })
                     },
-                    contentDescription = "Wykres miesięcznej produkcji dla kątów " +
+                    contentDescription = stringResource(R.string.monthly_chart_desc) +
                         visible.joinToString { Format.degrees(it.tiltDeg) },
                 )
             }
@@ -115,8 +116,7 @@ fun MonthlyScreen(state: MonthlyState?, modifier: Modifier = Modifier) {
             }
 
             Text(
-                "Szacunek. Źródło: ${state.sourceDescription}. Średnie klimatyczne opisują typowy rok – " +
-                    "konkretny miesiąc może być wyraźnie lepszy lub gorszy.",
+                stringResource(R.string.monthly_footer, state.sourceDescription),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -127,7 +127,7 @@ fun MonthlyScreen(state: MonthlyState?, modifier: Modifier = Modifier) {
 @Composable
 private fun MonthlyTable(estimates: List<MonthlyEstimate>, colorOf: (Double) -> Color) {
     Row(Modifier.fillMaxWidth()) {
-        Text("Miesiąc", style = MaterialTheme.typography.labelMedium, modifier = Modifier.width(104.dp))
+        Text(stringResource(R.string.month), style = MaterialTheme.typography.labelMedium, modifier = Modifier.width(104.dp))
         estimates.forEach {
             Text(
                 Format.degrees(it.tiltDeg),
@@ -155,7 +155,7 @@ private fun MonthlyTable(estimates: List<MonthlyEstimate>, colorOf: (Double) -> 
     }
     HorizontalDivider()
     Row(Modifier.fillMaxWidth()) {
-        Text("Rok", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, modifier = Modifier.width(104.dp))
+        Text(stringResource(R.string.year), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, modifier = Modifier.width(104.dp))
         estimates.forEach {
             Text(
                 Format.decimal(it.yearlyKwh, 0),
