@@ -5,7 +5,6 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
-import androidx.test.uiautomator.Direction
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
 import org.junit.Assert.assertNotNull
@@ -35,6 +34,12 @@ class RadarInstrumentedTest {
         runCatching { device.takeScreenshot(File(dir, "$name.png")) }
     }
 
+    /** Scrolls the page by swiping along the left margin – a swipe over the map would pan the map instead. */
+    private fun scrollPage() {
+        val x = (device.displayWidth * 0.03).toInt().coerceAtLeast(8)
+        device.swipe(x, (device.displayHeight * 0.75).toInt(), x, (device.displayHeight * 0.35).toInt(), 25)
+    }
+
     @Test
     fun radarTabShowsStatusTodayAndHourlyForecast() {
         ActivityScenario.launch(MainActivity::class.java).use {
@@ -42,16 +47,24 @@ class RadarInstrumentedTest {
             assertNotNull("Radar tab not found", tab)
             tab!!.click()
             assertNotNull("screen", device.wait(Until.findObject(By.res("radar_screen")), 15_000))
-            val status = device.wait(Until.findObject(By.res("radar_status")), 30_000)
+            assertNotNull("now card", device.wait(Until.findObject(By.res("radar_now")), 15_000))
+            screenshot("radar-top")
+            // The radar card sits below the "now" card and today's tiles – scroll to it.
+            var status = device.wait(Until.findObject(By.res("radar_status")), 5_000)
+            repeat(30) {
+                if (status != null) return@repeat
+                scrollPage()
+                status = device.wait(Until.findObject(By.res("radar_status")), 1_500)
+            }
             assertNotNull("radar status", status)
             Log.i(tag, "radar status: ${status.text}")
             assertTrue(status.text, status.text in setOf("NA ŻYWO", "DANE NIEAKTUALNE", "Z PAMIĘCI", "NIEDOSTĘPNY", "LIVE", "STALE DATA", "CACHED", "UNAVAILABLE"))
-            screenshot("radar-top")
-            for (res in listOf("radar_today", "radar_chart", "radar_hourly")) {
+            screenshot("radar-map")
+            for (res in listOf("radar_chart", "radar_hourly")) {
                 var o = device.findObject(By.res(res))
                 repeat(30) {
                     if (o != null) return@repeat
-                    device.findObjects(By.scrollable(true)).maxByOrNull { it.visibleBounds.height() }?.scroll(Direction.DOWN, 0.6f)
+                    scrollPage()
                     o = device.wait(Until.findObject(By.res(res)), 1_000)
                 }
                 assertNotNull(res, o)
