@@ -4,6 +4,10 @@ Wszystkie istotne zmiany w projekcie Solar Tracker PRO.
 Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie [SemVer](https://semver.org/).
 
 ## [Unreleased]
+### Changed – wygląd zakładki Radar
+- Karta „teraz” z gradientem zależnym od nieba (słońce, chmury, opady, noc) i dobranym kontrastem tekstu.
+- Wykres PV: oś mocy z wartościami, etykiety godzin/dni w dokładnych miejscach, zacieniona noc, wypełnienie pod krzywą oczekiwaną, punkty pomiarów, wyraźny znacznik „teraz” i wybranej godziny.
+- Lista godzinowa: pasek produkcji względem najlepszej godziny dnia.
 
 ## [v0.15.1] - 2026-10-08
 ### Changed – zakładka Radar

@@ -37,12 +37,14 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -55,6 +57,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
@@ -64,7 +67,10 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -218,21 +224,36 @@ private fun SkeletonCard(text: String) {
 
 // ---- Hero: now ---------------------------------------------------------------------------------------------------
 
+/** Background gradient and text colour of the "now" card from the sky of the current hour (contrast ≥ 4.5:1 for text). */
+private fun heroStyle(h: HourForecast?): Pair<List<Color>, Color> {
+    val wx = h?.weather
+    val dark = Color.White
+    return when {
+        h == null || wx == null -> listOf(Color(0xFF546E7A), Color(0xFF37474F)) to dark
+        (wx.precipitationMm ?: 0.0) >= 0.1 || (wx.weatherCode ?: 0) >= 51 -> listOf(Color(0xFF3F51B5), Color(0xFF263238)) to dark
+        h.sunElevationDeg <= 0 -> listOf(Color(0xFF283593), Color(0xFF0D1440)) to dark
+        (h.effectiveCloudPercent ?: wx.cloudCoverPercent ?: 0.0) >= 60 -> listOf(Color(0xFF607D8B), Color(0xFF455A64)) to dark
+        else -> listOf(Color(0xFFFFCA28), Color(0xFFFF8F00)) to Color(0xFF2B1700)
+    }
+}
+
 @Composable
 private fun HeroCard(r: HourlyPvReport?, weather: WeatherState, locationName: String, now: Instant, hm: DateTimeFormatter, onRefresh: () -> Unit) {
     val h = r?.now?.hour
     val wx = h?.weather
     val forecastAge = weather.forecast?.fetchedAt?.let { Duration.between(it, now) }
     val offline = weather.error != null || (forecastAge != null && forecastAge > Duration.ofHours(3))
+    val (gradient, fg) = heroStyle(h)
     Card(Modifier.fillMaxWidth().testTag("radar_now"), shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
-        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)) {
+        CompositionLocalProvider(LocalContentColor provides fg) {
+        Column(Modifier.background(Brush.linearGradient(gradient)).padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(locationName.ifBlank { tr("Twoja instalacja", "Your installation") }, style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(weather.updatedAt?.let { tr("Prognoza z ", "Forecast from ") + hm.format(it) } ?: tr("Brak prognozy", "No forecast"),
-                        style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f))
+                        style = MaterialTheme.typography.labelMedium, color = fg.copy(alpha = 0.8f))
                 }
                 IconButton(onClick = onRefresh) { Icon(Icons.Outlined.Refresh, contentDescription = tr("Odśwież pogodę", "Refresh weather")) }
             }
@@ -258,12 +279,13 @@ private fun HeroCard(r: HourlyPvReport?, weather: WeatherState, locationName: St
             }
             if (wx != null) {
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Pill("💧 " + pct(wx.relativeHumidityPercent))
-                    Pill(tr("rosa ", "dew ") + c(h?.dewPointC) + if (h?.dewPointCalculated == true) "*" else "")
-                    Pill("💨 " + kmh(wx.windSpeedMs) + " " + (HourlyPvForecastEngine.compass(wx.windDirectionDeg) ?: ""))
-                    Pill(tr("porywy ", "gusts ") + kmh(wx.windGustsMs))
-                    Pill("🌧 " + mm(wx.precipitationMm) + " · " + pct(wx.precipitationProbabilityPercent))
-                    wx.uvIndex?.let { Pill("UV " + String.format(Locale.ROOT, "%.1f", it)) }
+                    val pb = fg.copy(alpha = 0.16f)
+                    Pill("💧 " + pct(wx.relativeHumidityPercent), pb, fg)
+                    Pill(tr("rosa ", "dew ") + c(h?.dewPointC) + if (h?.dewPointCalculated == true) "*" else "", pb, fg)
+                    Pill("💨 " + kmh(wx.windSpeedMs) + " " + (HourlyPvForecastEngine.compass(wx.windDirectionDeg) ?: ""), pb, fg)
+                    Pill(tr("porywy ", "gusts ") + kmh(wx.windGustsMs), pb, fg)
+                    Pill("🌧 " + mm(wx.precipitationMm) + " · " + pct(wx.precipitationProbabilityPercent), pb, fg)
+                    wx.uvIndex?.let { Pill("UV " + String.format(Locale.ROOT, "%.1f", it), pb, fg) }
                 }
             }
             r?.now?.let { n ->
@@ -273,8 +295,8 @@ private fun HeroCard(r: HourlyPvReport?, weather: WeatherState, locationName: St
             // Data quality – what each number is.
             if (r != null) {
                 Row(Modifier.horizontalScroll(rememberScrollState()).testTag("radar_quality"), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    val onP = MaterialTheme.colorScheme.onPrimaryContainer
-                    val bg = onP.copy(alpha = 0.10f)
+                    val onP = fg
+                    val bg = fg.copy(alpha = 0.12f)
                     Pill(tr("Pogoda: ", "Weather: ") + qualityLabel(r.weatherQuality), bg, onP)
                     Pill(tr("PV: ", "PV: ") + qualityLabel(r.now.actualQuality), bg, onP)
                     r.days.firstOrNull()?.let { Pill(tr("Pewność: ", "Confidence: ") + levelLabel(it.confidence.level), bg, onP) }
@@ -288,7 +310,8 @@ private fun HeroCard(r: HourlyPvReport?, weather: WeatherState, locationName: St
                 }
             }
             if (!weather.enabled) Text(tr("Pogoda wyłączona w ustawieniach – prognoza z modelu bezchmurnego nieba / klimatu.",
-                "Weather is off in settings – forecast from the clear-sky / climate model."), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                "Weather is off in settings – forecast from the clear-sky / climate model."), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+        }
         }
     }
 }
@@ -481,50 +504,83 @@ private fun ChartCard(vm: EnergyCenterViewModel, r: HourlyPvReport, range: Int, 
         val grid = MaterialTheme.colorScheme.outlineVariant
         val sel = MaterialTheme.colorScheme.primary
         val nowColor = MaterialTheme.colorScheme.error
-        Canvas(Modifier.fillMaxWidth().height(190.dp).pointerInput(hours.size) {
-            detectTapGestures { o -> selected = ((o.x / size.width) * hours.size).toInt().coerceIn(0, hours.lastIndex) }
+        val night = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+        val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+        val measurer = rememberTextMeasurer()
+        val labelStyle = TextStyle(fontSize = 10.sp, color = labelColor)
+        // Axis ticks: hours for 24/48 h, days for longer ranges – placed exactly at their positions.
+        val ticks = remember(r.generatedAt, range) {
+            hours.withIndex().filter { (i, h) ->
+                val hr = h.start.atZone(r.zone).hour
+                when (range) { 1 -> hr % 6 == 0; 2 -> hr % 12 == 0; else -> hr == 0 } && (i > 0 || range > 2)
+            }.map { (i, h) -> i to if (range <= 2) hm.format(h.start) else dayFmt.format(h.start) }
+        }
+        val yTop = maxW / 1.1
+        Canvas(Modifier.fillMaxWidth().height(210.dp).pointerInput(hours.size) {
+            detectTapGestures { o ->
+                val left = 40.dp.toPx()
+                selected = (((o.x - left) / (size.width - left)) * hours.size).toInt().coerceIn(0, hours.lastIndex)
+            }
         }) {
-            val dx = size.width / hours.size
-            fun y(v: Double) = size.height - (v / maxW * size.height).toFloat()
-            for (k in 1..3) drawLine(grid, Offset(0f, size.height * k / 4), Offset(size.width, size.height * k / 4), 1f)
-            hours.forEachIndexed { i, h -> if (i > 0 && h.start.atZone(r.zone).hour == 0) drawLine(grid, Offset(i * dx, 0f), Offset(i * dx, size.height), 2f) }
+            val left = 40.dp.toPx()
+            val bottom = 18.dp.toPx()
+            val plotW = size.width - left
+            val plotH = size.height - bottom
+            val dx = plotW / hours.size
+            fun x(i: Int) = left + i * dx + dx / 2
+            fun y(v: Double) = plotH - (v / maxW * plotH).toFloat()
+            // Night: the sun below the horizon.
+            hours.forEachIndexed { i, h -> if (h.sunElevationDeg <= 0) drawRect(night, Offset(left + i * dx, 0f), androidx.compose.ui.geometry.Size(dx + 0.5f, plotH)) }
+            // Horizontal grid with power labels (0, ½, max).
+            listOf(0.0, yTop / 2, yTop).forEach { v ->
+                val yy = y(v)
+                drawLine(grid, Offset(left, yy), Offset(size.width, yy), 1f)
+                val t = measurer.measure(if (v >= 1000) String.format(Locale.ROOT, "%.1fk", v / 1000) else "${v.roundToInt()}", labelStyle)
+                drawText(t, topLeft = Offset(left - t.size.width - 6f, (yy - t.size.height / 2).coerceIn(0f, plotH - t.size.height)))
+            }
+            ticks.forEach { (i, label) ->
+                val tx = left + i * dx
+                if (range > 2) drawLine(grid, Offset(tx, 0f), Offset(tx, plotH), 1.5f)
+                val t = measurer.measure(label, labelStyle)
+                drawText(t, topLeft = Offset((tx - t.size.width / 2).coerceIn(left, size.width - t.size.width), plotH + 3f))
+            }
+            // Uncertainty band and the expected curve with a soft area below it.
             val band = Path().apply {
-                hours.forEachIndexed { i, h -> val x = i * dx + dx / 2; if (i == 0) moveTo(x, y(h.expectedMaxW)) else lineTo(x, y(h.expectedMaxW)) }
-                hours.indices.reversed().forEach { i -> lineTo(i * dx + dx / 2, y(hours[i].expectedMinW)) }
+                hours.forEachIndexed { i, h -> if (i == 0) moveTo(x(i), y(h.expectedMaxW)) else lineTo(x(i), y(h.expectedMaxW)) }
+                hours.indices.reversed().forEach { i -> lineTo(x(i), y(hours[i].expectedMinW)) }
                 close()
             }
-            drawPath(band, expColor.copy(alpha = 0.16f))
-            val exp = Path().apply { hours.forEachIndexed { i, h -> val x = i * dx + dx / 2; if (i == 0) moveTo(x, y(h.expectedW)) else lineTo(x, y(h.expectedW)) } }
+            drawPath(band, expColor.copy(alpha = 0.14f))
+            val exp = Path().apply { hours.forEachIndexed { i, h -> if (i == 0) moveTo(x(i), y(h.expectedW)) else lineTo(x(i), y(h.expectedW)) } }
+            val area = Path().apply { addPath(exp); lineTo(x(hours.lastIndex), plotH); lineTo(x(0), plotH); close() }
+            drawPath(area, Brush.verticalGradient(listOf(expColor.copy(alpha = 0.35f), expColor.copy(alpha = 0.02f)), 0f, plotH))
             drawPath(exp, expColor, style = Stroke(width = 5f, cap = StrokeCap.Round, join = StrokeJoin.Round))
             // Actual: real measurements only, broken where there is no data (never bridged).
             var path: Path? = null
             hours.forEachIndexed { i, h ->
                 val a = h.actual.averageW?.takeIf { h.actual.quality == ValueQuality.REAL || h.actual.quality == ValueQuality.PARTIAL }
-                val x = i * dx + dx / 2
                 if (a == null) { path?.let { drawPath(it, actColor, style = Stroke(width = 5f, cap = StrokeCap.Round, join = StrokeJoin.Round)) }; path = null }
-                else path = (path ?: Path().apply { moveTo(x, y(a)) }).apply { lineTo(x, y(a)) }
+                else {
+                    path = (path ?: Path().apply { moveTo(x(i), y(a)) }).apply { lineTo(x(i), y(a)) }
+                    if (range <= 2) drawCircle(actColor, 4.5f, Offset(x(i), y(a)))
+                }
             }
             path?.let { drawPath(it, actColor, style = Stroke(width = 5f, cap = StrokeCap.Round, join = StrokeJoin.Round)) }
             if (nowIndex >= 0) {
-                val nx = nowIndex * dx + dx * (Duration.between(hours[nowIndex].start, now).toMinutes() / 60f)
-                drawLine(nowColor, Offset(nx, 0f), Offset(nx, size.height), 2f)
+                val nx = left + nowIndex * dx + dx * (Duration.between(hours[nowIndex].start, now).toMinutes() / 60f)
+                drawLine(nowColor, Offset(nx, 0f), Offset(nx, plotH), 2.5f)
+                drawCircle(nowColor, 5f, Offset(nx, 4f))
             }
-            val sx = selected * dx + dx / 2
-            drawLine(sel, Offset(sx, 0f), Offset(sx, size.height), 2f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 8f)))
-            drawCircle(expColor, 7f, Offset(sx, y(hours[selected.coerceIn(0, hours.lastIndex)].expectedW)))
-        }
-        // Time axis: 4–5 labels.
-        Row(Modifier.fillMaxWidth()) {
-            val step = (hours.size / 4).coerceAtLeast(1)
-            (0 until hours.size step step).take(5).forEach { i ->
-                Text(if (range <= 2) hm.format(hours[i].start) else dayFmt.format(hours[i].start), style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f), textAlign = TextAlign.Start, maxLines = 1)
-            }
+            val si = selected.coerceIn(0, hours.lastIndex)
+            drawLine(sel, Offset(x(si), 0f), Offset(x(si), plotH), 2f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 8f)))
+            drawCircle(Color.White, 9f, Offset(x(si), y(hours[si].expectedW)))
+            drawCircle(expColor, 6f, Offset(x(si), y(hours[si].expectedW)))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
             LegendDot(expColor, tr("oczekiwana", "expected"))
             LegendDot(actColor, tr("rzeczywista", "actual"))
             LegendDot(nowColor, tr("teraz", "now"))
+            LegendDot(night.copy(alpha = 0.25f), tr("noc", "night"))
         }
         HourDetails(hours[selected.coerceIn(0, hours.lastIndex)], hm, dayFmt)
     }
@@ -606,7 +662,8 @@ private fun HourlyCard(r: HourlyPvReport, now: Instant, hm: DateTimeFormatter, d
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f), textAlign = TextAlign.End)
         }
         HorizontalDivider()
-        day.hours.forEach { h -> HourRow(h, now, hm, dayFmt) }
+        val dayMax = day.hours.maxOfOrNull { it.expectedW }?.takeIf { it > 0 } ?: 1.0
+        day.hours.forEach { h -> HourRow(h, now, hm, dayFmt, dayMax) }
         Text(tr("Dotknij godziny, aby zobaczyć wilgotność, punkt rosy, chmury, słońce i źródła danych.", "Tap an hour for humidity, dew point, clouds, sun and data sources."),
             style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
@@ -618,7 +675,7 @@ private fun HeaderCell(text: String, width: androidx.compose.ui.unit.Dp) {
 }
 
 @Composable
-private fun HourRow(h: HourForecast, now: Instant, hm: DateTimeFormatter, dayFmt: DateTimeFormatter) {
+private fun HourRow(h: HourForecast, now: Instant, hm: DateTimeFormatter, dayFmt: DateTimeFormatter, dayMax: Double) {
     var open by rememberSaveable(h.start.epochSecond) { mutableStateOf(false) }
     val current = !now.isBefore(h.start) && now.isBefore(h.end)
     val wx = h.weather
@@ -634,11 +691,14 @@ private fun HourRow(h: HourForecast, now: Instant, hm: DateTimeFormatter, dayFmt
             Text(wx?.windSpeedMs?.let { "${(it * 3.6).roundToInt()}" } ?: "—", style = MaterialTheme.typography.bodySmall, modifier = Modifier.width(52.dp))
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
                 Text(if (h.expectedW > 0) w(h.expectedW) else "—", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = ChartColors.pv)
+                // Expected PV relative to the day's best hour – a quick visual profile.
+                if (h.expectedW > 0) Box(Modifier.width(64.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(MaterialTheme.colorScheme.surfaceContainerHighest)) {
+                    Box(Modifier.fillMaxWidth((h.expectedW / dayMax).toFloat().coerceIn(0.03f, 1f)).height(4.dp).background(ChartColors.pv))
+                }
                 if (h.actual.quality == ValueQuality.REAL || h.actual.quality == ValueQuality.PARTIAL)
                     Text(w(h.actual.averageW), style = MaterialTheme.typography.labelSmall, color = ChartColors.consumption)
             }
         }
-        // Expected PV relative to the day's best hour – a quick visual profile.
         AnimatedVisibility(open) { Column(Modifier.padding(top = 6.dp)) { HourDetails(h, hm, dayFmt) } }
     }
 }
