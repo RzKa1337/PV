@@ -4,6 +4,8 @@ Wszystkie istotne zmiany w projekcie Solar Tracker PRO.
 Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie [SemVer](https://semver.org/).
 
 ## [Unreleased]
+
+## [v0.14.1] - 2026-10-08
 ### Fixed
 - Pogoda: nagłówek „zachmurzenie 100%” przy niebie z cienkimi chmurami wysokimi (cirrus). Open-Meteo `cloud_cover` liczy każdą chmurę w każdej warstwie; nagłówek i ikona opisują teraz niebo według prognozowanego nasłonecznienia (indeks czystego nieba, którego i tak używa model PV), a zachmurzenie całkowite jest pokazane obok warstw chmur.
 - Diagnostyka (porównanie model–pomiar, „Co się stało?”, „Dlaczego…?”): chmury oceniane po zasłonięciu słońca (1 − indeks czystego nieba), nie po zachmurzeniu całkowitym – cienkie chmury wysokie nie są już podawane jako przyczyna niskiej produkcji.
