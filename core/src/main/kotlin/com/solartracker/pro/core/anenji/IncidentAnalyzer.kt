@@ -134,6 +134,8 @@ enum class WhyQuestion(val label: String) {
     LOW_MORNING_SOC("Dlaczego rano SOC było niższe niż zwykle?"),
     MPPT_LOW("Dlaczego MPPT produkuje mniej?"),
     CLIPPING("Dlaczego wystąpił clipping?"),
+    INVERTER_RESTART("Dlaczego falownik się zrestartował?"),
+    HIGH_CONSUMPTION("Dlaczego zużycie było wyższe?"),
 }
 
 data class WhyAnswer(val question: WhyQuestion, val date: LocalDate, val findings: List<String>, val conclusion: String, val confidence: Double, val incident: IncidentReport? = null)
@@ -152,6 +154,8 @@ object WhyAnalyzer {
             else -> today
         }
         val q = when {
+            "restart" in t || "reboot" in t || "zrestart" in t -> WhyQuestion.INVERTER_RESTART
+            "zużyci" in t || "zuzyci" in t || "consumption" in t -> WhyQuestion.HIGH_CONSUMPTION
             "mppt" in t -> WhyQuestion.MPPT_LOW
             "clipping" in t || "limit" in t -> WhyQuestion.CLIPPING
             "alarm" in t || "błąd" in t || "fault" in t || "ostrzeż" in t -> WhyQuestion.ALARM
@@ -265,6 +269,8 @@ object WhyAnalyzer {
                 WhyAnswer(question, date, findings, if (low.isEmpty()) "MPPT pracują podobnie" else
                     "MPPT ${low.keys.joinToString()} niżej o ${((1 - low.values.min() / ref) * 100).toInt()}% – możliwe: zacienienie, mismatch, złącze, konfiguracja", if (low.isEmpty()) 0.6 else 0.7)
             }
+            WhyQuestion.INVERTER_RESTART -> restart(date, s, events, zone, context)
+            WhyQuestion.HIGH_CONSUMPTION -> consumption(date, today, previous, zone)
             WhyQuestion.CLIPPING -> {
                 val l = pvLimitW ?: return WhyAnswer(question, date, listOf("Nieznany limit mocy falownika/ładowarki"), "N/A", 0.0)
                 val at = today.filter { (it[Channel.PV_POWER] ?: 0.0) >= l * 0.97 }
@@ -273,6 +279,44 @@ object WhyAnalyzer {
                 WhyAnswer(question, date, findings, "PV przekraczało możliwości falownika/ładowarki (${l.toInt()} W) – typowe w słoneczne południe, gdy moc paneli > limit", 0.8)
             }
         }
+    }
+
+    private fun restart(date: LocalDate, s: List<AnalyzerSample>, events: List<AnenjiEvent>, zone: ZoneId, context: ContextProvider?): WhyAnswer {
+        val q = WhyQuestion.INVERTER_RESTART
+        val r = events.lastOrNull { it.start.atZone(zone).toLocalDate() == date && it.category == EventCategory.INVERTER && "Restart" in it.description }
+            ?: return WhyAnswer(q, date, listOf("Brak wykrytego restartu tego dnia (spadek licznika czasu pracy)"), "Nie wykryto restartu", 0.6)
+        val before = events.filter { it !== r && !it.start.isAfter(r.start) && Duration.between(it.start, r.start) <= Duration.ofMinutes(15) }
+        val incident = IncidentAnalyzer.analyze(r.start, s, events, zone, context)
+        val findings = listOf("${r.description} o ${r.start.atZone(zone).toLocalTime().withNano(0)}") +
+            (if (before.isEmpty()) listOf("Brak zdarzeń w 15 min przed restartem") else before.map { "Przed restartem: ${it.description}" }) + incident.evidence
+        val critical = before.firstOrNull { it.severity == EventSeverity.CRITICAL }
+        val (concl, conf) = when {
+            critical != null -> "Restart poprzedzony awarią: ${critical.description}" to 0.7
+            before.any { "przeciąż" in it.description.lowercase() } -> "Restart po przeciążeniu" to 0.65
+            before.any { it.category == EventCategory.TEMPERATURE } -> "Restart po ostrzeżeniu temperaturowym" to 0.6
+            else -> "Przyczyna nieznana – w danych brak zdarzeń poprzedzających (możliwy zanik zasilania, ręczne wyłączenie lub zabezpieczenie)" to 0.35
+        }
+        return WhyAnswer(q, date, findings, concl, conf, incident)
+    }
+
+    private fun consumption(date: LocalDate, today: List<AnalyzerSample>, previous: List<List<AnalyzerSample>>, zone: ZoneId): WhyAnswer {
+        val q = WhyQuestion.HIGH_CONSUMPTION
+        fun hourly(day: List<AnalyzerSample>) = day.groupBy { it.time.atZone(zone).hour }.mapValues { (_, x) -> SystemBaselineEngine.energyKwh(x, Channel.LOAD_POWER) +
+            (x.lastOrNull()?.get(Channel.LOAD_POWER)?.coerceAtLeast(0.0) ?: 0.0) * (AnenjiEventLog.typicalInterval(day)?.toMinutes() ?: 0) / 60_000.0 }
+        val load = SystemBaselineEngine.energyKwh(today, Channel.LOAD_POWER)
+        if (previous.isEmpty()) return WhyAnswer(q, date, listOf("Zużycie: ${"%.1f".format(load)} kWh"), "Brak poprzednich dni do porównania", 0.2)
+        val typical = Stats.median(previous.map { SystemBaselineEngine.energyKwh(it, Channel.LOAD_POWER) })!!
+        val h = hourly(today)
+        val typH = (0 until 24).associateWith { hr -> Stats.median(previous.mapNotNull { hourly(it)[hr] }) }
+        val excess = h.mapNotNull { (hr, e) -> typH[hr]?.let { hr to e - it } }.filter { it.second > 0.05 }.sortedByDescending { it.second }.take(3)
+        val findings = listOf("Zużycie: ${"%.1f".format(load)} kWh (typowo ${"%.1f".format(typical)} kWh, ${"%+.0f".format(if (typical > 0) (load / typical - 1) * 100 else 0.0)}%)") +
+            excess.map { (hr, e) -> "%02d:00–%02d:00: +%.2f kWh względem typowej godziny".format(hr, (hr + 1) % 24, e) }
+        val (concl, conf) = when {
+            load <= typical * 1.1 -> "Zużycie w normie" to 0.6
+            excess.isNotEmpty() -> "Wyższe zużycie głównie w godzinach ${excess.joinToString { "%02d:00".format(it.first) }} – sprawdź, co wtedy pracowało" to 0.7
+            else -> "Zużycie wyższe równomiernie w ciągu dnia" to 0.5
+        }
+        return WhyAnswer(q, date, findings, concl, conf)
     }
 
     /** Share of the day covered by samples (gaps > 3 × typical interval are not covered). */

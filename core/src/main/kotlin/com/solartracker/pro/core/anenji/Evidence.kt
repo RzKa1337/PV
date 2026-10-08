@@ -96,7 +96,10 @@ data class ForensicDiagnosis(
     val anomaly: Anomaly,
     val title: String,
     val severity: DiagnosisSeverityLevel,
+    /** How sure we are of the cause ([RootCause.certainty], capped by confidence). */
     val certainty: Certainty,
+    /** How sure we are that the anomaly itself happened (measurement/event vs model-only). Drives severity. */
+    val observation: Certainty,
     val confidence: ConfidenceBreakdown,
     val evidence: EvidenceGraph,
     val rootCause: RootCause,
@@ -233,12 +236,16 @@ object RootCauseAnalyzer {
                 cause("Przegrzanie", before.any { it.category == EventCategory.TEMPERATURE }, "ostrzeżenie temperaturowe", "brak ostrzeżeń temperatury")
                 cause("Zanik zasilania / ręczne wyłączenie", null, "", "")
             }
+            AnomalyType.GRID_OUTAGE -> {
+                cause("Zanik zasilania po stronie sieci", a.samples.isNotEmpty(), "falownik raportował dane, a napięcie sieci było ~0 V", "")
+                cause("Odłączenie wejścia AC / zabezpieczenie w instalacji", null, "", "")
+            }
             AnomalyType.CLIPPING -> cause("Moc paneli większa niż limit falownika", true, "PV na limicie ${f.pvLimitW?.toInt()} W", "")
             AnomalyType.MPPT_IMBALANCE -> {
                 cause("Zacienienie części stringu", shade?.let { it > 10 }, "model zacienienia", "model zacienienia bez zmian")
                 cause("Złącze / bezpiecznik / moduł / konfiguracja", null, "", "")
             }
-            else -> cause(a.type.label, true, a.detail, "")
+            else -> Unit // no cause rules for this type: the cause stays INSUFFICIENT DATA rather than restating the symptom
         }
         val supported = c.filter { it.status == "wspierana" }.sortedByDescending { it.score }
         val eliminated = c.filter { it.status == "wyeliminowana" }
@@ -296,6 +303,13 @@ object EnergyImpactCalculator {
                 else EnergyImpact(grid, if (grid != null) price?.let { grid * it } else null, socDrop?.let { "SOC spadło o ${it.roundToInt()} p.p." }, null, 0.75,
                     "energia pobrana z sieci/agregatu po zdarzeniu (do 3 h)")
             }
+            AnomalyType.GRID_OUTAGE -> {
+                val soc = window.mapNotNull { it[Channel.SOC] }
+                val drop = if (soc.size >= 2) soc.first() - soc.min() else null
+                val outage = Duration.between(a.start, a.end).plusMinutes(5)
+                EnergyImpact(integrate(window) { it[Channel.LOAD_POWER] }, null, drop?.let { "Zasilanie z baterii; SOC −${it.roundToInt()} p.p." }, outage, 0.85,
+                    "energia odbiorów pokryta z baterii/PV w czasie braku sieci")
+            }
             AnomalyType.COMM_TIMEOUT, AnomalyType.COMM_INVALID_FRAME, AnomalyType.COMM_MISSING ->
                 EnergyImpact(null, null, null, Duration.between(a.start, a.end), 0.95, "czas bez danych; energia N/A")
             AnomalyType.RESTART -> EnergyImpact(null, null, null, null, 0.3, "wpływ energetyczny restartu nieznany (N/A)")
@@ -331,18 +345,41 @@ object ForensicDiagnosisBuilder {
             modelCertainty = if (a.type.category == AnomalyCategory.PV) nodes.firstOrNull { it.type == EvidenceType.EXPECTATION }?.confidence?.takeIf { it > 0 } else null,
         )
         val certainty = if (conf.value < 0.35 && root.certainty == Certainty.CONFIRMED) Certainty.LIKELY else root.certainty
+        val observation = observation(a, nodes).let { if (conf.value < 0.35 && it == Certainty.CONFIRMED) Certainty.LIKELY else it }
         val severity = when {
-            certainty == Certainty.CONFIRMED && a.type in CRITICAL_TYPES -> DiagnosisSeverityLevel.CRITICAL
-            certainty == Certainty.INSUFFICIENT_DATA || certainty == Certainty.POSSIBLE -> DiagnosisSeverityLevel.INFO
+            observation == Certainty.CONFIRMED && a.type in CRITICAL_TYPES -> DiagnosisSeverityLevel.CRITICAL
+            observation == Certainty.INSUFFICIENT_DATA || observation == Certainty.POSSIBLE -> DiagnosisSeverityLevel.INFO
             a.type in INFO_TYPES -> DiagnosisSeverityLevel.INFO
             else -> DiagnosisSeverityLevel.WARNING
         }
-        val title = (root.mostLikely?.let { "${a.type.label}: $it" } ?: a.type.label)
-        ForensicDiagnosis("d${i + 1}", a, title, severity, certainty, conf, EvidenceGraph("${certainty.label}: $title", nodes), root,
+        val title = (root.mostLikely?.takeIf { it != a.type.label }?.let { "${a.type.label}: $it" } ?: a.type.label)
+        ForensicDiagnosis("d${i + 1}", a, title, severity, certainty, observation, conf, EvidenceGraph("${certainty.label}: $title", nodes), root,
             EnergyImpactCalculator.impact(a, f), recommendation(a, root))
     }
 
-    private val CRITICAL_TYPES = setOf(AnomalyType.RESTART, AnomalyType.OVERLOAD, AnomalyType.TEMPERATURE, AnomalyType.DISCHARGE_CURRENT_ABNORMAL)
+    /** Model-based anomalies need the installation's own baseline to agree; direct measurements/events need a sustained run. */
+    private val MODEL_TYPES = setOf(AnomalyType.LOW_PV, AnomalyType.HIGH_PV, AnomalyType.RAPID_PV_DROP, AnomalyType.SOC_DROP, AnomalyType.EFFICIENCY)
+    private val EVENT_TYPES = setOf(AnomalyType.RESTART, AnomalyType.LOW_BATTERY, AnomalyType.GRID_TRANSITIONS, AnomalyType.COMM_TIMEOUT,
+        AnomalyType.COMM_INVALID_FRAME, AnomalyType.COMM_RECONNECT, AnomalyType.COMM_MISSING, AnomalyType.COMM_STALE)
+
+    private fun observation(a: Anomaly, nodes: List<EvidenceNode>): Certainty = when {
+        a.type in EVENT_TYPES -> Certainty.CONFIRMED
+        a.type in MODEL_TYPES -> {
+            val baseline = nodes.firstOrNull { it.type == EvidenceType.BASELINE }
+            val expected = nodes.firstOrNull { it.type == EvidenceType.EXPECTATION }
+            when {
+                baseline?.value != null && baseline.status == "nieprawidłowy" && a.samples.size >= ForensicAnomalyDetector.MIN_RUN -> Certainty.LIKELY
+                a.type == AnomalyType.SOC_DROP && a.samples.size >= ForensicAnomalyDetector.MIN_RUN -> Certainty.LIKELY
+                expected?.value != null || baseline?.value != null -> Certainty.POSSIBLE
+                else -> Certainty.INSUFFICIENT_DATA
+            }
+        }
+        a.samples.size >= ForensicAnomalyDetector.MIN_RUN -> Certainty.CONFIRMED
+        a.samples.isNotEmpty() -> Certainty.LIKELY
+        else -> Certainty.POSSIBLE
+    }
+
+    private val CRITICAL_TYPES = setOf(AnomalyType.OVERLOAD, AnomalyType.TEMPERATURE, AnomalyType.DISCHARGE_CURRENT_ABNORMAL, AnomalyType.GRID_OUTAGE)
     private val INFO_TYPES = setOf(AnomalyType.CLIPPING, AnomalyType.HIGH_PV, AnomalyType.COMM_RECONNECT, AnomalyType.COMM_MISSING)
 
     private fun recommendation(a: Anomaly, r: RootCause): String = when (a.type) {
@@ -363,6 +400,7 @@ object ForensicDiagnosisBuilder {
         AnomalyType.OVERLOAD -> "Rozłóż duże odbiory w czasie"
         AnomalyType.COMM_TIMEOUT, AnomalyType.COMM_INVALID_FRAME, AnomalyType.COMM_MISSING, AnomalyType.COMM_RECONNECT, AnomalyType.COMM_STALE ->
             "Sprawdź mostek RS232/RS485 (zasilanie, kabel, Wi-Fi)"
+        AnomalyType.GRID_OUTAGE -> "Zanik sieci – sprawdź, czy dotyczy też sąsiadów (operator) i czy bateria wystarczyła na cały czas przerwy"
         AnomalyType.GRID_VOLTAGE, AnomalyType.GRID_FREQUENCY, AnomalyType.GRID_TRANSITIONS -> "Problem po stronie sieci – obserwuj; przy częstych zdarzeniach zgłoś operatorowi"
         else -> "Zweryfikuj odczyt z wyświetlaczem falownika"
     }
@@ -370,7 +408,7 @@ object ForensicDiagnosisBuilder {
     /** Readable "how do you know?" path down to the raw source. */
     fun trace(d: ForensicDiagnosis, zone: ZoneId): List<String> = buildList {
         val f = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(zone)
-        add("DIAGNOZA: ${d.title} (${d.certainty.label}, pewność ${(d.confidence.value * 100).roundToInt()}%)")
+        add("DIAGNOZA: ${d.title} (zdarzenie: ${d.observation.label}, przyczyna: ${d.certainty.label}, pewność ${(d.confidence.value * 100).roundToInt()}%)")
         add("KIEDY: ${f.format(d.anomaly.start)} – ${f.format(d.anomaly.end)}")
         add("DOWODY:"); addAll(d.evidence.render().lines().drop(1).map { "  $it" })
         add("PRZYCZYNY MOŻLIWE: " + d.rootCause.possible.joinToString { "${it.cause} (${it.status})" })

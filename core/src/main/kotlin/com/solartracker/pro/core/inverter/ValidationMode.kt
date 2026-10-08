@@ -120,3 +120,30 @@ object ValidationMode {
     fun verifiedAddresses(references: List<ManualReference>): Set<Int> =
         SmgRegisters.LIVE.filter { evidence(it, references).status == RegisterQuality.VERIFIED }.map { it.address }.toSet()
 }
+
+/** JSON storage of manual display references (kept on the phone). A broken file gives an empty list. */
+object ReferenceCodec {
+    private val json = kotlinx.serialization.json.Json
+
+    fun encode(list: List<ManualReference>): String = json.encodeToString(kotlinx.serialization.json.JsonArray.serializer(), kotlinx.serialization.json.JsonArray(list.map { r ->
+        kotlinx.serialization.json.JsonObject(buildMap {
+            put("address", kotlinx.serialization.json.JsonPrimitive(r.address))
+            put("raw", kotlinx.serialization.json.JsonPrimitive(r.rawValue))
+            put("decoded", kotlinx.serialization.json.JsonPrimitive(r.decodedValue))
+            r.applicationValue?.let { put("app", kotlinx.serialization.json.JsonPrimitive(it)) }
+            put("manual", kotlinx.serialization.json.JsonPrimitive(r.manualReferenceValue))
+            put("unit", kotlinx.serialization.json.JsonPrimitive(r.manualReferenceUnit))
+            put("time", kotlinx.serialization.json.JsonPrimitive(r.manualReferenceTimestamp.toString()))
+            put("real", kotlinx.serialization.json.JsonPrimitive(r.fromRealDevice))
+        })
+    }))
+
+    fun decode(text: String): List<ManualReference> = runCatching { json.parseToJsonElement(text) as kotlinx.serialization.json.JsonArray }.getOrNull().orEmpty().mapNotNull { e ->
+        val o = e as? kotlinx.serialization.json.JsonObject ?: return@mapNotNull null
+        fun s(k: String) = (o[k] as? kotlinx.serialization.json.JsonPrimitive)?.content
+        runCatching {
+            ManualReference(s("address")!!.toInt(), s("raw")!!.toInt(), s("decoded")!!.toDouble(), s("app")?.toDoubleOrNull(), s("manual")!!.toDouble(),
+                s("unit")!!, Instant.parse(s("time")!!), s("real")!!.toBooleanStrict())
+        }.getOrNull()
+    }
+}

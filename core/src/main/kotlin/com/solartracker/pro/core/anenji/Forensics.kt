@@ -34,6 +34,7 @@ enum class AnomalyType(val label: String, val category: AnomalyCategory) {
     BYPASS("Nieoczekiwany bypass", AnomalyCategory.INVERTER),
     UNEXPECTED_GRID("Nieoczekiwany pobór z sieci", AnomalyCategory.GRID),
     GRID_TRANSITIONS("Częste przełączenia na sieć", AnomalyCategory.GRID),
+    GRID_OUTAGE("Zanik napięcia sieci", AnomalyCategory.GRID),
     GRID_VOLTAGE("Napięcie sieci poza normą", AnomalyCategory.GRID),
     GRID_FREQUENCY("Częstotliwość sieci poza normą", AnomalyCategory.GRID),
     COMM_TIMEOUT("Przekroczenia czasu komunikacji", AnomalyCategory.COMMUNICATION),
@@ -249,6 +250,11 @@ object ForensicAnomalyDetector {
         }
         f.events.filter { it.category == EventCategory.GRID }.groupBy { it.start.atZone(f.zone).toLocalDate() }.filterValues { it.size > 6 }.forEach { (d, ev) ->
             out += Anomaly(AnomalyType.GRID_TRANSITIONS, ev.first().start, ev.last().start, ev.size.toDouble(), 6.0, "", "${ev.size} przełączeń na sieć ($d)", emptyList())
+        }
+        // Outage: the grid is normally present here, then its voltage collapses while the inverter keeps reporting.
+        if (s.any { (it[Channel.GRID_VOLTAGE] ?: 0.0) > 180 }) sustained(s) { x -> (x[Channel.GRID_VOLTAGE] ?: Double.NaN) < 50 }.forEach { r ->
+            out += Anomaly(AnomalyType.GRID_OUTAGE, r.first().time, r.last().time, r.maxOf { it[Channel.GRID_VOLTAGE]!! }, 230.0, "V",
+                "Brak napięcia sieci przez ${Duration.between(r.first().time, r.last().time).toMinutes() + 5} min", r)
         }
         // EN 50160 limits for 230 V / 50 Hz networks (±10 % voltage, ±1 % frequency); only when the grid is present.
         sustained(s) { x -> val v = x[Channel.GRID_VOLTAGE]; v != null && v > 100 && (v < 207 || v > 253) }.forEach { r ->
