@@ -12,8 +12,8 @@ android {
         applicationId = "com.solartracker.pro"
         minSdk = 26
         targetSdk = 35
-        versionCode = 17
-        versionName = "0.15.0"
+        versionCode = 18
+        versionName = "0.15.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
