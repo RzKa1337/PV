@@ -217,7 +217,8 @@ class EnergyCenterInstrumentedTest {
         db.addObservation(obs, usable = false)
         assertEquals(obs, db.observations(now.minusSeconds(60)).single { it.time == obs.time })
         assertTrue("not usable rows are not used by the global calibration", db.calibration(now.minusSeconds(60)).none { it.time == obs.time })
-        val hour = now.truncatedTo(java.time.temporal.ChronoUnit.HOURS).plusSeconds(3600)
+        // Two hours ahead: with "next hour" a run in the last second of an hour made now+1s ≥ the hour start (issue rejected).
+        val hour = now.truncatedTo(java.time.temporal.ChronoUnit.HOURS).plusSeconds(7200)
         db.putForecast(hour, ForecastHorizon.HOUR_AHEAD, 1.2, now)
         db.putForecast(hour, ForecastHorizon.HOUR_AHEAD, 1.5, now.plusSeconds(1)) // later issue replaces
         db.putForecast(hour, ForecastHorizon.DAY_AHEAD, 9.9, hour.plusSeconds(1)) // issued after the hour started → ignored
