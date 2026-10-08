@@ -21,6 +21,12 @@ data class AnalysisContext(
     val clearSkyIndex: Double? = null,
     val ambientC: Double? = null,
     val sunElevationDeg: Double? = null,
+    /** Shading power factor from the shading model (1 = unshaded); null = unknown. */
+    val shadingFactor: Double? = null,
+    /** Snow on the panels expected by the weather model. */
+    val snowExpected: Boolean? = null,
+    /** Source of [expectedPvW]/weather: forecast for recent days, otherwise unknown. */
+    val weatherSource: TelemetrySource = TelemetrySource.WEATHER_FORECAST,
 )
 
 data class TimelineEntry(val time: Instant, val text: String)
