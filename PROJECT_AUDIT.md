@@ -134,5 +134,19 @@ Statusy: **IMPLEMENTED** = kod + testy na danych SYMULOWANYCH; **PARTIALLY VERIF
 
 Procedura walidacji: [ANENJI_REAL_DEVICE_VALIDATION.md](ANENJI_REAL_DEVICE_VALIDATION.md).
 
+## Radar i prognoza PV (2026-10-08)
+Audyt: istniały Open-Meteo z pamięcią podręczną (`WeatherRepository`), `SolarCalculator`, `PvEstimator`, `PredictivePvEngine` (pogoda, zacienienie, kalibracja, limit falownika), zapis prognoz i `ForecastAccuracy`, mapa osmdroid, historia telemetrii z rozdzieleniem symulatora – **wszystko wykorzystane**, bez drugiego systemu pogody/PV/lokalizacji. Brakowało: radaru, punktu rosy, prawdopodobieństwa opadu, kierunku wiatru, strefy czasowej lokalizacji prognozy (było UTC + strefa telefonu), godzinowego zestawienia oczekiwana/rzeczywista.
+
+| Funkcja | Status |
+|---|---|
+| Radar RainViewer (klatki, wiek, NA ŻYWO / NIEAKTUALNE / Z PAMIĘCI / NIEDOSTĘPNY) | IMPLEMENTED (wymaga internetu; darmowe API z limitami) |
+| Windy | NOT AVAILABLE (tylko oficjalne API z kluczem) – link do windy.com |
+| Prognoza godzinowa z punktem rosy (dostawca lub Magnus), opadem, prawdopodobieństwem, wiatrem, kierunkiem | IMPLEMENTED |
+| Strefa czasowa lokalizacji, DST | IMPLEMENTED (test dnia 25 h) |
+| Oczekiwana moc PV na godzinę, dzień, szczyt, kolejne dni | IMPLEMENTED |
+| Rzeczywista PV na godzinę i teraz | IMPLEMENTED — REAL DEVICE REQUIRED (bez falownika: N/A) |
+| Pewność, alerty, wpływ opadów, trafność (MAE/RMSE/bias/MAPE) | IMPLEMENTED |
+| Przewidywanie ruchu opadów z obrazu radaru | NOT AVAILABLE (świadomie – opady z prognozy godzinowej) |
+
 ## Bezpieczeństwo
 Pełny audyt bezpieczeństwa: [docs/SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md).

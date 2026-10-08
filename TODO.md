@@ -186,6 +186,16 @@ Zaimplementowane, kompiluje się i przechodzi lint w CI — **czeka na ręczny t
 - [ ] Rejestry MPPT 2+ i licznika czasu pracy dla Anenji (obecnie NOT AVAILABLE)
 - [ ] Historia pogody dla starszych dni (korelacja pogodowa w całym okresie 90 dni)
 
+## Radar i prognoza PV — status: IMPLEMENTED
+- [x] zakładka Radar: mapa, klatki radaru, wiek danych, status nieaktualności, brak internetu bez awarii
+- [x] godzinowo: temperatura, odczuwalna, wilgotność, punkt rosy, chmury (warstwy), opad + prawdopodobieństwo, wiatr, porywy, kierunek
+- [x] słońce: wschód, zachód, górowanie, długość dnia, wysokość i azymut na godzinę
+- [x] PV: oczekiwana na godzinę, dzień (kWh, szczyt, godzina szczytu), kolejne dni, rzeczywista, różnica, odchylenie %
+- [x] pewność, alerty, nadchodzące opady z wpływem na PV, trafność prognozy
+- [ ] Sprawdzenie na telefonie z prawdziwym falownikiem (rzeczywista PV na wykresie)
+- [ ] Opcjonalny oficjalny dostawca radaru z kluczem (abstrakcja `RadarProvider` gotowa)
+- [ ] Ustawienia progów wiatru w UI (dziś wartości domyślne ze skali Beauforta w `AlertThresholds`)
+
 ## Język angielski i nawigacja wstecz
 - [x] Przycisk Wstecz: podstrony → poprzednia zakładka → wyjście po 2. naciśnięciu (test instrumentalny)
 - [x] Ustawienie języka (Polski domyślnie / English / Systemowy), zasoby `values` + `values-en`, widget

@@ -4,6 +4,10 @@ Wszystkie istotne zmiany w projekcie Solar Tracker PRO.
 Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie [SemVer](https://semver.org/).
 
 ## [Unreleased]
+### Added – Radar i prognoza PV
+- Zakładka **🌦️ Radar**: radar opadów RainViewer na mapie OSM (klatki, odtwarzanie, wiek danych, NA ŻYWO / DANE NIEAKTUALNE / Z PAMIĘCI / NIEDOSTĘPNY), link do Windy, pogoda teraz, dzisiejsza prognoza PV (kWh, szczyt, wschód/zachód, wyprodukowano/oczekiwano do teraz, wydajność), najlepsze i najgorsze godziny, nadchodzące opady z wpływem na PV, alerty, wykres PV oczekiwanej vs rzeczywistej ze szczegółami godziny, wilgotność i temperatura, lista godzinowa 24 h / 48 h / 7 / 14 dni, kolejne dni z pewnością, trafność prognozy.
+- Open-Meteo: punkt rosy, temperatura odczuwalna, prawdopodobieństwo opadu, deszcz, śnieg, kierunek wiatru, kod pogody; strefa czasowa lokalizacji (`timezone=auto`).
+- `Psychrometrics` (punkt rosy, wzór Magnusa), `HourlyPvForecastEngine` (godzina po godzinie z pochodzeniem danych), `RadarProvider` / `RainViewer`.
 
 ## [v0.14.1] - 2026-10-08
 ### Fixed

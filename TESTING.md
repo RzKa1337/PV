@@ -21,6 +21,8 @@
 - `anenji/ForensicEngineTest`: baseline in similar conditions only (INSUFFICIENT DATA at night / without a model), injected low PV found but not on cloudy days, weather and shading eliminated, dirt left possible, lost energy and cost, trace down to the raw file, N/A impact without a model, communication downtime, explicit confidence.
 - `anenji/ForensicScenarioTest` + `fixtures/ForensicScenarios`: **SIMULATED** scenarios SCENARIO_NORMAL, LOW_PV, MPPT_FAULT, LOW_BATTERY, HIGH_LOAD, GRID_OUTAGE, COMMUNICATION_FAILURE, INVERTER_RESTART, CONFIGURATION_CHANGE with expected diagnoses; incident reconstruction with NO DATA (no interpolation), period ranking, 90-day trends (apparent capacity ≈ 11 kWh, insufficient with < 3 weeks), configuration forensics, WHY restart/consumption, forensic ZIP package contents and traceability, 30-day analysis time.
 
+- `forecast/RadarForecastTest`: dew point (Magnus: normal, high/low humidity, frost, invalid input), Open-Meteo new fields + location zone, DST day with 25 local hours, no forecast, PV forecast (clear, clouds, heat, night, sunrise, peak, best/worst window), rain approaching with PV impact / night rain without, wind and heat alerts with documented thresholds, expected vs actual (exact, +10 %, −10 %, partial, simulator never actual, missing), PV-below-forecast alert, confidence (history, horizon, stale cache, broken clouds, no weather), RainViewer radar (valid, stale, cached, unavailable, malformed/insecure data).
+
 ## Fixtures (no physical inverter needed)
 - `fixtures/AnenjiFixtures`: SMG register snapshots – clear summer, cloudy summer, winter, zero PV, battery low, battery full, high load, garbage. Synthetic, built with the community register map.
 - `fixtures/EnergyFixtures`: day profiles (PV and load) – clear/cloudy/partly cloudy summer, winter, zero PV, high load, cooling load.
@@ -34,6 +36,7 @@
 - `LiveSolarInstrumentedTest`: 1-second live values, UI lag ≤ 3 s for ≥ 95 % of seconds.
 - `UpdateVerificationInstrumentedTest`: APK identity/signature checks.
 - `EnergyCenterInstrumentedTest`: simulator shown as SYMULATOR and ONLINE, advisor, Diagnostyka PV (status, recommendation, simulator has no registers), Analiza Anenji (analysis on history shows SYSTEM HEALTH), Co się stało? (data status always shown, validation mode present), Keystore encryption, SQLite history.
+- `RadarInstrumentedTest`: Radar tab shows a radar status (LIVE/STALE/CACHED/UNAVAILABLE – also offline), today's forecast, chart and hourly list.
 - `WidgetInstrumentedTest`, `ToolsInstrumentedTest` (designer validation, location comparison, analyses page).
 
 ## What is NOT covered by tests

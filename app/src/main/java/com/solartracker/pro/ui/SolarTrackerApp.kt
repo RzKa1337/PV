@@ -13,6 +13,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BarChart
+import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.BatteryChargingFull
 import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.Hub
@@ -60,6 +61,7 @@ import com.solartracker.pro.ui.screens.SettingsActions
 import com.solartracker.pro.ui.screens.SettingsScreen
 import com.solartracker.pro.ui.screens.UpdateSection
 import com.solartracker.pro.ui.energy.EnergyCenterScreen
+import com.solartracker.pro.ui.radar.RadarScreen
 import com.solartracker.pro.ui.energy.EnergyOverview
 import com.solartracker.pro.energy.EnergyCenterViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -71,6 +73,7 @@ private enum class Tab(@StringRes val label: Int, val icon: ImageVector) {
     MONTHLY(R.string.tab_monthly, Icons.Outlined.BarChart),
     ENERGY(R.string.tab_energy, Icons.Outlined.BatteryChargingFull),
     CENTER(R.string.tab_center, Icons.Outlined.Hub),
+    RADAR(R.string.tab_radar, Icons.Outlined.Cloud),
     TOOLS(R.string.tab_tools, Icons.Outlined.Build),
     SETTINGS(R.string.tab_settings, Icons.Outlined.Settings),
 }
@@ -198,6 +201,12 @@ fun SolarTrackerApp(viewModel: MainViewModel, openSettingsRequest: Int = 0) {
             Tab.CENTER -> {
                 val weather by viewModel.weather.collectAsStateWithLifecycle()
                 EnergyCenterScreen(weather, contentModifier)
+            }
+            Tab.RADAR -> {
+                val weather by viewModel.weather.collectAsStateWithLifecycle()
+                val settings by viewModel.settings.collectAsStateWithLifecycle()
+                val energyVm: EnergyCenterViewModel = viewModel()
+                RadarScreen(energyVm, weather, settings?.locationName.orEmpty(), viewModel::refreshWeather, contentModifier)
             }
             Tab.TOOLS -> {
                 val settings by viewModel.settings.collectAsStateWithLifecycle()

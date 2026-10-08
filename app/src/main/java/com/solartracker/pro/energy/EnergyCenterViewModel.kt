@@ -64,6 +64,10 @@ import com.solartracker.pro.core.diagnostics.SoilingAssessment
 import com.solartracker.pro.core.diagnostics.SoilingDetector
 import com.solartracker.pro.core.export.RegisterLogExport
 import com.solartracker.pro.core.forecast.EnergyMissionPlanner
+import com.solartracker.pro.core.forecast.HourlyPvForecastEngine
+import com.solartracker.pro.core.forecast.HourlyPvReport
+import com.solartracker.pro.core.radar.RadarSnapshot
+import com.solartracker.pro.data.RadarRepository
 import com.solartracker.pro.core.forecast.MissionGoal
 import com.solartracker.pro.core.forecast.MissionRequest
 import com.solartracker.pro.core.forecast.MissionResult
@@ -238,6 +242,19 @@ data class ModelState(
     val performance: PerformanceReport? = null,
 )
 
+/** "Radar & Prognoza" tab: radar frames + hour-by-hour weather and PV forecast vs measurement. */
+data class RadarUiState(
+    val loading: Boolean = false,
+    val snapshot: RadarSnapshot? = null,
+    val fromCache: Boolean = false,
+    val radarError: String? = null,
+    val report: HourlyPvReport? = null,
+    val computing: Boolean = false,
+    /** Range of the chart and hourly list: 1 (24 h), 2 (48 h), 7 or 14 days. */
+    val rangeDays: Int = 1,
+    val reportError: String? = null,
+)
+
 data class ForecastState(
     val today: DayProductionForecast? = null,
     val tomorrow: DayProductionForecast? = null,
@@ -359,6 +376,11 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
     val model: StateFlow<ModelState> = _model.asStateFlow()
     private val _forecast = MutableStateFlow(ForecastState())
     val forecast: StateFlow<ForecastState> = _forecast.asStateFlow()
+    private val _radar = MutableStateFlow(RadarUiState())
+    val radar: StateFlow<RadarUiState> = _radar.asStateFlow()
+    private val radarRepo by lazy { RadarRepository(context) }
+    @Volatile private var radarVisible = false
+    private var radarComputedAt: Instant? = null
     private val _shading = MutableStateFlow(ShadingState())
     val shading: StateFlow<ShadingState> = _shading.asStateFlow()
     private val _alerts = MutableStateFlow<List<Alert>>(emptyList())
@@ -440,6 +462,7 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
     fun setWeather(forecast: WeatherForecast?, climate: MonthlyClimate?) {
         if (_weather.value != (forecast to climate)) {
             _weather.value = forecast to climate
+            radarComputedAt = null // new weather → the radar tab's hourly forecast is rebuilt with it
             viewModelScope.launch(Dispatchers.Default) { recomputeForecast() }
         }
     }
@@ -639,12 +662,7 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
         val cal = calibration.result()
         val inv = inverterConfig.value
         val model = currentCalibrationModel(now)
-        val pv = PredictivePvEngine(
-            s.location, s.system, weather, _shading.value.engine,
-            calibrationFactor = calibration.appliedFactor(), calibrationConfidence = if (cal.ready) cal.confidence else 0.0,
-            inverterLimitKw = inv?.takeIf { it.enabled }?.ratedPowerW?.div(1000.0),
-            calibrationModel = model,
-        )
+        val pv = pvEngine(s, weather, model)
         val base = LoadForecaster(history, zone, s.consumption.profile(), now).also { loadForecaster = it }
         // The cold room is added only while there is no measured load history (history already contains it).
         val coolingProfile = store.cooling.first()?.takeIf { !base.usesHistory }
@@ -691,11 +709,7 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
         )
         runCatching {
             // Radar: the same engine on a clear sky (same calibration/shading/limits) isolates the cloud impact.
-            val clear = PredictivePvEngine(
-                s.location, s.system, WeatherAwareIrradianceModel(s.location), _shading.value.engine,
-                calibrationFactor = calibration.appliedFactor(), calibrationConfidence = if (cal.ready) cal.confidence else 0.0,
-                inverterLimitKw = inv?.takeIf { it.enabled }?.ratedPowerW?.div(1000.0), calibrationModel = model,
-            )
+            val clear = pvEngine(s, WeatherAwareIrradianceModel(s.location), model)
             val currentKw = live.telemetry?.pv?.powerW?.takeIf { fresh }?.div(1000.0)
             val radar = withContext(Dispatchers.Default) { PvRadarBuilder(pv, clear, s.system.peakPowerKw).build(now, nowcast, currentKw) }
             val goal = _diagnostics.value.missionGoal
@@ -709,7 +723,90 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
             _diagnostics.value = _diagnostics.value.copy(radar = radar, mission = mission)
         }
         storeForecasts(pv, now, nowcast)
+        if (radarVisible && radarComputedAt?.let { Duration.between(it, now) >= Duration.ofMinutes(5) } != false) computeRadarForecast(s, weather, pv, model, now, nowcast)
         recomputeInsights(s, pv, load, nowcast, soc, now)
+    }
+
+    /** The one PV prediction engine (weather irradiance, temperature, shading, calibration, inverter limit). */
+    private fun pvEngine(s: AppSettings, weather: WeatherAwareIrradianceModel, model: CalibrationModel?): PredictivePvEngine {
+        val cal = calibration.result()
+        return PredictivePvEngine(
+            s.location, s.system, weather, _shading.value.engine,
+            calibrationFactor = calibration.appliedFactor(), calibrationConfidence = if (cal.ready) cal.confidence else 0.0,
+            inverterLimitKw = inverterConfig.value?.takeIf { it.enabled }?.ratedPowerW?.div(1000.0),
+            calibrationModel = model,
+        )
+    }
+
+    // ---- Radar & Prognoza ----------------------------------------------------------------------------------------
+
+    fun setRadarVisible(visible: Boolean) {
+        radarVisible = visible
+        if (visible) {
+            loadRadar(force = false)
+            refreshRadarForecast()
+        }
+    }
+
+    fun loadRadar(force: Boolean) {
+        viewModelScope.launch {
+            _radar.value = _radar.value.copy(loading = true)
+            val r = radarRepo.load(force)
+            _radar.value = _radar.value.copy(loading = false, snapshot = r.snapshot, fromCache = r.fromCache, radarError = r.error)
+        }
+    }
+
+    fun setRadarRange(days: Int) {
+        _radar.value = _radar.value.copy(rangeDays = days)
+        refreshRadarForecast()
+    }
+
+    fun refreshRadarForecast() {
+        viewModelScope.launch(Dispatchers.Default) {
+            val s = settings.value ?: return@launch
+            val now = Instant.now()
+            val weather = WeatherAwareIrradianceModel(s.location, _weather.value.first, _weather.value.second)
+            val model = currentCalibrationModel(now)
+            val live = _live.value
+            val nowcast = _model.value.comparison?.takeIf { live.freshness == Freshness.LIVE && !it.curtailed && it.modelKw > 0.2 }?.let { it.realKw / it.modelKw }
+            computeRadarForecast(s, weather, pvEngine(s, weather, model), model, now, nowcast)
+        }
+    }
+
+    /**
+     * Hour-by-hour report. Past instants use the engine WITHOUT the live nowcast, so the expectation never follows the
+     * measurement it is compared with; future instants may use it (it fades within ~1 h).
+     */
+    private suspend fun computeRadarForecast(s: AppSettings, weather: WeatherAwareIrradianceModel, pv: PredictivePvEngine, model: CalibrationModel?, now: Instant, nowcast: Double?) {
+        radarComputedAt = now
+        _radar.value = _radar.value.copy(computing = true)
+        val result = runCatching {
+            val clear = pvEngine(s, WeatherAwareIrradianceModel(s.location), model)
+            val estimator = com.solartracker.pro.core.pv.PvEstimator(weather)
+            val forecast = _weather.value.first
+            val engine = HourlyPvForecastEngine(s.location, forecast, weather::sourceAt, { t -> pv.at(t, now, if (t.isAfter(now)) nowcast else null) },
+                { t -> clear.at(t, now).expectedKw }, { t -> estimator.pointEstimate(s.system, s.location, t) }, zone)
+            val (rows, accuracy) = withContext(Dispatchers.IO) {
+                val recent = runCatching { db.history(now.minus(Duration.ofDays(2)), now) }.getOrDefault(emptyList())
+                val acc = runCatching {
+                    val monthAgo = now.minus(Duration.ofDays(30))
+                    val stored = db.forecasts(com.solartracker.pro.core.analytics.ForecastHorizon.DAY_AHEAD, monthAgo, now)
+                    val real = db.history(monthAgo, now, summary = true).filter { !it.simulated }
+                    com.solartracker.pro.core.analytics.ForecastAccuracy.evaluate(com.solartracker.pro.core.analytics.ForecastAccuracy.pairHourly(stored, real))
+                        .takeIf { it.count > 0 }
+                }.getOrNull()
+                recent to acc
+            }
+            val stale = forecast?.fetchedAt?.let { Duration.between(it, now) > Duration.ofHours(3) } ?: false
+            val live = _live.value
+            val liveW = live.telemetry?.pv?.powerW?.takeIf { live.freshness == Freshness.LIVE }
+            val days = maxOf(_radar.value.rangeDays, 4)
+            withContext(Dispatchers.Default) { engine.build(now, days, rows, accuracy, stale, liveW, live.info?.simulated == true) }
+        }
+        _radar.value = result.fold(
+            { _radar.value.copy(computing = false, report = it, reportError = null) },
+            { _radar.value.copy(computing = false, reportError = it.message ?: it.javaClass.simpleName) },
+        )
     }
 
     /** AutoCalibration 3.0 model from the last 60 days, rebuilt at most once an hour. */
