@@ -139,8 +139,9 @@ object AnenjiCorrelationEngine {
                 status = if (pv != null && pv < b.low) "nieprawidłowy" else "normalny", conf = b.quality) }
                 ?: add(EvidenceType.BASELINE, "Typowe PV w tych warunkach", null, "INSUFFICIENT DATA", role = EvidenceRole.UNKNOWN, status = "brak danych", conf = 0.0)
             when {
-                ctx?.cloudCoverPercent != null -> add(EvidenceType.WEATHER, "Zachmurzenie", ctx.cloudCoverPercent, "${ctx.cloudCoverPercent.roundToInt()}%",
-                    source = ctx.weatherSource, status = if (ctx.cloudCoverPercent >= 60) "pochmurno" else "stabilne", conf = 0.6)
+                ctx?.effectiveCloudPercent != null -> ctx.effectiveCloudPercent!!.let { eff -> add(EvidenceType.WEATHER, "Zachmurzenie", eff,
+                    "${eff.roundToInt()}% słońca zasłonięte" + (ctx.cloudCoverPercent?.takeIf { ctx.clearSkyIndex != null }?.let { " (całkowite ${it.roundToInt()}%)" } ?: ""),
+                    source = ctx.weatherSource, status = if (eff >= 60) "pochmurno" else "stabilne", conf = 0.6) }
                 else -> add(EvidenceType.WEATHER, "Zachmurzenie", null, "N/A", role = EvidenceRole.UNKNOWN, status = "brak danych", source = TelemetrySource.UNKNOWN, conf = 0.0)
             }
             ctx?.clearSkyIndex?.let { add(EvidenceType.WEATHER, "Indeks czystego nieba", it, "%.2f".format(it), source = ctx.weatherSource, status = if (it >= 0.8) "stabilne" else "zachmurzenie", conf = 0.6) }
@@ -202,7 +203,7 @@ object RootCauseAnalyzer {
         }
         when (a.type) {
             AnomalyType.LOW_PV, AnomalyType.RAPID_PV_DROP -> {
-                cause("Zachmurzenie", cloud?.let { it >= 60 } ?: csi?.let { it < 0.5 }, "zachmurzenie ${cloud?.roundToInt()}%", "niebo stabilne (zachmurzenie ${cloud?.roundToInt() ?: "?"}%, indeks ${csi?.let { "%.2f".format(it) } ?: "?"})")
+                cause("Zachmurzenie", csi?.let { it < 0.5 } ?: cloud?.let { it >= 60 }, "chmury zasłaniają ${cloud?.roundToInt()}% słońca", "niebo stabilne (zasłonięte ${cloud?.roundToInt() ?: "?"}% słońca, indeks ${csi?.let { "%.2f".format(it) } ?: "?"})")
                 cause("Zacienienie", shade?.let { it > 10 }, "model zacienienia: ${shade?.roundToInt()}% straty", "model zacienienia bez zmian")
                 cause("Anomalia MPPT", if (mpptNodes.isEmpty()) null else overlapping(AnomalyType.MPPT_IMBALANCE), "jedno wejście MPPT wyraźnie słabsze", "wszystkie MPPT pracują podobnie", 1.5)
                 cause("Temperatura", ambient?.let { it > 35 }, "upał ${ambient?.roundToInt()} °C", "temperatura normalna")

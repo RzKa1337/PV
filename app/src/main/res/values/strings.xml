@@ -914,4 +914,6 @@
     <string name="fo_unit">Jednostka</string>
     <string name="fo_save_reference">Zapisz odczyt</string>
     <string name="fo_clear_references">Wyczyść</string>
+    <string name="dash_sunny_thin_clouds">słonecznie, cienkie chmury wysokie</string>
+    <string name="w_cloud_total">całkowite %1$s</string>
 </resources>

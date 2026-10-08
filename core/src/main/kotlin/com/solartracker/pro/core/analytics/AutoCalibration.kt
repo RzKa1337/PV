@@ -12,6 +12,14 @@ enum class SkyCondition(val label: String) {
 
 object SkyClassifier {
     /**
+     * Share of sunlight blocked by clouds [%] = (1 − clear-sky index) × 100. Total cloud cover counts any cloud in any
+     * layer – a sky of thin cirrus is "100 %" while letting almost all sunlight through – so it is used only when the
+     * forecast has no irradiance.
+     */
+    fun effectiveCloudPercent(clearSkyIndex: Double?, cloudCoverPercent: Double?): Double? =
+        clearSkyIndex?.let { (1 - it.coerceIn(0.0, 1.0)) * 100 } ?: cloudCoverPercent
+
+    /**
      * @param clearSkyIndex measured or forecast GHI / clear-sky GHI (null when unknown)
      */
     fun classify(cloudCoverPercent: Double?, precipitationMm: Double?, snowDepthM: Double?, temperatureC: Double?, clearSkyIndex: Double?): SkyCondition = when {

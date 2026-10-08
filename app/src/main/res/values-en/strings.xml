@@ -913,4 +913,6 @@
     <string name="fo_unit">Unit</string>
     <string name="fo_save_reference">Save reading</string>
     <string name="fo_clear_references">Clear</string>
+    <string name="dash_sunny_thin_clouds">sunny, thin high clouds</string>
+    <string name="w_cloud_total">total %1$s</string>
 </resources>

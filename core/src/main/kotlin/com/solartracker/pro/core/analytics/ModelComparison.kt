@@ -9,6 +9,8 @@ data class ComparisonContext(
     val modelUnshadedKw: Double,
     val shadingLossKw: Double = 0.0,
     val cloudCoverPercent: Double? = null,
+    /** Forecast irradiance / clear-sky irradiance; when known it decides whether clouds explain a deficit. */
+    val clearSkyIndex: Double? = null,
     val cellTemperatureC: Double? = null,
     val inverterRatedKw: Double? = null,
     /** PV charge limit of the inverter's MPPT charger [kW], if known. */
@@ -71,8 +73,9 @@ object ModelComparison {
             if (ctx.shadingLossKw > 0.05) {
                 causes += LikelyCause(DeviationCause.SHADING, "obliczone zacienienie −${fmt(ctx.shadingLossKw)} kW (uwzględnione w modelu)", 0.6)
             }
-            val clouds = ctx.cloudCoverPercent
-            if (clouds != null && clouds >= 30) causes += LikelyCause(DeviationCause.CLOUDS, "zachmurzenie ${clouds.toInt()}%", (clouds / 100.0).coerceIn(0.3, 0.9))
+            val clouds = SkyClassifier.effectiveCloudPercent(ctx.clearSkyIndex, ctx.cloudCoverPercent)
+            if (clouds != null && clouds >= 30) causes += LikelyCause(DeviationCause.CLOUDS,
+                if (ctx.clearSkyIndex != null) "chmury zasłaniają ok. ${clouds.toInt()}% słońca" else "zachmurzenie ${clouds.toInt()}%", (clouds / 100.0).coerceIn(0.3, 0.9))
             val cell = ctx.cellTemperatureC
             if (cell != null && cell > 45) causes += LikelyCause(DeviationCause.TEMPERATURE, "temperatura ogniw ≈ ${cell.toInt()}°C (−${((cell - 25) * 0.4).toInt()}%)", 0.4)
             if (ctx.sunElevationDeg < 15) causes += LikelyCause(DeviationCause.ORIENTATION, "Słońce nisko (${ctx.sunElevationDeg.toInt()}°) – duży wpływ geometrii i odbić", 0.4)

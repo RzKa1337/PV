@@ -27,7 +27,10 @@ data class AnalysisContext(
     val snowExpected: Boolean? = null,
     /** Source of [expectedPvW]/weather: forecast for recent days, otherwise unknown. */
     val weatherSource: TelemetrySource = TelemetrySource.WEATHER_FORECAST,
-)
+) {
+    /** Sunlight blocked by clouds [%] (from the clear-sky index; total cover only as a fallback). */
+    val effectiveCloudPercent: Double? get() = com.solartracker.pro.core.analytics.SkyClassifier.effectiveCloudPercent(clearSkyIndex, cloudCoverPercent)
+}
 
 data class TimelineEntry(val time: Instant, val text: String)
 
@@ -95,7 +98,7 @@ object IncidentAnalyzer {
         soc?.let { evidence += "SOC w chwili zdarzenia: ${it.toInt()}%" }
         pv?.let { evidence += "PV: ${w(it)}" + (ctx?.expectedPvW?.let { e -> " (model: ${w(e)})" } ?: "") }
         load?.let { evidence += "Obciążenie: ${w(it)}" + (loadBefore?.let { b -> " (wcześniej ~${w(b)})" } ?: "") }
-        ctx?.cloudCoverPercent?.let { evidence += "Zachmurzenie (prognoza): ${it.toInt()}%" }
+        ctx?.effectiveCloudPercent?.let { evidence += "Chmury zasłaniają (prognoza): ${it.toInt()}% słońca" + (ctx.cloudCoverPercent?.let { t -> " · zachmurzenie całkowite ${t.toInt()}%" } ?: "") }
         val comm = ev.any { it.category == EventCategory.COMMUNICATION }
         val lowBatteryEvent = ev.any { it.category == EventCategory.BATTERY || "bateri" in it.description.lowercase() }
         val gridStart = ev.any { it.category == EventCategory.GRID }
@@ -104,7 +107,7 @@ object IncidentAnalyzer {
         val loadUp = load != null && loadBefore != null && load > loadBefore * 1.5 && load - loadBefore > 400
         val pvLow = pv != null && (ctx?.expectedPvW?.let { pv < it * 0.5 && it > 200 } ?: (pv < 200))
         val pvDrop = s.zipWithNext().any { (a, b) -> val pa = a[Channel.PV_POWER]; val pb = b[Channel.PV_POWER]; pa != null && pb != null && pa > 300 && pb < pa * 0.7 }
-        val cloudy = (ctx?.cloudCoverPercent ?: 0.0) >= 60 || (ctx?.clearSkyIndex ?: 1.0) < 0.5
+        val cloudy = ctx?.clearSkyIndex?.let { it < 0.5 } ?: ((ctx?.cloudCoverPercent ?: 0.0) >= 60)
         val (conclusion, signals) = when {
             comm && s.size < 3 -> "Utrata komunikacji z falownikiem – brak danych do dalszej analizy" to 1
             (lowBatteryEvent || (soc != null && soc < 25)) && (loadUp || pvLow) ->
@@ -200,11 +203,11 @@ object WhyAnalyzer {
                     val dt = Duration.between(a.time, b.time).toMillis() / 3_600_000.0
                     if (dt > 0.25) 0.0 else (c.at(a.time)?.expectedPvW ?: 0.0) * dt / 1000
                 } }?.takeIf { it > 0 }
-                val clouds = context?.let { c -> Stats.median(today.mapNotNull { c.at(it.time)?.takeIf { x -> (x.sunElevationDeg ?: 0.0) > 10 }?.cloudCoverPercent }) }
+                val clouds = context?.let { c -> Stats.median(today.mapNotNull { c.at(it.time)?.takeIf { x -> (x.sunElevationDeg ?: 0.0) > 10 }?.effectiveCloudPercent }) }
                 val coverage = coverage(today)
                 findings += "PV: ${"%.1f".format(pv)} kWh" + (pvTyp?.let { " (typowo ${"%.1f".format(it)} kWh, ${"%+.0f".format(pct(pv, it))}%)" } ?: "")
                 model?.let { findings += "Model (pogoda, zacienienie): ${"%.1f".format(it)} kWh → pomiar ${"%+.0f".format(pct(pv, it))}% względem modelu" }
-                clouds?.let { findings += "Mediana zachmurzenia w dzień: ${it.toInt()}%" }
+                clouds?.let { findings += "Mediana zasłonięcia słońca przez chmury w dzień: ${it.toInt()}%" }
                 findings += "Zużycie: ${"%.1f".format(load)} kWh" + (loadTyp?.let { " (typowo ${"%.1f".format(it)} kWh)" } ?: "")
                 if (coverage < 0.9) findings += "Pokrycie danymi: ${(coverage * 100).toInt()}% dnia – część energii może nie być zarejestrowana"
                 pvLimitW?.let { l -> val m = today.count { (it[Channel.PV_POWER] ?: 0.0) >= l * 0.97 }; if (m > 0) findings += "Odczyty przy limicie falownika (clipping): $m" }

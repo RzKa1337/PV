@@ -286,10 +286,13 @@ private fun WeatherCard(w: WeatherNow, onRefresh: () -> Unit) {
     SectionCard {
         // Header: icon, temperature and condition; refresh aligned to the header only.
         Row(verticalAlignment = Alignment.CenterVertically) {
+            // Headline from the sunlight that gets through (forecast irradiance), not from total cloud cover:
+            // a sky of thin cirrus counts as 100 % cloud cover while being practically sunny.
+            val blocked = com.solartracker.pro.core.analytics.SkyClassifier.effectiveCloudPercent(w.clearSkyIndex, w.cloudCoverPercent)
             val icon = when {
                 w.source != WeatherSource.FORECAST -> "📊"
-                (w.cloudCoverPercent ?: 0.0) >= 70 -> "☁️"
-                (w.cloudCoverPercent ?: 0.0) >= 30 -> "⛅"
+                (blocked ?: 0.0) >= 70 -> "☁️"
+                (blocked ?: 0.0) >= 30 -> "⛅"
                 else -> "☀️"
             }
             Text(icon, fontSize = 34.sp)
@@ -304,7 +307,12 @@ private fun WeatherCard(w: WeatherNow, onRefresh: () -> Unit) {
                     }
                     Text(
                         when (w.source) {
-                            WeatherSource.FORECAST -> w.cloudCoverPercent?.let { stringResource(R.string.dash_cloud_cover, Format.percent(it)) }
+                            WeatherSource.FORECAST -> w.clearSkyIndex?.let { csi ->
+                                val sky = com.solartracker.pro.core.analytics.SkyClassifier.classify(w.cloudCoverPercent, forecastHour?.precipitationMm,
+                                    forecastHour?.snowDepthM, w.temperatureC, csi)
+                                if (sky == com.solartracker.pro.core.analytics.SkyCondition.CLEAR && (w.cloudCoverPercent ?: 0.0) >= 50) stringResource(R.string.dash_sunny_thin_clouds)
+                                else sky.uiLabel
+                            } ?: w.cloudCoverPercent?.let { stringResource(R.string.dash_cloud_cover, Format.percent(it)) }
                                 ?: stringResource(R.string.forecast_lower)
                             WeatherSource.CLIMATE -> stringResource(R.string.dash_climate_no_forecast)
                             WeatherSource.CLEAR_SKY -> if (st.loading) stringResource(R.string.dash_loading_data) else stringResource(R.string.dash_no_data_clear)
@@ -361,7 +369,7 @@ private fun WeatherCard(w: WeatherNow, onRefresh: () -> Unit) {
             }
             if (forecastHour.cloudLowPercent != null || forecastHour.cloudMidPercent != null || forecastHour.cloudHighPercent != null) {
                 Text(
-                    stringResource(R.string.w_clouds) + ": " + listOf(
+                    stringResource(R.string.w_clouds) + ": " + (w.cloudCoverPercent?.let { stringResource(R.string.w_cloud_total, Format.percent(it)) + " · " } ?: "") + listOf(
                         stringResource(R.string.w_cloud_low) to forecastHour.cloudLowPercent,
                         stringResource(R.string.w_cloud_mid) to forecastHour.cloudMidPercent,
                         stringResource(R.string.w_cloud_high) to forecastHour.cloudHighPercent,

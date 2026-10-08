@@ -535,7 +535,9 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
                 modelKw, it,
                 ComparisonContext(
                     sunElevationDeg = estimate.sun.elevationDeg, modelUnshadedKw = estimate.powerKw, shadingLossKw = estimate.powerKw - modelKw,
-                    cloudCoverPercent = _weather.value.first?.at(t.timestamp)?.cloudCoverPercent, cellTemperatureC = estimate.cellTemperatureC,
+                    cloudCoverPercent = _weather.value.first?.at(t.timestamp)?.cloudCoverPercent,
+                    clearSkyIndex = WeatherEffects.clearSkyIndex(_weather.value.first?.at(t.timestamp), estimate.sun.position, t.timestamp),
+                    cellTemperatureC = estimate.cellTemperatureC,
                     inverterRatedKw = inv?.ratedPowerW?.div(1000.0), batterySocPercent = t.battery.socPercent,
                     batteryMaxSocPercent = battery?.maxSocPercent ?: 100.0, gridExportAllowed = site?.gridExportAllowed,
                     loadKw = t.load.powerW?.div(1000.0), batteryChargeKw = t.battery.chargePowerW?.div(1000.0),
