@@ -236,3 +236,36 @@ val com.solartracker.pro.core.diagnostics.MpptFlag.uiLabel: String
         com.solartracker.pro.core.diagnostics.MpptFlag.NO_DATA -> tr(label, "No data")
         com.solartracker.pro.core.diagnostics.MpptFlag.LOW_LIGHT -> tr(label, "Too little light")
     }
+
+val com.solartracker.pro.core.anenji.Certainty.uiLabel: String
+    get() = when (this) {
+        com.solartracker.pro.core.anenji.Certainty.CONFIRMED -> tr(label, "CONFIRMED")
+        com.solartracker.pro.core.anenji.Certainty.LIKELY -> tr(label, "LIKELY")
+        com.solartracker.pro.core.anenji.Certainty.POSSIBLE -> tr(label, "POSSIBLE")
+        com.solartracker.pro.core.anenji.Certainty.INSUFFICIENT_DATA -> tr(label, "INSUFFICIENT DATA")
+    }
+
+val com.solartracker.pro.core.anenji.DataStatus.uiLabel: String
+    get() = when (this) {
+        com.solartracker.pro.core.anenji.DataStatus.OK -> "OK"
+        com.solartracker.pro.core.anenji.DataStatus.NO_DATA -> tr(label, "NO DATA")
+        com.solartracker.pro.core.anenji.DataStatus.STALE -> tr(label, "STALE")
+        com.solartracker.pro.core.anenji.DataStatus.PARTIAL_ANALYSIS -> tr(label, "PARTIAL ANALYSIS")
+    }
+
+val com.solartracker.pro.core.anenji.DiagnosisSeverityLevel.uiLabel: String
+    get() = when (this) {
+        com.solartracker.pro.core.anenji.DiagnosisSeverityLevel.CRITICAL -> tr("KRYTYCZNE", "CRITICAL")
+        com.solartracker.pro.core.anenji.DiagnosisSeverityLevel.WARNING -> tr("OSTRZEŻENIE", "WARNING")
+        com.solartracker.pro.core.anenji.DiagnosisSeverityLevel.INFO -> tr("INFORMACJA", "INFO")
+    }
+
+val com.solartracker.pro.core.anenji.ForensicPeriod.uiLabel: String
+    get() = when (this) {
+        com.solartracker.pro.core.anenji.ForensicPeriod.TODAY -> tr(label, "Today")
+        com.solartracker.pro.core.anenji.ForensicPeriod.YESTERDAY -> tr(label, "Yesterday")
+        com.solartracker.pro.core.anenji.ForensicPeriod.D7 -> tr(label, "7 days")
+        com.solartracker.pro.core.anenji.ForensicPeriod.D30 -> tr(label, "30 days")
+        com.solartracker.pro.core.anenji.ForensicPeriod.D90 -> tr(label, "90 days")
+        com.solartracker.pro.core.anenji.ForensicPeriod.CUSTOM -> tr(label, "Custom")
+    }

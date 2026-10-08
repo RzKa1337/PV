@@ -172,6 +172,20 @@ Zaimplementowane, kompiluje się i przechodzi lint w CI — **czeka na ręczny t
 - [ ] Historia pogody dla starszych dni (korelacja z zachmurzeniem w całym okresie)
 - [ ] Czas odpowiedzi łącza w zapisie komunikacji (dziś brak opóźnień w historii)
 
+## Anenji Forensic Analyzer v2 — status: IMPLEMENTED — REAL VALIDATION REQUIRED
+- [x] surowe źródło każdej próbki (plik/linia/pola/rejestry) i `TelemetrySample` z jakością
+- [x] tryb walidacji rejestrów z odczytami z wyświetlacza (bez VERIFIED z dokumentacji/symulatora)
+- [x] silnik szeregów czasowych 1 min…90 dni (bez interpolacji)
+- [x] anomalie PV/bateria/falownik/sieć/komunikacja + zanik sieci; baseline instalacji
+- [x] korelacja, graf dowodów, przyczyny z eliminacją, jawna pewność, poziomy pewności
+- [x] rekonstrukcja −60…+60 min, analiza okresów z rankingiem, trendy 90 dni, konfiguracja → incydenty
+- [x] „Dlaczego…?”: restart falownika, wyższe zużycie
+- [x] ekran „Co się stało?” z drążeniem do surowych danych; eksport `ANENJI_FORENSIC_PACKAGE.zip`
+- [x] 9 scenariuszy SYMULOWANYCH z oczekiwanymi diagnozami; test instrumentalny ekranu
+- [ ] **Testy 1–10 z [ANENJI_REAL_DEVICE_VALIDATION.md](ANENJI_REAL_DEVICE_VALIDATION.md) na prawdziwym falowniku**
+- [ ] Rejestry MPPT 2+ i licznika czasu pracy dla Anenji (obecnie NOT AVAILABLE)
+- [ ] Historia pogody dla starszych dni (korelacja pogodowa w całym okresie 90 dni)
+
 ## Język angielski i nawigacja wstecz
 - [x] Przycisk Wstecz: podstrony → poprzednia zakładka → wyjście po 2. naciśnięciu (test instrumentalny)
 - [x] Ustawienie języka (Polski domyślnie / English / Systemowy), zasoby `values` + `values-en`, widget

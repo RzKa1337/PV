@@ -1,6 +1,24 @@
 package com.solartracker.pro.energy
 
 import com.solartracker.pro.core.anenji.AnalysisContext
+import com.solartracker.pro.core.anenji.AnenjiSettingsDiff
+import com.solartracker.pro.core.anenji.ConfigImpact
+import com.solartracker.pro.core.anenji.ConfigurationForensics
+import com.solartracker.pro.core.anenji.ForensicContext
+import com.solartracker.pro.core.anenji.ForensicPeriod
+import com.solartracker.pro.core.anenji.ForensicPeriodAnalyzer
+import com.solartracker.pro.core.anenji.IncidentReconstruction
+import com.solartracker.pro.core.anenji.IncidentReconstructor
+import com.solartracker.pro.core.anenji.LongTrend
+import com.solartracker.pro.core.anenji.LongTrendAnalyzer
+import com.solartracker.pro.core.anenji.PeriodReport
+import com.solartracker.pro.core.anenji.SystemBaselineEngine
+import com.solartracker.pro.core.export.ForensicPackageExport
+import com.solartracker.pro.core.inverter.ManualReference
+import com.solartracker.pro.core.inverter.ReferenceCodec
+import com.solartracker.pro.core.inverter.RegisterEvidence
+import com.solartracker.pro.core.inverter.SmgRegisters
+import com.solartracker.pro.core.inverter.ValidationMode
 import com.solartracker.pro.core.anenji.AnalyzerSample
 import com.solartracker.pro.core.anenji.AnalyzerSamples
 import com.solartracker.pro.core.anenji.AnenjiDeepAnalyzer
@@ -299,6 +317,16 @@ data class AnalyzerState(
     val incident: IncidentReport? = null,
     val why: WhyAnswer? = null,
     val error: String? = null,
+    // Forensic analyzer ("CO SIĘ STAŁO?")
+    val forensicRunning: Boolean = false,
+    val forensicPeriod: ForensicPeriod = ForensicPeriod.D7,
+    val forensic: PeriodReport? = null,
+    val trends90: List<LongTrend> = emptyList(),
+    val configImpacts: List<ConfigImpact> = emptyList(),
+    val reconstruction: IncidentReconstruction? = null,
+    // Validation mode: values read from the inverter display vs decoded registers.
+    val references: List<ManualReference> = emptyList(),
+    val validation: List<RegisterEvidence> = emptyList(),
 )
 
 /** About 3 h of 5-second polls. */
@@ -354,6 +382,14 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
     private var lastImport: ImportedLog? = null
     private var analyzerSamples: List<AnalyzerSample> = emptyList()
     private var analyzerEvents: List<AnenjiEvent> = emptyList()
+    private var analyzerComm: List<CommRecord> = emptyList()
+    private var analyzerSnapshots: List<AnenjiSettingsSnapshot> = emptyList()
+    private var analyzerNow: Instant = Instant.now()
+    /** Built once per analysed data set (the baseline index is the expensive part); reports cached per period. */
+    private var forensicBase: ForensicContext? = null
+    private var forensicTrends: List<LongTrend>? = null
+    private val forensicCache = HashMap<Pair<Instant, Instant>, PeriodReport>()
+    @Volatile private var verifiedRegisters: Set<Int> = emptySet()
     private val _busy = MutableStateFlow(false)
     val busy: StateFlow<Boolean> = _busy.asStateFlow()
 
@@ -954,6 +990,11 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
             commLog.addLast(CommRecord(r.timestamp, r.communicationOk, if (r.communicationOk) null else CommError.classify(r.communication), detail = r.communication.takeIf { !r.communicationOk }))
             while (commLog.size > 20_000) commLog.removeFirst()
         }
+        // Registers confirmed in validation mode (≥ 3 real-device matches) are shown as VERIFIED; physics checks still apply first.
+        val verified = verifiedRegisters
+        val r = if (verified.isEmpty() || r.simulated) r else r.copy(samples = r.samples.map {
+            if (it.address in verified && it.quality == RegisterQuality.UNVERIFIED) it.copy(quality = RegisterQuality.VERIFIED) else it
+        })
         val d = _diagnostics.value
         if (!d.registerRecording) {
             _diagnostics.value = d.copy(lastRegisters = r)
@@ -1024,7 +1065,10 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun loadAnalyzer() {
-        viewModelScope.launch(Dispatchers.IO) { _analyzer.value = _analyzer.value.copy(snapshots = loadSnapshots()) }
+        viewModelScope.launch(Dispatchers.IO) {
+            val refs = loadReferences()
+            _analyzer.value = _analyzer.value.copy(snapshots = loadSnapshots(), references = refs, validation = validation(refs))
+        }
     }
 
     /** Imports a CSV/JSON/TXT log and analyses it. */
@@ -1082,12 +1126,107 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
                 ))
                 analyzerSamples = samples.filter { report.simulated || it.origin != DataOrigin.SIMULATOR }
                 analyzerEvents = report.events
+                analyzerComm = comm
+                analyzerSnapshots = snaps
+                analyzerNow = if (import != null) import.to ?: now else now
+                synchronized(forensicCache) { forensicBase = null; forensicTrends = null; forensicCache.clear() }
                 Triple(report, if (import != null) "import" else "historia", snaps)
             }
             _analyzer.value = result.fold(
-                { (r, src, snaps) -> _analyzer.value.copy(running = false, report = r, source = src, snapshots = if (src == "import") snaps else loadSnapshots(), incident = null, why = null) },
+                { (r, src, snaps) -> _analyzer.value.copy(running = false, report = r, source = src, snapshots = if (src == "import") snaps else loadSnapshots(), incident = null, why = null,
+                    forensic = null, reconstruction = null) },
                 { _analyzer.value.copy(running = false, error = it.message ?: it.javaClass.simpleName) },
             )
+            if (result.isSuccess) runForensics(_analyzer.value.forensicPeriod)
+        }
+    }
+
+    // ---- Forensic analyzer ("CO SIĘ STAŁO?") – read-only, on the data set of the last analysis ------------------------
+
+    private fun forensicContext(): ForensicContext? = synchronized(forensicCache) {
+        forensicBase ?: run {
+            if (analyzerSamples.isEmpty() && analyzerComm.isEmpty()) return null
+            val ctx = settings.value?.let { analysisContext(it) }
+            ForensicContext(analyzerSamples, analyzerEvents, analyzerComm, zone, ctx, SystemBaselineEngine(analyzerSamples, zone, ctx), analyzerSnapshots.lastOrNull(),
+                batteryContext(), inverterConfig.value?.takeIf { it.enabled }?.ratedPowerW, settings.value?.prices?.backupPricePerKwh).also { forensicBase = it }
+        }
+    }
+
+    /** Diagnoses of a period (Today/Yesterday/7/30/90 days/custom); computed in the background and cached per range. */
+    fun runForensics(period: ForensicPeriod, custom: Pair<Instant, Instant>? = null) {
+        viewModelScope.launch(Dispatchers.Default) {
+            _analyzer.value = _analyzer.value.copy(forensicRunning = true, forensicPeriod = period, error = null)
+            val result = runCatching {
+                val f = forensicContext() ?: error("Najpierw uruchom analizę historii lub zaimportuj log")
+                val range = ForensicPeriodAnalyzer.range(period, analyzerNow, zone, custom)
+                val report = synchronized(forensicCache) { forensicCache[range] } ?: ForensicPeriodAnalyzer.analyze(f, period, range.first, range.second, analyzerNow)
+                    .also { r -> synchronized(forensicCache) { forensicCache[range] = r } }
+                val trends = forensicTrends ?: LongTrendAnalyzer.analyze(f, analyzerNow).also { forensicTrends = it }
+                Triple(report, trends, ConfigurationForensics.analyze(AnenjiSettingsDiff.timeline(analyzerSnapshots).changes, f, report.diagnoses))
+            }
+            _analyzer.value = result.fold(
+                { (r, t, c) -> _analyzer.value.copy(forensicRunning = false, forensic = r, trends90 = t, configImpacts = c) },
+                { _analyzer.value.copy(forensicRunning = false, error = it.message ?: it.javaClass.simpleName) },
+            )
+        }
+    }
+
+    /** State at −60…+60 min around [at] with the diagnoses that overlap it. */
+    fun reconstructIncident(at: Instant) {
+        viewModelScope.launch(Dispatchers.Default) {
+            val f = forensicContext() ?: return@launch
+            val diagnoses = _analyzer.value.forensic?.diagnoses?.takeIf { d -> d.any { !it.anomaly.end.isBefore(at.minusSeconds(3600)) && !it.anomaly.start.isAfter(at.plusSeconds(3600)) } }
+                ?: ForensicPeriodAnalyzer.analyze(f, ForensicPeriod.CUSTOM, at.minusSeconds(3600), at.plusSeconds(3600), analyzerNow).diagnoses
+            _analyzer.value = _analyzer.value.copy(reconstruction = IncidentReconstructor.reconstruct(at, f, diagnoses, analyzerNow))
+        }
+    }
+
+    /** ANENJI_FORENSIC_PACKAGE.zip: report.pdf + JSON/CSV with evidence and raw sources. */
+    suspend fun exportForensicPackage(out: java.io.OutputStream) = withContext(Dispatchers.IO) {
+        val a = _analyzer.value
+        val report = a.forensic ?: error("Najpierw uruchom analizę")
+        val period = analyzerSamples.filter { !it.time.isBefore(report.from.minusSeconds(3600)) && !it.time.isAfter(report.to) }
+        val input = ForensicPackageExport.Input(report, period, analyzerEvents.filter { !it.start.isBefore(report.from) && !it.start.isAfter(report.to) }, analyzerSnapshots,
+            synchronized(registerLog) { registerLog.toList() }.filter { !it.timestamp.isBefore(report.from) && !it.timestamp.isAfter(report.to) },
+            a.references, a.trends90, a.configImpacts, BuildConfig.VERSION_NAME, deviceName(), zone, Instant.now())
+        val pdf = java.io.ByteArrayOutputStream().also { PdfReport.write(ForensicPackageExport.NAME, ForensicPackageExport.lines(input), it) }.toByteArray()
+        val files = LinkedHashMap<String, ByteArray>().apply { put("report.pdf", pdf); putAll(ForensicPackageExport.files(input)) }
+        out.write(ForensicPackageExport.zip(files))
+    }
+
+    // ---- Validation mode: compare decoded registers with the inverter display (references stay on the phone) ----------
+
+    private val referenceFile get() = java.io.File(context.filesDir, "anenji/manual_references.json")
+    private fun loadReferences(): List<ManualReference> = runCatching { ReferenceCodec.decode(referenceFile.readText()) }.getOrDefault(emptyList())
+        .also { verifiedRegisters = ValidationMode.verifiedAddresses(it) }
+
+    private fun validation(refs: List<ManualReference>): List<RegisterEvidence> =
+        SmgRegisters.LIVE.filter { spec -> refs.any { it.address == spec.address } }.map { ValidationMode.evidence(it, refs) }
+
+    /**
+     * Stores what the inverter display shows for [address] next to the last raw register word. Returns an error text or null.
+     * Simulator readings are stored as such and never count towards VERIFIED.
+     */
+    fun addReference(address: Int, displayValue: Double, unit: String): String? {
+        val rec = _diagnostics.value.lastRegisters ?: return "Brak odczytu rejestrów – połącz falownik"
+        if (!rec.communicationOk) return "Ostatni odczyt nieudany – odczekaj na poprawny"
+        val sample = rec.samples.firstOrNull { it.address == address } ?: return "Rejestr nie był odczytany"
+        val decoded = sample.decoded ?: return "Wartość rejestru nieprawidłowa (nie zdekodowano)"
+        val ref = ManualReference(address, sample.raw, decoded, decoded, displayValue, unit.trim(), Instant.now(), fromRealDevice = !rec.simulated)
+        viewModelScope.launch(Dispatchers.IO) {
+            val list = (loadReferences() + ref).takeLast(500)
+            runCatching { referenceFile.parentFile?.mkdirs(); referenceFile.writeText(ReferenceCodec.encode(list)) }
+            verifiedRegisters = ValidationMode.verifiedAddresses(list)
+            _analyzer.value = _analyzer.value.copy(references = list, validation = validation(list))
+        }
+        return null
+    }
+
+    fun clearReferences() {
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { referenceFile.delete() }
+            verifiedRegisters = emptySet()
+            _analyzer.value = _analyzer.value.copy(references = emptyList(), validation = emptyList())
         }
     }
 

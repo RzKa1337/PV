@@ -1,12 +1,12 @@
 # AUTOPILOT STATUS — Solar Tracker PRO
 
-Ostatnia aktualizacja: 2026-10-05 · gałąź `ccr-81f74041-r3omte` · ostatnie wydanie: v0.10.0
+Ostatnia aktualizacja: 2026-10-08 · gałąź `ccr-81f74041-r3omte` · ostatnie wydanie: v0.13.0 · w toku: Anenji Forensic Analyzer v2 (IMPLEMENTED — REAL VALIDATION REQUIRED)
 
 ## Audyt repozytorium (faza 0)
 
 Stan wyjściowy: drzewo czyste, zgodne z `origin`, ~8,5 tys. linii Kotlina, moduły `:core` (czysta logika, JVM)
 i `:app` (Android, Compose). CI: testy + lint + APK + test instrumentalny Live Solar na emulatorze.
-Repozytorium GitHub jest **prywatne**.
+Repozytorium GitHub było wtedy **prywatne**; obecnie jest **publiczne** (token do aktualizacji niepotrzebny).
 
 ### Roadmapa — stan
 
@@ -25,6 +25,7 @@ Repozytorium GitHub jest **prywatne**.
 | Zacienienie (OSM, teren, horyzont, panele/stringi) | 🟡 zaimplementowane | REAL MAP AND HEIGHT DATA VALIDATION REQUIRED |
 | Prognozy PV/obciążenia/SOC, alerty, Solar Advisor | ✅ zrobione | testy JVM + emulator |
 | Śnieg, kamper, widget | ❌ brak | pomysły na później |
+| Anenji Forensic Analyzer v2 („Co się stało?”) | 🟡 zaimplementowany | testy na 9 scenariuszach SYMULOWANYCH; REAL DEVICE VALIDATION REQUIRED |
 
 ### Ograniczenia wpływające na auto-aktualizację
 

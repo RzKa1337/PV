@@ -109,6 +109,9 @@ Centrum → **Diagnostyka PV** odpowiada na pytanie „ile instalacja powinna te
 ## Analiza Anenji (Deep Analyzer)
 Centrum → **Analiza Anenji** analizuje całą zapisaną historię albo zaimportowany log (CSV/JSON/TXT) i odpowiada: co było nie tak, kiedy, jak często, jakie były prawdopodobne przyczyny, ile energii to kosztowało i co sprawdzić. Zawiera: wynik zdrowia systemu z wyjaśnionymi potrąceniami, ostrzeżenia z dowodami i pewnością, analizę alarmów (częstotliwość, okno godzinowe, warunki przed zdarzeniem), komunikację, trendy, „Co się stało?” dla wybranej chwili, pytania „Dlaczego…?”, snapshoty ustawień z porównaniem oraz eksport raportu JSON/CSV/PDF. **Tylko odczyt** – aplikacja nie zmienia ustawień falownika. Status: **IMPLEMENTED — WAITING FOR REAL ANENJI LOG**.
 
+## Co się stało? (Anenji Forensic Analyzer)
+Centrum → **Co się stało?** pokazuje najpierw wniosek: stan systemu, najważniejszy problem, pewność (osobno: czy zdarzenie było i czy znamy przyczynę), dlaczego (przyczyny wspierane i wyeliminowane), wpływ (kWh, koszt, czas – albo N/A), kiedy i co sprawdzić. Okresy: dziś, wczoraj, 7/30/90 dni, własny. Każdą diagnozę można prześledzić aż do surowego źródła: **Diagnoza → Dowody → Dane → Surowe → Rejestry → Źródło** (plik i numer linii lub słowa rejestrów). Do tego rekonstrukcja chwili −60…+60 min, trendy 90 dni, zmiany konfiguracji przed incydentami, **tryb walidacji rejestrów** (porównanie z wyświetlaczem falownika) i eksport `ANENJI_FORENSIC_PACKAGE.zip`. Tylko odczyt. Status: **IMPLEMENTED — REAL VALIDATION REQUIRED** – procedura: [ANENJI_REAL_DEVICE_VALIDATION.md](ANENJI_REAL_DEVICE_VALIDATION.md).
+
 ## Automatyczna aktualizacja
 
 Ustawienia → **Aktualizacje**: aplikacja sprawdza wydania GitHub (kanał stabilny/beta, wybrana częstotliwość),
@@ -118,7 +121,7 @@ Przed instalacją robiona jest kopia ustawień; jeśli nowa wersja się zawiesza
 oznaczana jako wadliwa. Android nie pozwala aplikacji samodzielnie wrócić do starszej wersji – w takim przypadku
 powiadomienie prowadzi do listy wydań.
 
-Wymagania: stały klucz wydania w GitHub Secrets oraz (dla prywatnego repozytorium) token tylko do odczytu –
+Wymagania: stały klucz wydania w GitHub Secrets oraz (tylko gdyby repozytorium było prywatne) token tylko do odczytu –
 zobacz [docs/RELEASE_SIGNING.md](docs/RELEASE_SIGNING.md).
 
 ## Budowanie

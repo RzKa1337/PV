@@ -107,5 +107,32 @@ Pełny audyt i architektura: [docs/PV_DIAGNOSTICS.md](docs/PV_DIAGNOSTICS.md). N
 ## Anenji Deep Analyzer (2026-10-07)
 Nowy pakiet `core/anenji` (analiza całej historii, tylko odczyt). Ograniczenia ujawnione w audycie: brak zweryfikowanych rejestrów ustawień (snapshot z urządzenia = NOT_AVAILABLE), brak historii pogody poza ~2 dniami (korelacja z chmurami tylko dla świeżych danych), wiersze historii sprzed v5 nie mają oznaczenia pochodzenia (traktowane jako dane urządzenia).
 
+## Anenji Forensic Analyzer v2 (2026-10-08)
+Audyt przed rozbudową: istniały parser logów, dziennik zdarzeń, `SystemHealthEngine`, `IncidentAnalyzer`, `WhyAnalyzer` i raport – **rozbudowane**, nie zdublowane (jeden parser, jeden silnik zdrowia, jeden analizator incydentów). Braki usunięte: surowe źródło wiersza/rejestru ginęło przy imporcie, rejestr mógł być „VERIFIED” bez dowodu z urządzenia, brak baseline instalacji, brak rozdzielenia pewności zdarzenia i przyczyny, brak zaniku sieci w taksonomii.
+
+Statusy: **IMPLEMENTED** = kod + testy na danych SYMULOWANYCH; **PARTIALLY VERIFIED** = część potwierdzona na urządzeniu; **REAL DEVICE REQUIRED** = poprawność zależy od niezweryfikowanej mapy rejestrów; **NOT AVAILABLE** = brak danych/rejestru.
+
+| Funkcja | Status |
+|---|---|
+| Pochodzenie surowe (`RawRef`: plik, linia, pola, czas surowy, słowa rejestrów) | IMPLEMENTED |
+| `TelemetrySample` (źródło, jakość, pewność; dane z urządzenia = UNVERIFIED) | IMPLEMENTED — REAL DEVICE REQUIRED |
+| Tryb walidacji rejestrów (MATCH/CLOSE/SUSPECT/WRONG DECODING, VERIFIED tylko po ≥ 3 zgodnych odczytach z urządzenia) | IMPLEMENTED — REAL DEVICE REQUIRED (0 rejestrów zweryfikowanych) |
+| `TimeSeriesEngine` 1 min…90 dni (brakujące = NO DATA, bez interpolacji) | IMPLEMENTED |
+| Detekcja anomalii PV / bateria / falownik / sieć / komunikacja (28 typów + zanik sieci) | IMPLEMENTED — REAL DEVICE REQUIRED |
+| `SystemBaselineEngine` (podobne warunki: nasłonecznienie modelu ±15 %, wysokość słońca ±5°, ±45 dni) | IMPLEMENTED |
+| `AnenjiCorrelationEngine`, `EvidenceGraph`, `RootCauseAnalyzer`, `ConfidenceEngine` | IMPLEMENTED |
+| Pewność zdarzenia vs przyczyny (CONFIRMED / LIKELY / POSSIBLE / INSUFFICIENT_DATA; KRYTYCZNE tylko przy potwierdzonym zdarzeniu) | IMPLEMENTED |
+| Rekonstrukcja −60…+60 min, analiza okresów 24 h/7/30/90 dni/własny, ranking | IMPLEMENTED |
+| Wpływ energii/kosztu/baterii (N/A gdy nie da się policzyć; koszt tylko z ceny w ustawieniach) | IMPLEMENTED |
+| Trendy 90 dni (≥ 3 tygodnie danych, tydzień liczy się przy ≥ 4 dniach) | IMPLEMENTED |
+| Konfiguracja → incydenty (korelacja w czasie, nie dowód) | IMPLEMENTED; ustawienia z urządzenia NOT AVAILABLE (brak rejestrów ustawień) |
+| Ekran „Co się stało?” z drążeniem Diagnoza → Dowody → Dane → Surowe → Rejestry → Źródło | IMPLEMENTED (test instrumentalny w CI) |
+| `ANENJI_FORENSIC_PACKAGE.zip` (report.pdf/json, diagnoses, evidence, telemetry, registers, events, settings, metadata z SHA-256) | IMPLEMENTED |
+| MPPT 2+ z urządzenia | NOT AVAILABLE (brak rejestrów MPPT w mapie SMG) |
+| Wykrywanie restartu z urządzenia | REAL DEVICE REQUIRED (mapa SMG bez licznika czasu pracy – tylko POWER_ON po przerwie) |
+| Historia pogody > ~2 dni | NOT AVAILABLE (korelacja pogodowa tylko dla świeżych danych) |
+
+Procedura walidacji: [ANENJI_REAL_DEVICE_VALIDATION.md](ANENJI_REAL_DEVICE_VALIDATION.md).
+
 ## Bezpieczeństwo
 Pełny audyt bezpieczeństwa: [docs/SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md).

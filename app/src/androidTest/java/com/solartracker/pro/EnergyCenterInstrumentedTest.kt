@@ -144,6 +144,35 @@ class EnergyCenterInstrumentedTest {
     }
 
     @Test
+    fun forensicScreenShowsDataStatusAndValidationMode() {
+        runBlocking { EnergySettingsStore(context).setInverter(InverterConfig(enabled = true, link = InverterLink.SIMULATOR, pollIntervalSeconds = 2)) }
+        ActivityScenario.launch(MainActivity::class.java).use {
+            val tab = UiTestSupport.findDismissingAnr(device, By.desc("Centrum"), tag)
+            assertNotNull("Centrum tab not found", tab)
+            tab!!.click()
+            val open = device.wait(Until.findObject(By.text("Co się stało? – analiza śledcza")), 30_000)
+            assertNotNull("forensic button", open)
+            open.click()
+            assertNotNull("title", device.wait(Until.findObject(By.text("CO SIĘ STAŁO?")), 15_000))
+            val run = device.wait(Until.findObject(By.text("Analizuj historię")), 10_000)
+            assertNotNull("analyse button", run)
+            run.click()
+            // Whatever the history holds, the data status is always stated (OK / BRAK DANYCH / ANALIZA CZĘŚCIOWA / DANE NIEAKTUALNE).
+            assertNotNull("data status", device.wait(Until.findObject(By.textStartsWith("Dane: ")), 90_000))
+            screenshot("forensic")
+            val selector = By.text("Tryb walidacji rejestrów")
+            var card = device.findObject(selector)
+            repeat(25) {
+                if (card != null) return@repeat
+                device.findObjects(By.scrollable(true)).maxByOrNull { it.visibleBounds.height() }?.scroll(Direction.DOWN, 0.8f)
+                card = device.wait(Until.findObject(selector), 1_000)
+            }
+            assertNotNull("validation mode", card)
+            screenshot("forensic-validation")
+        }
+    }
+
+    @Test
     fun keystoreEncryptsSecrets() {
         val secret = "github_pat_TEST_123"
         val stored = SecretStore.encrypt(secret)

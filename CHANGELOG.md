@@ -4,6 +4,15 @@ Wszystkie istotne zmiany w projekcie Solar Tracker PRO.
 Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie [SemVer](https://semver.org/).
 
 ## [Unreleased]
+### Added – Anenji Forensic Analyzer v2 (tylko odczyt)
+- Pochodzenie surowe każdej próbki (`RawRef`: plik, linia, pola, czas surowy, rejestry), `TelemetrySample` ze źródłem/jakością/pewnością, `TimeSeriesEngine` 1 min…90 dni bez interpolacji.
+- Tryb walidacji rejestrów (`ValidationMode`, `ReferenceCodec`): porównanie z wyświetlaczem falownika; VERIFIED tylko po ≥ 3 zgodnych odczytach z urządzenia przy różnych wartościach.
+- `SystemBaselineEngine`, `ForensicAnomalyDetector` (PV, bateria, falownik, sieć z zanikiem sieci, komunikacja), `AnenjiCorrelationEngine`, `EvidenceGraph`, `RootCauseAnalyzer`, `ConfidenceEngine`, `EnergyImpactCalculator`, `ForensicDiagnosisBuilder` (osobna pewność zdarzenia i przyczyny).
+- `IncidentReconstructor` (−60…+60 min), `ForensicPeriodAnalyzer` (24 h/7/30/90 dni/własny, ranking), `LongTrendAnalyzer` (90 dni), `ConfigurationForensics`, „Dlaczego…?” o restart i wyższe zużycie.
+- Ekran **Centrum → Co się stało?** z drążeniem Diagnoza → Dowody → Dane → Surowe → Rejestry → Źródło; eksport `ANENJI_FORENSIC_PACKAGE.zip`.
+- 9 scenariuszy SYMULOWANYCH z oczekiwanymi diagnozami; `ANENJI_REAL_DEVICE_VALIDATION.md` (testy 1–10).
+### Fixed
+- Import: separator CSV z linią komentarza na początku; numery linii liczone od oryginału.
 
 ## [v0.13.0] - 2026-10-08
 ### Added – Anenji Deep Analyzer (tylko odczyt)

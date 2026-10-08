@@ -12,6 +12,9 @@ Loss chain with AOI and MPPT steps, `PvRealityEngine` (theoretical → losses �
 ## Done (Anenji Deep Analyzer) — IMPLEMENTED, WAITING FOR REAL ANENJI LOG
 Log import (CSV/JSON/TXT), settings snapshots and diff, event log with patterns, communication, trends, configuration advisor, incident ("what happened?") and "why?" analysis, explainable system health, full JSON/CSV/PDF report, Centrum → Analiza Anenji. Read-only.
 
+## Done (Anenji Forensic Analyzer v2) — IMPLEMENTED, REAL VALIDATION REQUIRED
+Evidence-first „Co się stało?”, baseline, korelacja, graf dowodów, przyczyny z eliminacją, pewność, wpływ, okresy, trendy 90 dni, konfiguracja → incydenty, tryb walidacji rejestrów, pakiet forensic ZIP. Następny krok: [ANENJI_REAL_DEVICE_VALIDATION.md](ANENJI_REAL_DEVICE_VALIDATION.md).
+
 ## Next
 1. Real-device validation of the Anenji register map with a user's inverter – record the log in Centrum → Diagnostyka PV and export CSV/JSON.
 2. Screens in Narzędzia for the layout optimizer, tilt schedule, wind safety and what-if (core is ready and tested).

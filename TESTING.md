@@ -17,6 +17,9 @@
 - `anenji/LogImporterTest` (parser): CSV with units and local time, semicolon + decimal comma + epoch + duplicates + bad time, JSON array and our history export, TXT key=value with inline units and whitespace tables, our register log CSV/JSON round trip incl. timeouts and simulator flag, unknown format, missing time column, kW suspicion.
 - `anenji/DeepAnalyzerTest`: event log and low-battery pattern with cause, communication score and gaps, settings snapshot/diff/NOT_AVAILABLE, trends and coverage, advisor (clipping energy, capacity ≈ 230 Ah, charge voltage, wrong capacity), incident reconstruction, why-questions (parse + answers), full report with REAL/SIMULATED separation and JSON/CSV/text export, simulator-only and empty input, missing data and impossible values, MPPT health, snapshot storage.
 - `fixtures/AnalyzerFixtures`: synthetic 30-day history with known ground truth (not a device recording).
+- `anenji/ForensicDataTest`: raw line/field/register provenance through the importer, register quality never VERIFIED without device evidence, validation mode verdicts and ×10/sign hints, VERIFIED only with ≥ 3 real matches at different values, time series without interpolation.
+- `anenji/ForensicEngineTest`: baseline in similar conditions only (INSUFFICIENT DATA at night / without a model), injected low PV found but not on cloudy days, weather and shading eliminated, dirt left possible, lost energy and cost, trace down to the raw file, N/A impact without a model, communication downtime, explicit confidence.
+- `anenji/ForensicScenarioTest` + `fixtures/ForensicScenarios`: **SIMULATED** scenarios SCENARIO_NORMAL, LOW_PV, MPPT_FAULT, LOW_BATTERY, HIGH_LOAD, GRID_OUTAGE, COMMUNICATION_FAILURE, INVERTER_RESTART, CONFIGURATION_CHANGE with expected diagnoses; incident reconstruction with NO DATA (no interpolation), period ranking, 90-day trends (apparent capacity ≈ 11 kWh, insufficient with < 3 weeks), configuration forensics, WHY restart/consumption, forensic ZIP package contents and traceability, 30-day analysis time.
 
 ## Fixtures (no physical inverter needed)
 - `fixtures/AnenjiFixtures`: SMG register snapshots – clear summer, cloudy summer, winter, zero PV, battery low, battery full, high load, garbage. Synthetic, built with the community register map.
@@ -30,10 +33,10 @@
 `scripts/run-live-ui-test.sh` runs `connectedDebugAndroidTest` on an API 30 emulator:
 - `LiveSolarInstrumentedTest`: 1-second live values, UI lag ≤ 3 s for ≥ 95 % of seconds.
 - `UpdateVerificationInstrumentedTest`: APK identity/signature checks.
-- `EnergyCenterInstrumentedTest`: simulator shown as SYMULATOR and ONLINE, advisor, Diagnostyka PV (status, recommendation, simulator has no registers), Analiza Anenji (analysis on history shows SYSTEM HEALTH), Keystore encryption, SQLite history.
+- `EnergyCenterInstrumentedTest`: simulator shown as SYMULATOR and ONLINE, advisor, Diagnostyka PV (status, recommendation, simulator has no registers), Analiza Anenji (analysis on history shows SYSTEM HEALTH), Co się stało? (data status always shown, validation mode present), Keystore encryption, SQLite history.
 - `WidgetInstrumentedTest`, `ToolsInstrumentedTest` (designer validation, location comparison, analyses page).
 
 ## What is NOT covered by tests
-- A real Anenji inverter: register map and PI30 commands need **REAL DEVICE VALIDATION** (record the register log in Diagnostyka PV).
+- A real Anenji inverter: register map and PI30 commands need **REAL DEVICE VALIDATION** (record the register log in Diagnostyka PV); procedure with acceptance criteria: [ANENJI_REAL_DEVICE_VALIDATION.md](ANENJI_REAL_DEVICE_VALIDATION.md). All forensic scenarios are SIMULATED.
 - Lint (`./gradlew lint`) and the Android build run only in CI (no Android SDK in the development sandbox).
 - Real weather accuracy and real-world shading measurements.
