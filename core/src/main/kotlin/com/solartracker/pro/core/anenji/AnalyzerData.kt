@@ -63,6 +63,8 @@ data class AnalyzerSample(
     val warnings: Set<Int> = emptySet(),
     val faults: Set<Int> = emptySet(),
     val mppts: List<MpptReading> = emptyList(),
+    /** Where the row came from, untouched (file line, original fields, raw register words) – for forensics. */
+    val raw: RawRef? = null,
 ) {
     operator fun get(c: Channel): Double? = values[c]
 
@@ -74,6 +76,18 @@ data class AnalyzerSample(
             return (w / va).takeIf { it in 0.0..1.05 }?.coerceAtMost(1.0)
         }
 }
+
+/**
+ * Untouched source of a sample: file + line/record, the original text fields (header → cell), the raw timestamp and,
+ * for register logs, the raw 16-bit words by address. Normalised values are an extra layer on top of this.
+ */
+data class RawRef(
+    val source: String,
+    val locator: String,
+    val rawTimestamp: String? = null,
+    val fields: Map<String, String> = emptyMap(),
+    val registers: Map<Int, Int> = emptyMap(),
+)
 
 /** One communication attempt (from the live connection log or an imported log). */
 data class CommRecord(

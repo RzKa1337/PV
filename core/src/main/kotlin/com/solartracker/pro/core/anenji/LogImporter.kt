@@ -71,11 +71,12 @@ object LogImporter {
     fun import(text: String, zone: ZoneId, fileName: String? = null): ImportedLog {
         val body = text.removePrefix("﻿").trim()
         val format = detectFormat(body, fileName)
+        val src = fileName ?: "import"
         return when (format) {
-            LogFormat.JSON -> importJson(body, zone)
-            LogFormat.CSV -> importTable(body.lines(), detectDelimiter(body), zone, LogFormat.CSV)
-            LogFormat.TXT -> if (body.lines().count { KV.containsMatchIn(it) } >= body.lines().count { it.isNotBlank() } / 2) importKeyValue(body.lines(), zone)
-                else importTable(body.lines(), null, zone, LogFormat.TXT)
+            LogFormat.JSON -> importJson(body, zone, src)
+            LogFormat.CSV -> importTable(body.lines(), detectDelimiter(body), zone, LogFormat.CSV, src)
+            LogFormat.TXT -> if (body.lines().count { KV.containsMatchIn(it) } >= body.lines().count { it.isNotBlank() } / 2) importKeyValue(body.lines(), zone, src)
+                else importTable(body.lines(), null, zone, LogFormat.TXT, src)
             LogFormat.UNKNOWN -> empty(format, listOf("Nie rozpoznano formatu pliku (oczekiwano CSV, JSON lub TXT)"))
         }
     }
@@ -95,7 +96,7 @@ object LogImporter {
 
     /** Delimiter used consistently in the first lines (`,` `;` or tab); null = none. */
     fun detectDelimiter(body: String): Char? {
-        val lines = body.lines().filter { it.isNotBlank() }.take(5)
+        val lines = body.lines().filter { it.isNotBlank() && !it.trimStart().startsWith("#") }.take(5)
         if (lines.size < 2) return null
         return listOf('\t', ';', ',').firstOrNull { d ->
             // Delimiters inside quoted fields ("Kod błędu (u32, starsze słowo)") do not count.
@@ -182,22 +183,26 @@ object LogImporter {
 
     // ---------------------------------------------------------------- tables
 
-    private fun importTable(lines: List<String>, delimiter: Char?, zone: ZoneId, format: LogFormat): ImportedLog {
-        val rows = lines.filter { it.isNotBlank() && !it.trimStart().startsWith("#") }
+    private fun importTable(lines: List<String>, delimiter: Char?, zone: ZoneId, format: LogFormat, src: String): ImportedLog {
+        // Keep the original line numbers (1-based) for raw-data forensics.
+        val rows = lines.withIndex().filter { (_, l) -> l.isNotBlank() && !l.trimStart().startsWith("#") }
         if (rows.size < 2) return empty(format, listOf("Plik nie zawiera nagłówka i danych"))
         fun split(l: String) = if (delimiter == null) l.trim().split(Regex("\\s+")) else splitQuoted(l, delimiter)
-        val header = split(rows.first())
+        val header = split(rows.first().value)
         val decimalComma = delimiter == ';'
         val norm = header.map { normalize(it) }
         // Our register log: one row per register → pivot by timestamp.
-        if ("address" in norm && ("rawdec" in norm || "raw" in norm)) return importRegisterLong(header, rows.drop(1).map(::split), zone, format)
+        if ("address" in norm && ("rawdec" in norm || "raw" in norm)) {
+            return importRegisterLong(header, rows.drop(1).map { split(it.value) }, zone, format, src, rows.drop(1).map { "linia ${it.index + 1}" })
+        }
         val cols = header.map { ColumnInfo(it, role(it), headerUnit(it)) }
-        val data = rows.drop(1).map { r -> cols.indices.associate { i -> cols[i] to split(r).getOrNull(i)?.trim().orEmpty() } }
-        return assemble(format, LogLayout.WIDE, cols, data, zone, decimalComma)
+        val data = rows.drop(1).map { (i, r) -> "linia ${i + 1}" to cols.indices.associate { c -> cols[c] to split(r).getOrNull(c)?.trim().orEmpty() } }
+        return assemble(format, LogLayout.WIDE, cols, data, zone, decimalComma, src)
     }
 
-    private fun importKeyValue(lines: List<String>, zone: ZoneId): ImportedLog {
-        val rows = lines.filter { it.isNotBlank() }
+    private fun importKeyValue(lines: List<String>, zone: ZoneId, src: String): ImportedLog {
+        val numbered = lines.withIndex().filter { it.value.isNotBlank() }
+        val rows = numbered.map { it.value }
         val parsed = rows.map { line ->
             val pairs = KV.findAll(line).associate { it.groupValues[1] to it.groupValues[2].trim() }
             val timeText = line.substringBefore(KV.find(line)?.value ?: line).trim().ifEmpty { pairs["time"] ?: pairs["timestamp"] ?: "" }
@@ -209,16 +214,17 @@ object LogImporter {
             val r = c.role
             if (r is ColumnRole.Measurement && c.unit != null) c.copy(role = r.copy(scale = scaleFor(r.channel.unit, c.unit))) else c
         }
-        val data = parsed.map { p -> cols.associateWith { c -> p[c.header]?.replace(Regex("[a-zA-Z%°]+$"), "").orEmpty() } }
-        return assemble(LogFormat.TXT, LogLayout.KEY_VALUE, cols, data, zone, decimalComma = false)
+        val data = parsed.mapIndexed { i, p -> "linia ${numbered[i].index + 1}" to cols.associateWith { c -> p[c.header]?.replace(Regex("[a-zA-Z%°]+$"), "").orEmpty() } }
+        return assemble(LogFormat.TXT, LogLayout.KEY_VALUE, cols, data, zone, decimalComma = false, src = src)
     }
 
     private fun unitFromValues(values: List<String>): String? =
         values.firstNotNullOfOrNull { Regex("[0-9]\\s*([a-zA-Z%°]+)$").find(it.trim())?.groupValues?.get(1)?.lowercase() }
 
-    private fun importRegisterLong(header: List<String>, rows: List<List<String>>, zone: ZoneId, format: LogFormat): ImportedLog {
+    private fun importRegisterLong(header: List<String>, rows: List<List<String>>, zone: ZoneId, format: LogFormat, src: String, locators: List<String>): ImportedLog {
         val idx = header.map { normalize(it) }.withIndex().associate { (i, h) -> h to i }
         fun cell(r: List<String>, name: String) = idx[name]?.let { r.getOrNull(it)?.trim() }
+        val locatorOf = java.util.IdentityHashMap<List<String>, String>().apply { rows.forEachIndexed { i, r -> put(r, locators.getOrElse(i) { "wiersz ${i + 1}" }) } }
         val byTime = rows.groupBy { cell(it, "timestamp").orEmpty() }
         val issues = mutableListOf<String>()
         val samples = mutableListOf<AnalyzerSample>()
@@ -254,7 +260,11 @@ object LogImporter {
                 }
             }
             fun bits(v: Long) = (0 until 32).filter { v and (1L shl it) != 0L }.toSet()
-            samples += AnalyzerSample(time, values, DataOrigin.IMPORTED, mode, bits(warnings), bits(faults))
+            val rawRegs = group.mapNotNull { r -> cell(r, "address")?.toIntOrNull()?.let { a -> (cell(r, "rawdec")?.toIntOrNull() ?: cell(r, "raw")?.toIntOrNull())?.let { a to it } } }.toMap()
+            val first = locatorOf[group.first()] ?: "?"
+            val last = locatorOf[group.last()] ?: first
+            samples += AnalyzerSample(time, values, DataOrigin.IMPORTED, mode, bits(warnings), bits(faults),
+                raw = RawRef(src, if (first == last) first else "$first–${last.removePrefix("linia ").removePrefix("rekord ")}", ts, registers = rawRegs))
         }
         if (simulated) issues += "Log pochodzi z symulatora – wyniki są demonstracyjne"
         val sorted = samples.sortedBy { it.time }
@@ -289,7 +299,7 @@ object LogImporter {
 
     // ---------------------------------------------------------------- JSON
 
-    private fun importJson(body: String, zone: ZoneId): ImportedLog {
+    private fun importJson(body: String, zone: ZoneId, src: String): ImportedLog {
         val root = runCatching { Json.parseToJsonElement(body) }.getOrElse { return empty(LogFormat.JSON, listOf("Nieprawidłowy JSON: ${it.message}")) }
         val obj = root as? JsonObject
         val format = (obj?.get("format") as? JsonPrimitive)?.content
@@ -304,7 +314,7 @@ object LogImporter {
                 if (regs.isEmpty()) listOf(head + listOf("", "", "", ""))
                 else regs.map { g -> val o = g as JsonObject; head + listOf(prim(o["address"]), prim(o["raw"]), prim(o["decoded"]), prim(o["quality"])) }
             }
-            return importRegisterLong(header, rows, zone, LogFormat.JSON)
+            return importRegisterLong(header, rows, zone, LogFormat.JSON, src, rows.indices.map { "rekord JSON ${it + 1}" })
         }
         val array: List<JsonObject> = when {
             root is JsonArray -> root.filterIsInstance<JsonObject>()
@@ -315,8 +325,8 @@ object LogImporter {
         }
         val keys = array.flatMap { it.keys }.distinct()
         val cols = keys.map { ColumnInfo(it, role(it), headerUnit(it)) }
-        val data = array.map { o -> cols.associateWith { c -> prim(o[c.header]) } }
-        return assemble(LogFormat.JSON, LogLayout.WIDE, cols, data, zone, decimalComma = false)
+        val data = array.mapIndexed { i, o -> "rekord JSON ${i + 1}" to cols.associateWith { c -> prim(o[c.header]) } }
+        return assemble(LogFormat.JSON, LogLayout.WIDE, cols, data, zone, decimalComma = false, src = src)
     }
 
     private fun prim(e: JsonElement?): String = when (e) {
@@ -327,7 +337,9 @@ object LogImporter {
 
     // ---------------------------------------------------------------- assembly
 
-    private fun assemble(format: LogFormat, layout: LogLayout, cols: List<ColumnInfo>, rows: List<Map<ColumnInfo, String>>, zone: ZoneId, decimalComma: Boolean): ImportedLog {
+    private fun assemble(format: LogFormat, layout: LogLayout, cols: List<ColumnInfo>, located: List<Pair<String, Map<ColumnInfo, String>>>, zone: ZoneId,
+                         decimalComma: Boolean, src: String): ImportedLog {
+        val rows = located.map { it.second }
         val issues = mutableListOf<String>()
         val timeCol = cols.firstOrNull { it.role == ColumnRole.Time }
             ?: return empty(format, listOf("Brak kolumny czasu (timestamp/time/date)"), cols)
@@ -345,7 +357,7 @@ object LogImporter {
         val settingsText = mutableListOf<Pair<Instant, Map<SettingKey, String>>>()
         var badTime = 0
         var simulated = false
-        for (row in rows) {
+        for ((locator, row) in located) {
             val time = parseTime(row[timeCol].orEmpty(), zone) ?: run { badTime++; null } ?: continue
             val values = mutableMapOf<Channel, Double>()
             val mppt = mutableMapOf<Int, Triple<Double?, Double?, Double?>>()
@@ -380,7 +392,8 @@ object LogImporter {
             if (commOk == false && values.isEmpty()) continue
             if (values.isEmpty() && mppt.isEmpty() && mode == null && warnings.isEmpty() && faults.isEmpty()) continue
             samples += AnalyzerSample(time, values, DataOrigin.IMPORTED, mode, warnings, faults,
-                mppt.toSortedMap().map { (i, t) -> MpptReading(i, t.first, t.second, t.third ?: if (t.first != null && t.second != null) t.first!! * t.second!! else null) })
+                mppt.toSortedMap().map { (i, t) -> MpptReading(i, t.first, t.second, t.third ?: if (t.first != null && t.second != null) t.first!! * t.second!! else null) },
+                RawRef(src, locator, row[timeCol], row.entries.associate { (c, v) -> c.header to v }))
         }
         if (badTime > 0) issues += "Wiersze z nieczytelnym czasem: $badTime (pominięte)"
         val sorted = samples.sortedBy { it.time }

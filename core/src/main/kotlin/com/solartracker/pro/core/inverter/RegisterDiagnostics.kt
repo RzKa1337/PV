@@ -12,6 +12,8 @@ enum class RegisterQuality(val label: String) {
     SUSPECTED("podejrzany"),
     /** "Not supported" marker or outside the physically possible range. */
     INVALID("nieprawidłowy"),
+    /** The register was not read (protocol without registers, failed read). */
+    NOT_AVAILABLE("niedostępny"),
 }
 
 /** One register as read from the device: raw word, decoded value and its quality. */
@@ -26,6 +28,8 @@ data class RegisterSample(
     val expectedMax: Double?,
     val quality: RegisterQuality,
     val note: String? = null,
+    val scale: Double? = null,
+    val signed: Boolean? = null,
 )
 
 /** One poll: link status and the register samples (empty when the read failed). */
@@ -49,23 +53,28 @@ object RegisterDiagnostics {
      * Quality of one reading. [issues] are the telemetry validation issues of the same read: a register feeding a
      * field with an issue is SUSPECTED even when its own value is in range.
      */
-    fun quality(spec: RegisterSpec, raw: Int, issues: List<TelemetryIssue> = emptyList()): Pair<RegisterQuality, String?> {
+    /**
+     * @param verified addresses confirmed against the real device in validation mode (see [com.solartracker.pro.core.inverter.ValidationMode]);
+     *   VERIFIED is never derived from documentation or the simulator
+     */
+    fun quality(spec: RegisterSpec, raw: Int, issues: List<TelemetryIssue> = emptyList(), verified: Set<Int> = emptySet()): Pair<RegisterQuality, String?> {
         if (raw !in 0..0xFFFF) return RegisterQuality.INVALID to "wartość spoza 16 bitów"
         if (raw == 0xFFFF && !spec.signed) return RegisterQuality.INVALID to "0xFFFF – rejestr prawdopodobnie nieobsługiwany"
         if (raw == 0x8000 && spec.signed) return RegisterQuality.INVALID to "0x8000 – wartość nieobsługiwana"
         val value = decode(spec, raw)
         spec.expected?.let { r -> if (value !in r) return RegisterQuality.INVALID to "poza zakresem fizycznym ${r.start}…${r.endInclusive} ${spec.unit}" }
         spec.field?.let { f -> issues.firstOrNull { it.field == f }?.let { return RegisterQuality.SUSPECTED to it.detail } }
-        return if (spec.validation == RegisterValidation.VERIFIED) RegisterQuality.VERIFIED to null else RegisterQuality.UNVERIFIED to null
+        return if (spec.validation == RegisterValidation.VERIFIED || spec.address in verified) RegisterQuality.VERIFIED to "potwierdzony na urządzeniu"
+        else RegisterQuality.UNVERIFIED to null
     }
 
     /** Samples of the SMG live block plus the fault/warning status words. */
-    fun smgSamples(blocks: SmgRawBlocks, timestamp: Instant, issues: List<TelemetryIssue> = emptyList()): List<RegisterSample> {
+    fun smgSamples(blocks: SmgRawBlocks, timestamp: Instant, issues: List<TelemetryIssue> = emptyList(), verified: Set<Int> = emptySet()): List<RegisterSample> {
         val live = SmgRegisters.LIVE.map { spec ->
             val raw = blocks.live[spec.address - SmgRegisterMap.LIVE_START]
-            val (q, note) = quality(spec, raw, issues)
+            val (q, note) = quality(spec, raw, issues, verified)
             RegisterSample(timestamp, spec.address, spec.name, raw, if (q == RegisterQuality.INVALID && raw in listOf(0xFFFF, 0x8000)) null else decode(spec, raw),
-                spec.unit, spec.expected?.start, spec.expected?.endInclusive, q, note)
+                spec.unit, spec.expected?.start, spec.expected?.endInclusive, q, note, spec.scale, spec.signed)
         }
         val status = listOf(SmgRegisterMap.FAULT_CODE to "Kod błędu (u32, starsze słowo)", SmgRegisterMap.FAULT_CODE + 1 to "Kod błędu (u32, młodsze słowo)",
             SmgRegisterMap.WARNING_CODE to "Kod ostrzeżenia (u32, starsze słowo)", SmgRegisterMap.WARNING_CODE + 1 to "Kod ostrzeżenia (u32, młodsze słowo)")

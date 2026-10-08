@@ -210,6 +210,7 @@ val com.solartracker.pro.core.inverter.RegisterQuality.uiLabel: String
         com.solartracker.pro.core.inverter.RegisterQuality.UNVERIFIED -> tr(label, "unverified")
         com.solartracker.pro.core.inverter.RegisterQuality.SUSPECTED -> tr(label, "suspected")
         com.solartracker.pro.core.inverter.RegisterQuality.INVALID -> tr(label, "invalid")
+        com.solartracker.pro.core.inverter.RegisterQuality.NOT_AVAILABLE -> tr(label, "not available")
     }
 
 val com.solartracker.pro.core.diagnostics.SoilingState.uiLabel: String
