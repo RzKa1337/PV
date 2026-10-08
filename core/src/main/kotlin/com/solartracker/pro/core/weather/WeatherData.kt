@@ -33,13 +33,36 @@ data class HourlyWeather(
     val uvIndexClearSky: Double? = null,
     /** Maximum wind gust in the hour at 10 m [m/s]. */
     val windGustsMs: Double? = null,
+    /** Dew point at 2 m as reported by the provider [°C]; null → compute with [Psychrometrics.dewPointC]. */
+    val dewPointC: Double? = null,
+    /** "Feels like" temperature reported by the provider [°C]. */
+    val apparentTemperatureC: Double? = null,
+    /** Probability of precipitation ≥ 0.1 mm in the hour [%] (model ensemble based). */
+    val precipitationProbabilityPercent: Double? = null,
+    /** Direction the wind comes FROM [° from north]. */
+    val windDirectionDeg: Double? = null,
+    /** Liquid rain in the hour [mm] and snowfall [cm] (subsets of [precipitationMm]). */
+    val rainMm: Double? = null,
+    val snowfallCm: Double? = null,
+    /** WMO weather interpretation code (0 = clear … 95–99 = thunderstorm). */
+    val weatherCode: Int? = null,
 ) {
     val startTime: Instant get() = endTime.minus(Duration.ofHours(1))
     val hasIrradiance: Boolean get() = dni != null && dhi != null
 }
 
-/** Hourly forecast, sorted by time. */
-class WeatherForecast(hours: List<HourlyWeather>, val fetchedAt: Instant) {
+/**
+ * Hourly forecast, sorted by time.
+ * @property zone time zone of the forecast location (from the provider); null when unknown (old cache)
+ * @property latitude/longitude grid point the provider used, when reported
+ */
+class WeatherForecast(
+    hours: List<HourlyWeather>,
+    val fetchedAt: Instant,
+    val zone: java.time.ZoneId? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+) {
     val hours: List<HourlyWeather> = hours.sortedBy { it.endTime }
 
     val coversFrom: Instant? get() = hours.firstOrNull { it.hasIrradiance }?.startTime

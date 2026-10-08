@@ -28,12 +28,13 @@ object OpenMeteo {
     private const val HOURLY_VARIABLES =
         "temperature_2m,cloud_cover,shortwave_radiation,direct_normal_irradiance,diffuse_radiation," +
             "wind_speed_10m,relative_humidity_2m,precipitation,snow_depth,visibility," +
-            "cloud_cover_low,cloud_cover_mid,cloud_cover_high,uv_index,uv_index_clear_sky,wind_gusts_10m"
+            "cloud_cover_low,cloud_cover_mid,cloud_cover_high,uv_index,uv_index_clear_sky,wind_gusts_10m," +
+            "dew_point_2m,apparent_temperature,precipitation_probability,wind_direction_10m,rain,snowfall,weather_code"
 
     fun forecastUrl(location: GeoLocation, forecastDays: Int = 16, pastDays: Int = 2): String =
         "https://api.open-meteo.com/v1/forecast?latitude=${coord(location.latitude)}" +
             "&longitude=${coord(location.longitude)}&hourly=$HOURLY_VARIABLES" +
-            "&forecast_days=$forecastDays&past_days=$pastDays&wind_speed_unit=ms&timezone=GMT&timeformat=unixtime"
+            "&forecast_days=$forecastDays&past_days=$pastDays&wind_speed_unit=ms&timezone=auto&timeformat=unixtime"
 
     /** Daily irradiation and temperature for whole calendar years [firstYear]..[lastYear]. */
     fun climateUrl(location: GeoLocation, firstYear: Int, lastYear: Int): String =
@@ -45,7 +46,13 @@ object OpenMeteo {
 
     /** @throws IllegalArgumentException when the response is not a valid forecast */
     fun parseForecast(json: String, fetchedAt: Instant): WeatherForecast {
-        val hourly = root(json)["hourly"]?.jsonObject ?: throw IllegalArgumentException("Missing 'hourly'")
+        val root = root(json)
+        val hourly = root["hourly"]?.jsonObject ?: throw IllegalArgumentException("Missing 'hourly'")
+        // IANA zone of the location (timezone=auto); "GMT" from older cached requests is not the location's zone.
+        val zone = (root["timezone"] as? JsonPrimitive)?.content?.takeIf { it != "GMT" && it != "UTC" }
+            ?.let { runCatching { java.time.ZoneId.of(it) }.getOrNull() }
+        val lat = (root["latitude"] as? JsonPrimitive)?.doubleOrNull
+        val lon = (root["longitude"] as? JsonPrimitive)?.doubleOrNull
         val time = hourly.longs("time")
         val ghi = hourly.doubles("shortwave_radiation", time.size)
         val dni = hourly.doubles("direct_normal_irradiance", time.size)
@@ -63,6 +70,13 @@ object OpenMeteo {
         val cloudHigh = hourly.doubles("cloud_cover_high", time.size)
         val uv = hourly.doubles("uv_index", time.size)
         val uvClear = hourly.doubles("uv_index_clear_sky", time.size)
+        val dew = hourly.doubles("dew_point_2m", time.size)
+        val apparent = hourly.doubles("apparent_temperature", time.size)
+        val pop = hourly.doubles("precipitation_probability", time.size)
+        val windDir = hourly.doubles("wind_direction_10m", time.size)
+        val rain = hourly.doubles("rain", time.size)
+        val snowfall = hourly.doubles("snowfall", time.size)
+        val code = hourly.doubles("weather_code", time.size)
         val hours = time.mapIndexedNotNull { i, t ->
             t ?: return@mapIndexedNotNull null
             HourlyWeather(
@@ -83,10 +97,17 @@ object OpenMeteo {
                 cloudHighPercent = cloudHigh[i]?.coerceIn(0.0, 100.0),
                 uvIndex = uv[i]?.coerceAtLeast(0.0),
                 uvIndexClearSky = uvClear[i]?.coerceAtLeast(0.0),
+                dewPointC = dew[i],
+                apparentTemperatureC = apparent[i],
+                precipitationProbabilityPercent = pop[i]?.coerceIn(0.0, 100.0),
+                windDirectionDeg = windDir[i]?.let { ((it % 360) + 360) % 360 },
+                rainMm = rain[i]?.coerceAtLeast(0.0),
+                snowfallCm = snowfall[i]?.coerceAtLeast(0.0),
+                weatherCode = code[i]?.toInt(),
             )
         }
         require(hours.isNotEmpty()) { "Empty forecast" }
-        return WeatherForecast(hours, fetchedAt)
+        return WeatherForecast(hours, fetchedAt, zone, lat, lon)
     }
 
     /**
