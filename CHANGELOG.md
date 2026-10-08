@@ -4,6 +4,9 @@ Wszystkie istotne zmiany w projekcie Solar Tracker PRO.
 Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie [SemVer](https://semver.org/).
 
 ## [Unreleased]
+### Changed – zakładka Radar
+- Nowy wygląd: karta „teraz” (pogoda + PV teraz vs oczekiwane + jakość danych), alerty jako kolorowe paski, kafelki „Dziś”, mapa radaru z zaokrągleniem, godziną klatki na mapie, odtwarzaniem i legendą skali, wykres z osią czasu i znacznikiem „teraz”, lista godzinowa dzień po dniu z ikonami pogody, karty kolejnych dni, trafność zwinięta.
+- Szybkość: raport godzinowy przeliczany najwyżej co 5 min (lub po nowej pogodzie / zmianie zakresu, którego nie obejmuje), bez podwójnych obliczeń; trafność z bazy czytana najwyżej co godzinę; zmiana zakresu 24 h / 48 h / 4 dni bez przeliczania; warstwy radaru trzymane dla każdej klatki (przełączanie bez przeładowania i migania); lista godzinowa pokazuje jeden dzień (zamiast setek wierszy).
 
 ## [v0.15.0] - 2026-10-08
 ### Added – Radar i prognoza PV

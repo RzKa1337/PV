@@ -346,6 +346,9 @@ data class AnalyzerState(
     val validation: List<RegisterEvidence> = emptyList(),
 )
 
+/** The hourly radar-tab report is rebuilt at most this often (weather changes and user actions force it). */
+private val RADAR_REFRESH: Duration = Duration.ofMinutes(5)
+
 /** About 3 h of 5-second polls. */
 private const val MAX_REGISTER_RECORDS = 2000
 
@@ -381,6 +384,11 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
     private val radarRepo by lazy { RadarRepository(context) }
     @Volatile private var radarVisible = false
     private var radarComputedAt: Instant? = null
+    /** Days the current report covers; a shorter range is only a view of it (no recomputation). */
+    private var radarComputedDays = 0
+    private var radarJob: kotlinx.coroutines.Job? = null
+    /** Forecast accuracy changes slowly (30 days of hourly pairs) – re-read from the database at most hourly. */
+    private var radarAccuracy: Pair<Instant, com.solartracker.pro.core.analytics.AccuracyReport?>? = null
     private val _shading = MutableStateFlow(ShadingState())
     val shading: StateFlow<ShadingState> = _shading.asStateFlow()
     private val _alerts = MutableStateFlow<List<Alert>>(emptyList())
@@ -723,7 +731,7 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
             _diagnostics.value = _diagnostics.value.copy(radar = radar, mission = mission)
         }
         storeForecasts(pv, now, nowcast)
-        if (radarVisible && radarComputedAt?.let { Duration.between(it, now) >= Duration.ofMinutes(5) } != false) computeRadarForecast(s, weather, pv, model, now, nowcast)
+        if (radarVisible && radarJob?.isActive != true && radarComputedAt?.let { Duration.between(it, now) >= RADAR_REFRESH } != false) computeRadarForecast(s, weather, pv, model, now, nowcast)
         recomputeInsights(s, pv, load, nowcast, soc, now)
     }
 
@@ -744,7 +752,7 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
         radarVisible = visible
         if (visible) {
             loadRadar(force = false)
-            refreshRadarForecast()
+            refreshRadarForecast(force = false)
         }
     }
 
@@ -758,11 +766,19 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setRadarRange(days: Int) {
         _radar.value = _radar.value.copy(rangeDays = days)
-        refreshRadarForecast()
+        // 24 h / 48 h / 4 days are views of the report that is already there.
+        if (days > radarComputedDays) refreshRadarForecast(force = true)
     }
 
-    fun refreshRadarForecast() {
-        viewModelScope.launch(Dispatchers.Default) {
+    /**
+     * Rebuilds the hourly report at most every [RADAR_REFRESH] (or when forced / the weather changed); a running
+     * computation is never started twice.
+     */
+    fun refreshRadarForecast(force: Boolean = false) {
+        val now = Instant.now()
+        if (radarJob?.isActive == true) return
+        if (!force && _radar.value.report != null && radarComputedAt?.let { Duration.between(it, now) < RADAR_REFRESH } == true) return
+        radarJob = viewModelScope.launch(Dispatchers.Default) {
             val s = settings.value ?: return@launch
             val now = Instant.now()
             val weather = WeatherAwareIrradianceModel(s.location, _weather.value.first, _weather.value.second)
@@ -779,6 +795,8 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
      */
     private suspend fun computeRadarForecast(s: AppSettings, weather: WeatherAwareIrradianceModel, pv: PredictivePvEngine, model: CalibrationModel?, now: Instant, nowcast: Double?) {
         radarComputedAt = now
+        val days = maxOf(_radar.value.rangeDays, 4)
+        radarComputedDays = days
         _radar.value = _radar.value.copy(computing = true)
         val result = runCatching {
             val clear = pvEngine(s, WeatherAwareIrradianceModel(s.location), model)
@@ -788,19 +806,19 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
                 { t -> clear.at(t, now).expectedKw }, { t -> estimator.pointEstimate(s.system, s.location, t) }, zone)
             val (rows, accuracy) = withContext(Dispatchers.IO) {
                 val recent = runCatching { db.history(now.minus(Duration.ofDays(2)), now) }.getOrDefault(emptyList())
-                val acc = runCatching {
+                val cachedAcc = radarAccuracy?.takeIf { Duration.between(it.first, now) < Duration.ofHours(1) }
+                val acc = if (cachedAcc != null) cachedAcc.second else runCatching {
                     val monthAgo = now.minus(Duration.ofDays(30))
                     val stored = db.forecasts(com.solartracker.pro.core.analytics.ForecastHorizon.DAY_AHEAD, monthAgo, now)
                     val real = db.history(monthAgo, now, summary = true).filter { !it.simulated }
                     com.solartracker.pro.core.analytics.ForecastAccuracy.evaluate(com.solartracker.pro.core.analytics.ForecastAccuracy.pairHourly(stored, real))
                         .takeIf { it.count > 0 }
-                }.getOrNull()
+                }.getOrNull().also { radarAccuracy = now to it }
                 recent to acc
             }
             val stale = forecast?.fetchedAt?.let { Duration.between(it, now) > Duration.ofHours(3) } ?: false
             val live = _live.value
             val liveW = live.telemetry?.pv?.powerW?.takeIf { live.freshness == Freshness.LIVE }
-            val days = maxOf(_radar.value.rangeDays, 4)
             withContext(Dispatchers.Default) { engine.build(now, days, rows, accuracy, stale, liveW, live.info?.simulated == true) }
         }
         _radar.value = result.fold(

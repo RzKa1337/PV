@@ -45,5 +45,8 @@ Iloczyn jawnych czynników (każdy pokazany): źródło pogody, prognoza z pami�
 ## Alerty
 Opady w ciągu 2 h (rozdzielczość 1 h), gęste chmury (≥ 2 h z ≥ 80 % zasłonięcia), silny wiatr (domyślnie: porywy ≥ 17,2 m/s = 8° Beauforta lub wiatr ≥ 10,8 m/s = 6° B), szczyt PV w ciągu 30 min, PV ≥ 20 % poniżej prognozy (oczekiwane ≥ 200 W), temperatura > 30 °C.
 
+## Wydajność
+Raport godzinowy jest liczony w tle (Dispatchers.Default) najwyżej co 5 minut, po nowej prognozie pogody albo gdy wybrany zakres wykracza poza policzone dni; równoległe przeliczenia nie są uruchamiane. Trafność (30 dni z bazy) jest czytana najwyżej raz na godzinę. Mapa trzyma warstwę radaru dla każdej klatki – suwak i animacja tylko przełączają widoczność.
+
 ## Testy
 `core/src/test/.../forecast/RadarForecastTest.kt` – punkt rosy (typowy, wysoka/niska wilgotność, mróz, granice), parsowanie nowych pól i strefy, dzień zmiany czasu (25 h), brak prognozy, PV (czyste niebo, chmury, upał, noc, wschód, szczyt), opady z wpływem i nocne bez wpływu, alerty, rzeczywista vs oczekiwana (równa, +10 %, −10 %, częściowa, symulator, brak), pewność, radar (poprawne klatki, nieaktualne, brak internetu, uszkodzone dane). `app/src/androidTest/.../RadarInstrumentedTest.kt` – zakładka na emulatorze.
