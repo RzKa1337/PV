@@ -165,15 +165,13 @@ private fun EnergyCenterMain(vm: EnergyCenterViewModel, onShading: () -> Unit, o
                 OutlinedButton(onClick = onConfig) { Text(stringResource(R.string.ec_configuration)) }
             }
             OutlinedButton(onClick = onDiagnostics, modifier = Modifier.fillMaxWidth().testTag("open_diagnostics")) { Text(stringResource(R.string.dg_open)) }
-            FilledTonalButton(onClick = onForensic, modifier = Modifier.fillMaxWidth().testTag("open_forensic")) { Text(stringResource(R.string.fo_open)) }
-            // Two per row so the LIVE section stays on the first screen.
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = onAnalyzer, modifier = Modifier.weight(1f).testTag("open_analyzer")) { Text(stringResource(R.string.an_open)) }
-                OutlinedButton(onClick = onInsights, modifier = Modifier.weight(1f).testTag("open_insights")) { Text(stringResource(R.string.ec_open_insights)) }
-            }
+            OutlinedButton(onClick = onAnalyzer, modifier = Modifier.fillMaxWidth().testTag("open_analyzer")) { Text(stringResource(R.string.an_open)) }
+            OutlinedButton(onClick = onInsights, modifier = Modifier.fillMaxWidth().testTag("open_insights")) { Text(stringResource(R.string.ec_open_insights)) }
         }
 
         LiveSection(vm)
+        // Below LIVE so the live values stay on the first screen.
+        FilledTonalButton(onClick = onForensic, modifier = Modifier.fillMaxWidth().testTag("open_forensic")) { Text(stringResource(R.string.fo_open)) }
         FlowSection(vm)
         EnergySecurityCard(forecast.security)
 

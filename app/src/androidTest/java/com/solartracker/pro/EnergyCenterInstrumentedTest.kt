@@ -150,7 +150,14 @@ class EnergyCenterInstrumentedTest {
             val tab = UiTestSupport.findDismissingAnr(device, By.desc("Centrum"), tag)
             assertNotNull("Centrum tab not found", tab)
             tab!!.click()
-            val open = device.wait(Until.findObject(By.text("Co się stało? – analiza śledcza")), 30_000)
+            assertNotNull("status ONLINE", device.wait(Until.findObject(By.textContains(": ONLINE")), 30_000))
+            val openSelector = By.text("Co się stało? – analiza śledcza")
+            var open = device.wait(Until.findObject(openSelector), 5_000)
+            repeat(15) {
+                if (open != null) return@repeat
+                device.findObjects(By.scrollable(true)).maxByOrNull { it.visibleBounds.height() }?.scroll(Direction.DOWN, 0.5f)
+                open = device.wait(Until.findObject(openSelector), 1_000)
+            }
             assertNotNull("forensic button", open)
             open.click()
             assertNotNull("title", device.wait(Until.findObject(By.text("CO SIĘ STAŁO?")), 15_000))
