@@ -54,6 +54,8 @@ import com.solartracker.pro.core.geo.PlaceErrorKind
 import com.solartracker.pro.core.geo.PlaceSearchException
 import com.solartracker.pro.core.geo.PlaceSearcher
 import com.solartracker.pro.core.geo.PlaceSuggestion
+import com.solartracker.pro.core.geo.PlaceSource
+import com.solartracker.pro.core.shading.LatLon
 import com.solartracker.pro.core.geo.PlaceText
 import com.solartracker.pro.core.geo.SavedPlace
 import com.solartracker.pro.core.geo.SuggestResult
@@ -84,6 +86,8 @@ private data class Request(val query: String, val retry: Int, val explicit: Int)
 @Composable
 fun PlaceSearchField(
     recent: List<SavedPlace>,
+    /** Current location – nearby results rank higher (nothing is filtered out). */
+    near: LatLon? = null,
     onPick: (SavedPlace) -> Unit,
     onForget: (SavedPlace) -> Unit,
     modifier: Modifier = Modifier,
@@ -110,7 +114,7 @@ fun PlaceSearchField(
                 if (PlaceText.normalize(req.query) == null) { ui = SearchUi.Idle; return@collectLatest }
                 ui = SearchUi.Loading((ui as? SearchUi.Results)?.result?.suggestions ?: (ui as? SearchUi.Loading)?.previous.orEmpty())
                 ui = try {
-                    val r = if (now) repo.searchNow(req.query, session) else repo.suggest(req.query, session)
+                    val r = if (now) repo.searchNow(req.query, session, near) else repo.suggest(req.query, session, near)
                     if (r.suggestions.isEmpty()) SearchUi.Empty(r.query) else SearchUi.Results(r)
                 } catch (e: CancellationException) {
                     throw e
@@ -181,9 +185,12 @@ fun PlaceSearchField(
                 RecentPanel(recent, onPick = { onPick(it); focus.clearFocus() }, onForget = onForget)
             }
             is SearchUi.Loading -> if (s.previous.isNotEmpty()) SuggestionPanel(s.previous, null, null) { pick(it) }
-            is SearchUi.Results -> SuggestionPanel(s.result.suggestions, s.result, s.result.notice?.kind) { pick(it) }
-            is SearchUi.Empty -> Text(stringResource(R.string.place_search_empty, s.query), style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.testTag("place_search_empty"))
+            is SearchUi.Results -> SuggestionPanel(s.result.suggestions, s.result, s.result.notice?.kind, onMore = { explicit++ }) { pick(it) }
+            is SearchUi.Empty -> Column(Modifier.testTag("place_search_empty")) {
+                Text(stringResource(R.string.place_search_empty, s.query), style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                TextButton(onClick = { explicit++ }) { Text(stringResource(R.string.place_search_more)) }
+            }
             is SearchUi.Failed -> Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.testTag("place_search_error")) {
                 Text(errorText(s.kind), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                 TextButton(onClick = { retry++ }) { Text(stringResource(R.string.place_search_retry)) }
@@ -203,7 +210,13 @@ private fun errorText(kind: PlaceErrorKind): String = stringResource(
 )
 
 @Composable
-private fun SuggestionPanel(items: List<PlaceSuggestion>, result: SuggestResult?, notice: PlaceErrorKind?, onPick: (PlaceSuggestion) -> Unit) {
+private fun SuggestionPanel(
+    items: List<PlaceSuggestion>,
+    result: SuggestResult?,
+    notice: PlaceErrorKind?,
+    onMore: (() -> Unit)? = null,
+    onPick: (PlaceSuggestion) -> Unit,
+) {
     Surface(shape = RoundedCornerShape(16.dp), tonalElevation = 3.dp, color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(vertical = 4.dp)) {
             items.forEachIndexed { i, s ->
@@ -218,6 +231,11 @@ private fun SuggestionPanel(items: List<PlaceSuggestion>, result: SuggestResult?
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
                 )
+            }
+            if (onMore != null && result?.source != PlaceSource.COORDINATES) {
+                TextButton(onClick = onMore, modifier = Modifier.padding(horizontal = 4.dp)) {
+                    Text(stringResource(R.string.place_search_not_listed))
+                }
             }
         }
     }

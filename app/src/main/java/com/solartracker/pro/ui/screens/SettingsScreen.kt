@@ -274,6 +274,7 @@ private fun LocationSection(settings: AppSettings, gpsStatus: GpsStatus, actions
 
         PlaceSearchField(
             recent = settings.recentPlaces,
+            near = com.solartracker.pro.core.shading.LatLon(settings.location.latitude, settings.location.longitude),
             onPick = actions::selectPlace,
             onForget = actions::forgetRecentPlace,
         )

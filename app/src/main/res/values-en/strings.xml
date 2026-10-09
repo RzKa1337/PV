@@ -940,11 +940,11 @@
     <string name="scene_atacama">Illustration · Atacama Desert</string>
     <string name="scene_santorini">Illustration · Santorini</string>
     <string name="scene_algarve">Illustration · Algarve</string>
-    <string name="place_search_label">City, region or address</string>
-    <string name="place_search_hint">e.g. Warsaw, Zakopane, 00-001</string>
+    <string name="place_search_label">Place, address or coordinates</string>
+    <string name="place_search_hint">e.g. Atacama Desert, Krakow, 5 Main St, 52.23, 21.01</string>
     <string name="place_search_clear">Clear</string>
     <string name="place_search_resolving">Getting coordinates: %1$s…</string>
-    <string name="place_search_empty">No results for “%1$s”. Check the spelling or type a postcode and press “Search” on the keyboard.</string>
+    <string name="place_search_empty">Suggestions found nothing for “%1$s”.</string>
     <string name="place_search_retry">Try again</string>
     <string name="place_search_source">Results: %1$s</string>
     <string name="place_search_fallback">Google unavailable – backup search</string>
@@ -982,4 +982,6 @@
     <string name="settings_gamma_label">Power γ [%/°C]</string>
     <string name="settings_inverter_limit_label">Inverter limit [kW]</string>
     <string name="settings_inverter_limit_hint">empty = none</string>
+    <string name="place_search_more">Search more thoroughly (full name, address, country)</string>
+    <string name="place_search_not_listed">Place not listed? Search more thoroughly</string>
 </resources>

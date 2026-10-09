@@ -6,6 +6,8 @@ import android.os.Build
 import com.solartracker.pro.BuildConfig
 import com.solartracker.pro.core.geo.GooglePlacesProvider
 import com.solartracker.pro.core.geo.OpenMeteoPlaceProvider
+import com.solartracker.pro.core.geo.PhotonPlaceProvider
+import com.solartracker.pro.core.shading.LatLon
 import com.solartracker.pro.core.geo.PlaceAutocompleteProvider
 import com.solartracker.pro.core.geo.PlaceErrorKind
 import com.solartracker.pro.core.geo.PlaceSearchException
@@ -30,7 +32,8 @@ import java.util.UUID
  * City / address search for the location setting. Google Places (New) is used when a key is configured (in the
  * app or at build time); otherwise – and as a fallback when Google refuses the key or the quota is used up – the
  * keyless Open-Meteo geocoder. Nominatim is called only for an explicit search (its policy forbids autocomplete).
- * Coordinates always come from the provider, never from parsing the typed text.
+ * Coordinates come from the provider – or are the user's own typed coordinates / pasted map link, never parsed
+ * out of a place name.
  */
 class PlaceSearchRepository(context: Context) {
     private val app = context.applicationContext
@@ -59,12 +62,20 @@ class PlaceSearchRepository(context: Context) {
 
     private fun language(): String = if (AppLocale.isEnglish) "en" else "pl"
 
-    private fun searcher(): PlaceSearcher {
+    /**
+     * Google (with a key) → Photon / OpenStreetMap (towns, regions, deserts, mountains, streets, addresses, POIs) →
+     * Open-Meteo (GeoNames towns). A provider that finds nothing hands over to the next one. [near] (the current
+     * location) only ranks nearby results higher.
+     */
+    private fun searcher(near: LatLon? = null): PlaceSearcher {
         val key = apiKey()
-        val signature = "${key.hashCode()}|${language()}"
+        val bias = near?.let { LatLon(Math.round(it.lat * 10) / 10.0, Math.round(it.lon * 10) / 10.0) }
+        val signature = "${key.hashCode()}|${language()}|$bias"
         cached?.let { (sig, s) -> if (sig == signature) return s }
         val providers = buildList<PlaceAutocompleteProvider> {
             if (key.isNotBlank()) add(GooglePlacesProvider(http, key, app.packageName, certSha1, language()))
+            // Photon knows en/de/fr; "default" gives local names (Desierto de Atacama, Warszawa).
+            add(PhotonPlaceProvider(http, userAgent, if (AppLocale.isEnglish) "en" else "default", bias))
             add(OpenMeteoPlaceProvider(http, userAgent, language()))
         }
         return PlaceSearcher(providers).also { cached = signature to it }
@@ -73,19 +84,31 @@ class PlaceSearchRepository(context: Context) {
     /** New billing/session token for one search (Google groups keystrokes + the details call). */
     fun newSession(): String = UUID.randomUUID().toString()
 
-    suspend fun suggest(query: String, session: String): SuggestResult = withContext(Dispatchers.IO) {
-        searcher().suggest(query, session)
+    suspend fun suggest(query: String, session: String, near: LatLon? = null): SuggestResult = withContext(Dispatchers.IO) {
+        searcher(near).suggest(query, session)
     }
 
-    /** Explicit search (keyboard "search"): autocomplete first, then addresses / postcodes from OpenStreetMap. */
-    suspend fun searchNow(query: String, session: String): SuggestResult = withContext(Dispatchers.IO) {
-        val first = runCatching { searcher().suggest(query, session) }
-        first.getOrNull()?.takeIf { it.suggestions.isNotEmpty() }?.let { return@withContext it }
-        val osm = runCatching { NominatimLocationProvider(http, userAgent).search(query.trim(), 6) }
-        osm.getOrNull()?.takeIf { it.isNotEmpty() }?.let { list ->
-            return@withContext SuggestResult(query.trim(), list.map { it.toSuggestion(query) }, PlaceSource.OPENSTREETMAP, first.getOrNull()?.notice)
+    /**
+     * Explicit, thorough search (keyboard "search" / "search more"): OpenStreetMap Nominatim with the full query in the
+     * app language (understands "Atakama, Chile", "Pustynia Atakama", addresses, postcodes) first, then the
+     * autocomplete results that are not already there. Nominatim is only called on this explicit action.
+     */
+    suspend fun searchNow(query: String, session: String, near: LatLon? = null): SuggestResult = withContext(Dispatchers.IO) {
+        val q = query.trim()
+        val osm = runCatching { NominatimLocationProvider(http, userAgent, language = language()).search(q, 6).map { it.toSuggestion(q) } }
+        val auto = runCatching { searcher(near).suggest(q, session) }
+        val osmList = osm.getOrNull().orEmpty()
+        val autoList = auto.getOrNull()?.suggestions.orEmpty().filterNot { a ->
+            val p = a.point
+            p != null && osmList.any { o -> o.point!!.let { kotlin.math.abs(it.lat - p.lat) < 0.01 && kotlin.math.abs(it.lon - p.lon) < 0.01 } }
         }
-        first.getOrNull() ?: throw (first.exceptionOrNull() ?: PlaceSearchException(PlaceErrorKind.NETWORK, "network"))
+        val merged = (osmList + autoList).take(PlaceSearcher.DEFAULT_LIMIT + 2)
+        when {
+            merged.isNotEmpty() -> SuggestResult(q, merged, if (osmList.isNotEmpty()) PlaceSource.OPENSTREETMAP else auto.getOrNull()?.source, auto.getOrNull()?.notice)
+            auto.isSuccess -> auto.getOrThrow()
+            else -> throw (auto.exceptionOrNull() as? PlaceSearchException ?: osm.exceptionOrNull()?.let { PlaceSearchException(PlaceErrorKind.NETWORK, it.message ?: "network", it) }
+                ?: PlaceSearchException(PlaceErrorKind.NETWORK, "network"))
+        }
     }
 
     /** Coordinates of the picked suggestion; the elevation comes from Open-Meteo (Copernicus DEM) when missing. */

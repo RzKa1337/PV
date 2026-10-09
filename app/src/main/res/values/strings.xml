@@ -941,11 +941,11 @@
     <string name="scene_atacama">Ilustracja · Pustynia Atakama</string>
     <string name="scene_santorini">Ilustracja · Santorini</string>
     <string name="scene_algarve">Ilustracja · Algarve</string>
-    <string name="place_search_label">Miasto, region lub adres</string>
-    <string name="place_search_hint">np. Warszawa, Zakopane, 00-001</string>
+    <string name="place_search_label">Miejsce, adres lub współrzędne</string>
+    <string name="place_search_hint">np. Pustynia Atakama, Kraków, ul. Długa 5, 52.23, 21.01</string>
     <string name="place_search_clear">Wyczyść</string>
     <string name="place_search_resolving">Pobieram współrzędne: %1$s…</string>
-    <string name="place_search_empty">Brak wyników dla „%1$s”. Sprawdź pisownię albo wpisz kod pocztowy i naciśnij „Szukaj” na klawiaturze.</string>
+    <string name="place_search_empty">Podpowiedzi nie znalazły „%1$s”.</string>
     <string name="place_search_retry">Spróbuj ponownie</string>
     <string name="place_search_source">Wyniki: %1$s</string>
     <string name="place_search_fallback">Google niedostępne – wyszukiwarka zapasowa</string>
@@ -983,4 +983,6 @@
     <string name="settings_gamma_label">γ mocy [%/°C]</string>
     <string name="settings_inverter_limit_label">Limit falownika [kW]</string>
     <string name="settings_inverter_limit_hint">puste = brak</string>
+    <string name="place_search_more">Szukaj dokładniej (pełna nazwa, adres, kraj)</string>
+    <string name="place_search_not_listed">Nie ma tego miejsca? Szukaj dokładniej</string>
 </resources>

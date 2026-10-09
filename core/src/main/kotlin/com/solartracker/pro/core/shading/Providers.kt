@@ -66,11 +66,12 @@ class NominatimLocationProvider(
     private val http: HttpClient,
     private val userAgent: String,
     private val base: String = "https://nominatim.openstreetmap.org",
+    private val language: String = "pl",
 ) : MapLocationProvider {
     override fun search(query: String, limit: Int): List<GeocodeResult> {
         val q = query.trim()
         require(q.length in 2..200) { "query length" }
-        val url = "$base/search?format=jsonv2&addressdetails=0&limit=$limit&accept-language=pl&q=${enc(q)}"
+        val url = "$base/search?format=jsonv2&addressdetails=0&limit=$limit&accept-language=${enc(language)}&q=${enc(q)}"
         return parse(http.getText(url, userAgent))
     }
 

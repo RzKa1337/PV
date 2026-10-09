@@ -22,8 +22,11 @@ import kotlin.math.sqrt
 /** Where a place suggestion came from (shown to the user as attribution). */
 enum class PlaceSource(val label: String) {
     GOOGLE("Google Maps"),
+    PHOTON("OpenStreetMap (Photon)"),
     OPEN_METEO("Open-Meteo / GeoNames"),
     OPENSTREETMAP("OpenStreetMap Nominatim"),
+    /** Coordinates or a map link typed by the user – no provider involved. */
+    COORDINATES("współrzędne"),
 }
 
 /**
@@ -294,6 +297,138 @@ class GooglePlacesProvider(
     }
 }
 
+/**
+ * OpenStreetMap search-as-you-type via Photon (komoot, no key, fair use – requests are debounced and cached).
+ * Finds what OSM knows: towns, regions, deserts, mountains, lakes, streets, addresses, POIs – with coordinates.
+ * [language] "default" returns local names; Photon also supports en/de/fr. [bias] prefers results near a point.
+ */
+class PhotonPlaceProvider(
+    private val http: HttpClient,
+    private val userAgent: String,
+    private val language: String = "default",
+    private val bias: LatLon? = null,
+    private val base: String = "https://photon.komoot.io",
+) : PlaceAutocompleteProvider {
+    override val source = PlaceSource.PHOTON
+
+    override fun suggest(query: String, session: String, limit: Int): List<PlaceSuggestion> {
+        val near = bias?.let { "&lat=${"%.4f".format(java.util.Locale.ROOT, it.lat)}&lon=${"%.4f".format(java.util.Locale.ROOT, it.lon)}" }.orEmpty()
+        val url = "$base/api/?q=${enc(query)}&limit=$limit&lang=${enc(language)}$near"
+        val response = try {
+            http.get(url, mapOf("User-Agent" to userAgent, "Accept" to "application/json"))
+        } catch (e: IOException) {
+            throw PlaceSearchException(PlaceErrorKind.NETWORK, e.message ?: "network", e)
+        }
+        response.use {
+            val body = it.body.bufferedReader().readText()
+            if (it.code == 429) throw PlaceSearchException(PlaceErrorKind.QUOTA, "Photon: limit zapytań (429)")
+            if (it.code != 200) throw PlaceSearchException(PlaceErrorKind.BAD_RESPONSE, "Photon: HTTP ${it.code}")
+            return parse(body, query)
+        }
+    }
+
+    override fun resolve(suggestion: PlaceSuggestion, session: String): ResolvedPlace {
+        val p = suggestion.point ?: throw PlaceSearchException(PlaceErrorKind.BAD_RESPONSE, "Brak współrzędnych")
+        return ResolvedPlace(suggestion.primary, suggestion.secondary, p, null, null, source)
+    }
+
+    companion object {
+        /** GeoJSON FeatureCollection; coordinates are [lon, lat]. Duplicates (same name within ~1 km) are dropped. */
+        fun parse(body: String, query: String): List<PlaceSuggestion> {
+            val root = parseObject(body)
+            val features = root["features"] as? JsonArray ?: return emptyList()
+            val out = ArrayList<PlaceSuggestion>()
+            for (f in features) {
+                val o = f as? JsonObject ?: continue
+                val coords = o.obj("geometry")?.get("coordinates") as? JsonArray ?: continue
+                val lon = (coords.getOrNull(0) as? JsonPrimitive)?.doubleOrNull
+                val lat = (coords.getOrNull(1) as? JsonPrimitive)?.doubleOrNull
+                val point = validPoint(lat, lon) ?: continue
+                val pr = o.obj("properties") ?: continue
+                val street = listOfNotNull(pr.str("street"), pr.str("housenumber")).joinToString(" ").ifBlank { null }
+                val primary = pr.str("name") ?: street ?: pr.str("city") ?: continue
+                val secondary = listOfNotNull(
+                    street?.takeIf { it != primary },
+                    pr.str("postcode"),
+                    pr.str("city")?.takeIf { it != primary },
+                    pr.str("county")?.takeIf { it != primary },
+                    pr.str("state")?.takeIf { it != primary },
+                    pr.str("country")?.takeIf { it != primary },
+                ).distinct().joinToString(", ")
+                if (out.any { it.primary == primary && it.point!!.let { q -> kotlin.math.abs(q.lat - point.lat) < 0.01 && kotlin.math.abs(q.lon - point.lon) < 0.01 } }) continue
+                val id = listOfNotNull(pr.str("osm_type"), (pr["osm_id"] as? JsonPrimitive)?.content).joinToString(":").ifBlank { "${point.lat},${point.lon}" }
+                out += PlaceSuggestion(id, primary, secondary, PlaceText.matches(primary, query), PlaceSource.PHOTON, point)
+            }
+            return out
+        }
+    }
+}
+
+/**
+ * Coordinates typed or pasted by the user: "52.23, 21.01", "-24.5 -69.25", "24.5S 69.25W", "N 52°13'48\" E 21°0'36\"",
+ * "geo:52.23,21.01" and Google / OpenStreetMap links ("@52.23,21.01,12z", "?q=52.23,21.01", "!3d52.23!4d21.01",
+ * "mlat=52.23&mlon=21.01"). These are the user's own numbers – not a place name parsed into coordinates.
+ */
+object CoordinateParser {
+    private val num = """[-+]?\d{1,3}(?:[.,]\d+)?"""
+    private val linkPatterns = listOf(
+        Regex("""!3d($num)!4d($num)"""),
+        Regex("""@($num),($num)"""),
+        Regex("""[?&](?:q|query|ll|sll|center|destination)=($num),\s*($num)"""),
+        Regex("""mlat=($num)&mlon=($num)"""),
+        Regex("""^geo:($num),($num)"""),
+    )
+    private val dmsPart = Regex("""([NSEWnsew])?\s*(\d{1,3})\s*[°º]\s*(?:(\d{1,2}(?:[.,]\d+)?)\s*['′])?\s*(?:(\d{1,2}(?:[.,]\d+)?)\s*(?:"|″|''))?\s*([NSEWnsew])?""")
+    private val decimalPair = Regex("""^\s*([NSns])?\s*($num)\s*°?\s*([NSns])?\s*[,; ]\s*([EWOew])?\s*($num)\s*°?\s*([EWOew])?\s*$""")
+
+    fun parse(text: String): PlaceSuggestion? {
+        val t = text.trim()
+        val point = fromLink(t) ?: fromDecimal(t) ?: fromDms(t) ?: return null
+        val label = String.format(java.util.Locale.ROOT, "%.5f, %.5f", point.lat, point.lon)
+        return PlaceSuggestion("coord:$label", label, "", emptyList(), PlaceSource.COORDINATES, point)
+    }
+
+    private fun d(s: String) = s.replace(',', '.').toDoubleOrNull()
+
+    private fun fromLink(t: String): LatLon? {
+        for (r in linkPatterns) {
+            val m = r.find(t) ?: continue
+            return validPoint(d(m.groupValues[1]), d(m.groupValues[2])) ?: continue
+        }
+        return null
+    }
+
+    private fun fromDecimal(t: String): LatLon? {
+        // "52,23, 21,01" (decimal commas) → normalise "a,b, c,d" first.
+        val norm = Regex("""^\s*([-+]?\d{1,3}),(\d+)\s*[,;]\s*([-+]?\d{1,3}),(\d+)\s*$""").matchEntire(t)
+            ?.let { "${it.groupValues[1]}.${it.groupValues[2]}, ${it.groupValues[3]}.${it.groupValues[4]}" } ?: t
+        val m = decimalPair.matchEntire(norm) ?: return null
+        val g = m.groupValues
+        var lat = d(g[2]) ?: return null
+        var lon = d(g[5]) ?: return null
+        if ((g[1] + g[3]).uppercase().contains('S')) lat = -kotlin.math.abs(lat)
+        if ((g[4] + g[6]).uppercase().contains('W')) lon = -kotlin.math.abs(lon)
+        return validPoint(lat, lon)
+    }
+
+    private fun fromDms(t: String): LatLon? {
+        if (!t.contains('°') && !t.contains('º')) return null
+        val parts = dmsPart.findAll(t).filter { it.groupValues[2].isNotEmpty() }.toList()
+        if (parts.size != 2) return null
+        fun value(m: MatchResult): Pair<Double, Char?> {
+            val g = m.groupValues
+            val v = g[2].toDouble() + (d(g[3]) ?: 0.0) / 60 + (d(g[4]) ?: 0.0) / 3600
+            val hemi = (g[1] + g[5]).uppercase().firstOrNull()
+            return v to hemi
+        }
+        val (a, ha) = value(parts[0])
+        val (b, hb) = value(parts[1])
+        val lat = if (ha == 'S') -a else a
+        val lon = if (hb == 'W') -b else b
+        return validPoint(lat, lon)
+    }
+}
+
 /** Suggestions plus the provider that produced them; [notice] says why a fallback provider was used. */
 data class SuggestResult(val query: String, val suggestions: List<PlaceSuggestion>, val source: PlaceSource?, val notice: PlaceSearchException? = null)
 
@@ -316,26 +451,37 @@ class PlaceSearcher(
 
     fun suggest(rawQuery: String, session: String): SuggestResult {
         val q = PlaceText.normalize(rawQuery) ?: return SuggestResult(rawQuery.trim(), emptyList(), null)
+        // Typed coordinates or a pasted map link: the user's own numbers, no request needed.
+        CoordinateParser.parse(q)?.let { return SuggestResult(q, listOf(it), PlaceSource.COORDINATES) }
         val key = PlaceText.fold(q)
         synchronized(cache) {
             cache[key]?.let { (at, r) -> if (Duration.between(at, clock()) < cacheTtl) return r.copy(query = q) }
         }
         var firstError: PlaceSearchException? = null
+        var empty: SuggestResult? = null
         for (p in providers) {
             try {
-                val result = SuggestResult(q, p.suggest(q, session, limit), p.source, firstError)
-                synchronized(cache) { cache[key] = clock() to result }
-                return result
+                val found = p.suggest(q, session, limit)
+                val result = SuggestResult(q, found, p.source, firstError)
+                if (found.isNotEmpty()) {
+                    synchronized(cache) { cache[key] = clock() to result }
+                    return result
+                }
+                // Nothing here – the next provider may know the place (e.g. a desert is not a GeoNames town).
+                if (empty == null) empty = result
             } catch (e: PlaceSearchException) {
                 if (firstError == null) firstError = e
             }
         }
+        empty?.let { return it.copy(notice = firstError) }
         throw firstError ?: PlaceSearchException(PlaceErrorKind.KEY_MISSING, "Brak dostawcy wyszukiwania")
     }
 
     fun resolve(suggestion: PlaceSuggestion, session: String): ResolvedPlace {
         val provider = providers.firstOrNull { it.source == suggestion.source }
         return when {
+            suggestion.source == PlaceSource.COORDINATES && suggestion.point != null ->
+                ResolvedPlace(suggestion.primary, suggestion.secondary, suggestion.point, null, null, PlaceSource.COORDINATES)
             provider != null -> provider.resolve(suggestion, session)
             suggestion.point != null -> ResolvedPlace(suggestion.primary, suggestion.secondary, suggestion.point, suggestion.elevationM, suggestion.timezone, suggestion.source)
             else -> throw PlaceSearchException(PlaceErrorKind.BAD_RESPONSE, "Nieznany dostawca")

@@ -9,10 +9,14 @@ a pozycja Słońca, pogoda, prognoza i produkcja PV od razu ich używają.
 | Kolejność | Dostawca | Klucz | Kiedy |
 |---|---|---|---|
 | 1 | **Google Places API (New)** – Autocomplete + Place Details | tak | gdy klucz jest skonfigurowany (w aplikacji albo przy budowaniu) |
-| 2 | **Open-Meteo Geocoding** (dane GeoNames, CC BY 4.0) | nie | bez klucza, oraz zapasowo gdy Google odrzuci klucz lub wyczerpie limit |
-| – | **OpenStreetMap Nominatim** | nie | tylko po naciśnięciu „Szukaj” na klawiaturze (adresy, kody pocztowe) – zasady Nominatim zabraniają autouzupełniania |
+| 2 | **Photon** (komoot, dane OpenStreetMap, ODbL) | nie | podpowiedzi podczas pisania: miasta, regiony, pustynie, góry, jeziora, ulice, adresy, obiekty; wyniki bliżej obecnej lokalizacji wyżej |
+| 3 | **Open-Meteo Geocoding** (GeoNames, CC BY 4.0) | nie | gdy poprzedni dostawca nic nie znalazł lub odpowiedział błędem |
+| – | **OpenStreetMap Nominatim** | nie | tylko po „Szukaj” na klawiaturze lub „Szukaj dokładniej” (pełne zapytania typu „Atakama, Chile”, nazwy w języku aplikacji, adresy, kody) – zasady Nominatim zabraniają autouzupełniania |
+| – | **Współrzędne / link do mapy** | – | wpisane „52.23, 21.01”, „24.5S 69.25W”, „52°13'48"N 21°0'36"E”, `geo:` lub wklejony link Google Maps / OpenStreetMap – bez zapytania do sieci |
 
-Aplikacja działa w pełni **bez klucza** (Open-Meteo). Google daje lepsze wyniki dla adresów i nazw lokalnych.
+Aplikacja działa w pełni **bez klucza**. Photon ma zasadę „fair use” (bez gwarancji dostępności, intensywne użycie
+jest ograniczane) – zapytania są wysyłane po przerwie w pisaniu i zapamiętywane na 10 minut; przy błędzie aplikacja
+przechodzi do Open-Meteo.
 
 ## Jak działa wyszukiwanie
 
