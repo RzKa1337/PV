@@ -18,6 +18,7 @@ import com.solartracker.pro.core.energy.EnergyPrices
 import com.solartracker.pro.core.energy.SimulationResult
 import com.solartracker.pro.core.pv.MonthlyEstimate
 import com.solartracker.pro.core.pv.MonthlyTiltPlan
+import com.solartracker.pro.core.pv.TrackerComparison
 import com.solartracker.pro.core.pv.PowerPoint
 import com.solartracker.pro.core.pv.PvEstimator
 import com.solartracker.pro.core.pv.PvSystem
@@ -189,6 +190,8 @@ data class MonthlyState(
     val sourceDescription: String = "",
     /** Best angle per month when the panels are re-tilted once a month (null if it could not be computed). */
     val tiltPlan: MonthlyTiltPlan? = null,
+    /** The same panels on a single-/dual-axis tracker (null if it could not be computed). */
+    val trackers: TrackerComparison? = null,
 )
 
 sealed interface GpsStatus {
@@ -408,6 +411,7 @@ class MainViewModel(
             estimates = e.estimator.monthlyEnergy(s.system, s.location, year, zoneProvider()),
             sourceDescription = describeSources(e.weather),
             tiltPlan = runCatching { e.estimator.monthlyTiltPlan(s.system, s.location, year, zoneProvider()) }.getOrNull(),
+            trackers = runCatching { e.estimator.trackerComparison(s.system, s.location, year, zoneProvider()) }.getOrNull(),
         )
     }
         .flowOn(Dispatchers.Default)

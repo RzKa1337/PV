@@ -4,6 +4,8 @@ Wszystkie istotne zmiany w projekcie Solar Tracker PRO.
 Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie [SemVer](https://semver.org/).
 
 ## [Unreleased]
+### Added – porównanie z trackerem
+- Zakładka **Miesiące**: karta „A gdyby był tracker?” – te same panele na obecnej stałej konstrukcji, przy zmianie kąta co miesiąc, na trackerze 1-osiowym (pozioma oś N–S, ±60°) i 2-osiowym: energia roczna i miesięczna, zysk w kWh i %. Ten sam model co reszta aplikacji (`PvEstimator.trackerComparison`, geometria trackera wspólna z `PvSimulationEngine` – `trackerSurfaceOrientation`). Szacunek bez zużycia silników, pozycji wiatrowej i cieni między rzędami.
 
 ## [v0.16.0] - 2026-10-09
 ### Added – kąt zmieniany co miesiąc

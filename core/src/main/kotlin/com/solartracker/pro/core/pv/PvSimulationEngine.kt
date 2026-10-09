@@ -229,18 +229,8 @@ class PvSimulationEngine {
     }
 
     /** Surface tilt/azimuth for fixed arrays and trackers. */
-    fun surfaceOrientation(array: PvArrayConfig, sun: SolarPosition): Pair<Double, Double> = when (array.tracker) {
-        TrackerType.FIXED -> array.tiltDeg to array.azimuthDeg
-        TrackerType.DUAL_AXIS -> if (sun.isAboveHorizon) min(90.0, sun.zenithDeg) to sun.azimuthDeg else 0.0 to array.azimuthDeg
-        TrackerType.SINGLE_AXIS -> {
-            if (!sun.isAboveHorizon) 0.0 to 90.0 else {
-                // Ideal rotation of a horizontal N–S axis: tan R = tan(zenith) · sin(sunAz − 180°).
-                val r = Math.toDegrees(atan(tan(Math.toRadians(sun.zenithDeg)) * sin(Math.toRadians(sun.azimuthDeg - 180.0))))
-                    .coerceIn(-array.trackerMaxRotationDeg, array.trackerMaxRotationDeg)
-                abs(r) to if (r >= 0) 270.0 else 90.0
-            }
-        }
-    }
+    fun surfaceOrientation(array: PvArrayConfig, sun: SolarPosition): Pair<Double, Double> =
+        trackerSurfaceOrientation(array.tracker, array.tiltDeg, array.azimuthDeg, array.trackerMaxRotationDeg, sun)
 
     companion object {
         /** Used when the air temperature is unknown (typical annual temperature loss). */
@@ -283,3 +273,25 @@ class PvSimulationEngine {
     }
 }
 
+/**
+ * Surface tilt/azimuth of a fixed array or a tracker (shared by [PvSimulationEngine] and [PvEstimator.trackerComparison]).
+ * Single axis = horizontal N–S axis, ideal rotation tan R = tan(zenith)·sin(sunAz − 180°) limited to ±[maxRotationDeg],
+ * without backtracking (one row – no row-to-row shading). Dual axis = panel normal points at the sun.
+ */
+fun trackerSurfaceOrientation(
+    tracker: TrackerType,
+    fixedTiltDeg: Double,
+    fixedAzimuthDeg: Double,
+    maxRotationDeg: Double,
+    sun: SolarPosition,
+): Pair<Double, Double> = when (tracker) {
+    TrackerType.FIXED -> fixedTiltDeg to fixedAzimuthDeg
+    TrackerType.DUAL_AXIS -> if (sun.isAboveHorizon) min(90.0, sun.zenithDeg) to sun.azimuthDeg else 0.0 to fixedAzimuthDeg
+    TrackerType.SINGLE_AXIS -> {
+        if (!sun.isAboveHorizon) 0.0 to 90.0 else {
+            val r = Math.toDegrees(atan(tan(Math.toRadians(sun.zenithDeg)) * sin(Math.toRadians(sun.azimuthDeg - 180.0))))
+                .coerceIn(-maxRotationDeg, maxRotationDeg)
+            abs(r) to if (r >= 0) 270.0 else 90.0
+        }
+    }
+}

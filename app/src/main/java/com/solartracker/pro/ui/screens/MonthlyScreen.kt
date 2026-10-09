@@ -32,6 +32,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.solartracker.pro.core.pv.MonthlyEstimate
 import com.solartracker.pro.core.pv.MonthlyTiltPlan
+import com.solartracker.pro.core.pv.TrackerComparison
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -77,6 +78,7 @@ fun MonthlyScreen(state: MonthlyState?, modifier: Modifier = Modifier) {
             )
 
             state.tiltPlan?.let { MonthlyTiltCard(it) }
+            state.trackers?.let { TrackerCard(it, state.tiltPlan) }
 
             Row(
                 modifier = Modifier.horizontalScroll(rememberScrollState()),
@@ -237,6 +239,91 @@ private fun MonthlyTiltCard(plan: MonthlyTiltPlan) {
         }
         Text(stringResource(R.string.mtilt_note), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
+}
+
+/** "What if a solar tracker were installed": fixed panels vs monthly re-tilt vs single-/dual-axis tracker. */
+@Composable
+private fun TrackerCard(c: TrackerComparison, plan: MonthlyTiltPlan?) {
+    SectionCard(Modifier.testTag("tracker_comparison")) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.trk_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            EstimateBadge()
+        }
+        Text(stringResource(R.string.trk_subtitle, Format.degrees(c.fixedTiltDeg), Format.compass(c.fixedAzimuthDeg)),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        fun gain(kwh: Double) = c.gainPercent(kwh)?.let {
+            (if (kwh >= c.fixedKwh) "+" else "") + Format.decimal(kwh - c.fixedKwh, 0) + " kWh (" + (if (it >= 0) "+" else "") + Format.decimal(it, 1) + "%)"
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PlanTile(stringResource(R.string.trk_fixed), Format.decimal(c.fixedKwh, 0) + " kWh", null, null, Modifier.weight(1f))
+            if (plan != null) {
+                PlanTile(stringResource(R.string.mtilt_monthly), Format.decimal(plan.monthlyAdjustedKwh, 0) + " kWh", gain(plan.monthlyAdjustedKwh), null, Modifier.weight(1f))
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PlanTile(stringResource(R.string.trk_single, Format.degrees(c.maxRotationDeg)), Format.decimal(c.singleAxisKwh, 0) + " kWh", gain(c.singleAxisKwh), ChartColors.pv, Modifier.weight(1f))
+            PlanTile(stringResource(R.string.trk_dual), Format.decimal(c.dualAxisKwh, 0) + " kWh", gain(c.dualAxisKwh), ChartColors.pv, Modifier.weight(1f))
+        }
+
+        // Per month: three thin bars (fixed / 1-axis / 2-axis) on one scale.
+        val max = c.months.maxOf { maxOf(it.fixedKwh, it.singleAxisKwh, it.dualAxisKwh) }.coerceAtLeast(1e-9)
+        val colors = listOf(MaterialTheme.colorScheme.outline, ChartColors.pv.copy(alpha = 0.55f), ChartColors.pv)
+        Row(Modifier.fillMaxWidth().height(120.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.Bottom) {
+            c.months.forEach { m ->
+                Column(Modifier.weight(1f).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
+                    Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(1.dp), verticalAlignment = Alignment.Bottom) {
+                        listOf(m.fixedKwh, m.singleAxisKwh, m.dualAxisKwh).forEachIndexed { i, v ->
+                            Box(Modifier.weight(1f).fillMaxHeight((v / max).toFloat().coerceIn(0.01f, 1f))
+                                .clip(RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp)).background(colors[i]))
+                        }
+                    }
+                    Text(Format.monthShort(m.month).take(3), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                }
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            listOf(stringResource(R.string.trk_fixed_short), stringResource(R.string.trk_single_short), stringResource(R.string.trk_dual_short)).forEachIndexed { i, label ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.width(10.dp).height(10.dp).clip(RoundedCornerShape(2.dp)).background(colors[i]))
+                    Text(" $label", style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+
+        // Table: month, fixed kWh, 1-axis gain, 2-axis gain.
+        Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+            Text(stringResource(R.string.month), style = MaterialTheme.typography.labelMedium, modifier = Modifier.width(96.dp))
+            Text(stringResource(R.string.trk_fixed_short), style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.trk_single_short), style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.trk_dual_short), style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
+        }
+        HorizontalDivider()
+        c.months.forEach { m ->
+            Row(Modifier.fillMaxWidth()) {
+                Text(Format.monthName(m.month), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.width(96.dp))
+                Text(Format.decimal(m.fixedKwh, 0), style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
+                GainCell(m.singleAxisKwh, m.fixedKwh, false, Modifier.weight(1f))
+                GainCell(m.dualAxisKwh, m.fixedKwh, false, Modifier.weight(1f))
+            }
+        }
+        HorizontalDivider()
+        Row(Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.year), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, modifier = Modifier.width(96.dp))
+            Text(Format.decimal(c.fixedKwh, 0), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
+            GainCell(c.singleAxisKwh, c.fixedKwh, true, Modifier.weight(1f))
+            GainCell(c.dualAxisKwh, c.fixedKwh, true, Modifier.weight(1f))
+        }
+        Text(stringResource(R.string.trk_note), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** Gain of [kwh] over [base] in percent; green from +10 %. */
+@Composable
+private fun GainCell(kwh: Double, base: Double, bold: Boolean, modifier: Modifier) {
+    val g = if (base > 0) (kwh / base - 1) * 100 else null
+    Text(g?.let { (if (it >= 0) "+" else "") + Format.decimal(it, 0) + "%" } ?: "—", style = MaterialTheme.typography.bodyMedium,
+        fontWeight = if (bold) FontWeight.Bold else null, textAlign = TextAlign.End,
+        color = if ((g ?: 0.0) >= 10) ChartColors.charge else MaterialTheme.colorScheme.onSurface, modifier = modifier)
 }
 
 @Composable

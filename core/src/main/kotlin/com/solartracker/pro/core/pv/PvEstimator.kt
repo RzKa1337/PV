@@ -67,6 +67,29 @@ data class MonthlyTiltPlan(
     fun gainPercent(baseKwh: Double): Double? = if (baseKwh > 0) (monthlyAdjustedKwh / baseKwh - 1) * 100 else null
 }
 
+/** One month: current fixed panels vs the same panels on a tracker (ESTIMATES). */
+data class MonthTracker(val month: Month, val fixedKwh: Double, val singleAxisKwh: Double, val dualAxisKwh: Double)
+
+/**
+ * "What if a solar tracker were installed": the same panels (kWp, losses, weather/climate model) on the current fixed
+ * mount, on a single-axis N–S tracker (±[maxRotationDeg]) and on a dual-axis tracker. Tracker own consumption, wind
+ * stow and row shading are NOT included – real gains are lower.
+ */
+data class TrackerComparison(
+    val year: Int,
+    val months: List<MonthTracker>,
+    val fixedTiltDeg: Double,
+    val fixedAzimuthDeg: Double,
+    val maxRotationDeg: Double,
+    val stepMinutes: Long,
+) {
+    val fixedKwh: Double get() = months.sumOf { it.fixedKwh }
+    val singleAxisKwh: Double get() = months.sumOf { it.singleAxisKwh }
+    val dualAxisKwh: Double get() = months.sumOf { it.dualAxisKwh }
+    /** Gain of [kwh] over the fixed panels [%]; null without fixed production. */
+    fun gainPercent(kwh: Double, baseKwh: Double = fixedKwh): Double? = if (baseKwh > 0) (kwh / baseKwh - 1) * 100 else null
+}
+
 /** Estimated energy per month for one panel tilt. */
 data class MonthlyEstimate(val tiltDeg: Double, val energyByMonthKwh: Map<Month, Double>) {
     val yearlyKwh: Double get() = energyByMonthKwh.values.sum()
@@ -211,6 +234,48 @@ class PvEstimator(
         return MonthlyTiltPlan(year, months, base.tiltDeg, all[bestFixed], yearly[bestFixed], stepMinutes)
     }
 
+    /**
+     * The current panels compared with a single-axis (N–S axis, ±[maxRotationDeg]) and a dual-axis tracker, month by
+     * month. Same irradiance model, POA transposition and losses as every other estimate; only the surface orientation
+     * differs (geometry from [trackerSurfaceOrientation]).
+     */
+    fun trackerComparison(
+        system: PvSystem,
+        location: GeoLocation,
+        year: Int,
+        zone: ZoneId,
+        maxRotationDeg: Double = DEFAULT_TRACKER_ROTATION_DEG,
+        stepMinutes: Long = PLAN_STEP_MINUTES,
+    ): TrackerComparison {
+        require(stepMinutes > 0) { "stepMinutes must be positive" }
+        require(maxRotationDeg in 0.0..90.0) { "maxRotationDeg 0–90" }
+        val s = system.sanitized()
+        val trackers = listOf(TrackerType.FIXED, TrackerType.SINGLE_AXIS, TrackerType.DUAL_AXIS)
+        val months = Month.entries.map { month ->
+            val ym = YearMonth.of(year, month)
+            val e = DoubleArray(trackers.size)
+            val stepMillis = stepMinutes * 60_000L
+            var t = ym.atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
+            val end = ym.plusMonths(1).atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
+            while (t < end) {
+                val slice = minOf(stepMillis, end - t)
+                val mid = Instant.ofEpochMilli(t + slice / 2)
+                val position = SolarCalculator.position(location, mid)
+                if (position.isAboveHorizon) {
+                    val irradiance = irradianceModel.irradiance(position, mid)
+                    val hours = slice / 3_600_000.0
+                    trackers.forEachIndexed { i, tracker ->
+                        val (tilt, az) = trackerSurfaceOrientation(tracker, s.tiltDeg, s.azimuthDeg, maxRotationDeg, position)
+                        e[i] += powerFromPoa(s, planeOfArrayIrradiance(irradiance, position, tilt, az), irradiance.ambientTemperatureC) * hours
+                    }
+                }
+                t += slice
+            }
+            MonthTracker(month, e[0], e[1], e[2])
+        }
+        return TrackerComparison(year, months, s.tiltDeg, s.azimuthDeg, maxRotationDeg, stepMinutes)
+    }
+
     /** Midpoint-rule integration; the sun position is computed once per step for all systems. */
     private fun integrateKwh(
         systems: List<PvSystem>,
@@ -305,6 +370,8 @@ class PvEstimator(
         const val MONTHLY_STEP_MINUTES = 10L
         /** Time step of the monthly tilt plan (91 angles × a whole year). */
         const val PLAN_STEP_MINUTES = 15L
+        /** Typical rotation limit of single-axis trackers. */
+        const val DEFAULT_TRACKER_ROTATION_DEG = 60.0
         val COMPARISON_TILTS = listOf(0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 90.0)
         val MONTHLY_TILTS = listOf(0.0, 30.0, 45.0, 60.0, 90.0)
     }
