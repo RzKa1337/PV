@@ -266,8 +266,8 @@ private fun PowerCard(pv: LivePvUi, isDay: Boolean, weatherAge: String?, weather
         if (isDay) {
             Text(
                 listOfNotNull(
-                    pv.cellTemperatureC?.let { stringResource(R.string.live_cell_temp, Format.decimal(it, 0)) },
-                    pv.ambientTemperatureC?.let { stringResource(R.string.live_air_temp, Format.decimal(it, 0)) },
+                    pv.cellTemperatureC?.let { stringResource(R.string.live_cell_temp_short, Format.decimal(it, 0)) },
+                    pv.ambientTemperatureC?.let { stringResource(R.string.live_air_temp_short, Format.decimal(it, 0)) },
                     stringResource(R.string.live_ghi_dni_dhi, Format.decimal(pv.ghi, 0), Format.decimal(pv.dni, 0), Format.decimal(pv.dhi, 0)),
                 ).joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall,

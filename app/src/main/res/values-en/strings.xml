@@ -966,8 +966,8 @@
     <string name="w_snow_label">Snow</string>
     <string name="w_visibility_label">Visibility</string>
     <string name="dash_share_of_peak">%1$s of the %2$s kWp peak</string>
-    <string name="live_cell_temp">cells ≈ %1$s °C</string>
-    <string name="live_air_temp">air %1$s °C</string>
+    <string name="live_cell_temp_short">cells ≈ %1$s °C</string>
+    <string name="live_air_temp_short">air %1$s °C</string>
     <string name="live_ghi_dni_dhi">GHI %1$s · DNI %2$s · DHI %3$s W/m²</string>
     <string name="live_weather_stale">Weather data out of date: %1$s – estimate less reliable</string>
     <string name="live_outlook_title">NEXT HOUR AND TODAY</string>
