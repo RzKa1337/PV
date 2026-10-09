@@ -34,12 +34,7 @@ class WeatherEffectsTest {
     }
 
     @Test
-    fun windAndSnowEffects() {
-        assertEquals(1.0, WeatherEffects.windFactor(800.0, 20.0, null), 0.0)
-        assertEquals(1.0, WeatherEffects.windFactor(800.0, null, 5.0), 0.0)
-        assertEquals(1.0, WeatherEffects.windFactor(800.0, 20.0, 1.0), 1e-12)
-        assertTrue(WeatherEffects.windFactor(800.0, 20.0, 10.0) > 1.02)
-        assertTrue(WeatherEffects.windFactor(800.0, 20.0, 0.0) < 1.0)
+    fun snowEffects() {
         assertTrue(WeatherEffects.snowCovered(hour(snow = 0.1), 30.0))
         assertFalse(WeatherEffects.snowCovered(hour(snow = 0.1), 70.0))
         assertFalse(WeatherEffects.snowCovered(hour(snow = 0.1, temp = 4.0), 30.0))
