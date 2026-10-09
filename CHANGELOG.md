@@ -4,6 +4,8 @@ Wszystkie istotne zmiany w projekcie Solar Tracker PRO.
 Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie [SemVer](https://semver.org/).
 
 ## [Unreleased]
+
+## [v0.16.0] - 2026-10-09
 ### Added – kąt zmieniany co miesiąc
 - Zakładka **Miesiące**: najlepszy kąt paneli na każdy miesiąc (co 1°, 0–90°), energia w każdym miesiącu, roczna suma przy zmianie kąta co miesiąc w porównaniu z obecnym stałym kątem i z najlepszym stałym kątem na cały rok (zysk w kWh i %). Ten sam model co reszta aplikacji (`PvEstimator`: orientacja, moc, pogoda/klimat) – szacunek, nie pomiar.
 
