@@ -4,6 +4,8 @@ Wszystkie istotne zmiany w projekcie Solar Tracker PRO.
 Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie [SemVer](https://semver.org/).
 
 ## [Unreleased]
+
+## [v0.19.0] - 2026-10-09
 ### Changed – wyszukiwanie miejsc „jak w mapach”
 - Podpowiedzi bez klucza z **Photon / OpenStreetMap**: pustynie, góry, jeziora, regiony, ulice, adresy i obiekty (np. „atacama” → Desierto de Atacama, Chile), wyniki bliżej obecnej lokalizacji wyżej; gdy Photon nic nie znajdzie – Open-Meteo.
 - **Szukaj dokładniej** (przycisk pod wynikami i przy braku wyników, oraz „Szukaj” na klawiaturze): pełne zapytanie w Nominatim w języku aplikacji („Atakama, Chile”, „Pustynia Atakama”, adresy, kody pocztowe) połączone z podpowiedziami.
