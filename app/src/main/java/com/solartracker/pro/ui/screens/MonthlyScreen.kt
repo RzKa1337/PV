@@ -47,6 +47,7 @@ import com.solartracker.pro.ui.components.BarSeries
 import com.solartracker.pro.ui.components.EstimateBadge
 import com.solartracker.pro.ui.components.GroupedBarChart
 import com.solartracker.pro.ui.components.ScreenTitle
+import com.solartracker.pro.ui.components.SunnyScene
 import com.solartracker.pro.ui.components.SectionCard
 import com.solartracker.pro.ui.theme.ChartColors
 import java.time.Month
@@ -75,6 +76,7 @@ fun MonthlyScreen(state: MonthlyState?, modifier: Modifier = Modifier) {
             ScreenTitle(
                 stringResource(R.string.monthly_title, state.year.toString()),
                 stringResource(R.string.monthly_subtitle, Format.decimal(state.system.peakPowerKw), Format.degrees(state.system.azimuthDeg), Format.compass(state.system.azimuthDeg)),
+                scene = SunnyScene.PROVENCE,
             )
 
             state.tiltPlan?.let { MonthlyTiltCard(it) }

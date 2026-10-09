@@ -934,4 +934,10 @@
     <string name="trk_single_short">1-axis</string>
     <string name="trk_dual_short">2-axis</string>
     <string name="trk_note">Model estimate (not a measurement), 15-min step. Tracker motor consumption, wind stow, row-to-row shading and failures are not included – the real gain will be lower. On the clear-sky model the gain is overstated (on cloudy days diffuse light gives a tracker little).</string>
+    <string name="scene_dolomites">Illustration · Dolomites</string>
+    <string name="scene_provence">Illustration · Provence</string>
+    <string name="scene_tuscany">Illustration · Tuscany</string>
+    <string name="scene_atacama">Illustration · Atacama Desert</string>
+    <string name="scene_santorini">Illustration · Santorini</string>
+    <string name="scene_algarve">Illustration · Algarve</string>
 </resources>

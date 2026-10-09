@@ -63,6 +63,7 @@ import com.solartracker.pro.core.weather.ClimateSource
 import com.solartracker.pro.core.weather.OpenMeteo
 import androidx.compose.material3.Switch
 import com.solartracker.pro.ui.components.ScreenTitle
+import com.solartracker.pro.ui.components.SunnyScene
 import com.solartracker.pro.ui.components.SectionCard
 import kotlin.math.roundToInt
 
@@ -100,7 +101,7 @@ fun SettingsScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        ScreenTitle(stringResource(R.string.settings_title), stringResource(R.string.settings_subtitle))
+        ScreenTitle(stringResource(R.string.settings_title), stringResource(R.string.settings_subtitle), scene = SunnyScene.SANTORINI)
         PeakPowerSection(settings.system.peakPowerKw, actions::setPeakPower)
         TiltSection(settings.system.tiltDeg, actions::setTilt)
         AzimuthSection(settings.system.azimuthDeg, actions::setPanelAzimuth)

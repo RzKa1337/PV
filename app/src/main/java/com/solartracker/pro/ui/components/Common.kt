@@ -91,7 +91,11 @@ fun StatTile(
 }
 
 @Composable
-fun ScreenTitle(title: String, subtitle: String? = null) {
+fun ScreenTitle(title: String, subtitle: String? = null, scene: SunnyScene? = null) {
+    if (scene != null) {
+        SunnyBanner(scene, title, subtitle)
+        return
+    }
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         if (subtitle != null) {

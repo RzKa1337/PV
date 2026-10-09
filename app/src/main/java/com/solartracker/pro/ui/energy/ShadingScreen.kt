@@ -52,6 +52,7 @@ import com.solartracker.pro.core.shading.ShadowFootprint
 import com.solartracker.pro.core.shading.ShadowForecast
 import com.solartracker.pro.energy.EnergyCenterViewModel
 import com.solartracker.pro.ui.components.ScreenTitle
+import com.solartracker.pro.ui.components.SunnyScene
 import com.solartracker.pro.ui.components.SectionCard
 import com.solartracker.pro.ui.uiLabel
 import java.time.LocalDate
@@ -89,7 +90,7 @@ fun ShadingScreen(vm: EnergyCenterViewModel, onBack: () -> Unit, modifier: Modif
 
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         TextButton(onClick = onBack) { Text(stringResource(R.string.back_energy_center)) }
-        ScreenTitle(stringResource(R.string.ec_shading_analysis), stringResource(R.string.sh_subtitle))
+        ScreenTitle(stringResource(R.string.ec_shading_analysis), stringResource(R.string.sh_subtitle), scene = SunnyScene.ALGARVE)
         message?.let { SectionCard { Text(it); TextButton(onClick = vm::dismissMessage) { Text("OK") } } }
 
         val engine = shading.engine

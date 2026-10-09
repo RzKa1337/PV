@@ -47,6 +47,7 @@ import com.solartracker.pro.ui.components.EstimateBadge
 import com.solartracker.pro.ui.components.LineChart
 import com.solartracker.pro.ui.components.LineSeries
 import com.solartracker.pro.ui.components.ScreenTitle
+import com.solartracker.pro.ui.components.SunnyScene
 import com.solartracker.pro.ui.components.SectionCard
 import com.solartracker.pro.ui.theme.ChartColors
 import java.time.format.DateTimeFormatter
@@ -73,6 +74,7 @@ fun EnergyScreen(
                 if (it.startDate == it.endDate) it.startDate.format(dateFormat)
                 else "${it.startDate.format(dateFormat)} – ${it.endDate.format(dateFormat)}"
             },
+            scene = SunnyScene.TUSCANY,
         )
         Row(
             modifier = Modifier.horizontalScroll(rememberScrollState()),

@@ -4,6 +4,12 @@ Wszystkie istotne zmiany w projekcie Solar Tracker PRO.
 Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie [SemVer](https://semver.org/).
 
 ## [Unreleased]
+
+## [v0.17.0] - 2026-10-09
+### Added – wygląd: słoneczne miejsca
+- Nagłówki zakładek na ilustracjach słonecznych miejsc (wektorowe, rysowane w aplikacji – bez pobierania zdjęć, ostre na każdym ekranie, kilka kB): **Kąty** – Dolomity, **Miesiące** – lawendowe pola Prowansji, **Energia** – Toskania, **Narzędzia** – pustynia Atakama z panelami, **Ustawienia** – Santorini, **Analiza zacienienia** – Algarve. Tytuł i podtytuł zostają zwykłym tekstem (czytniki ekranu, tłumaczenia), podpis „Ilustracja · …” mówi, że to grafika, a nie zdjęcie.
+- Nowa ikona aplikacji: słońce z poświatą nad panelem PV na tle wschodu słońca (ikona monochromatyczna Androida 13+ bez zmian).
+
 ### Added – porównanie z trackerem
 - Zakładka **Miesiące**: karta „A gdyby był tracker?” – te same panele na obecnej stałej konstrukcji, przy zmianie kąta co miesiąc, na trackerze 1-osiowym (pozioma oś N–S, ±60°) i 2-osiowym: energia roczna i miesięczna, zysk w kWh i %. Ten sam model co reszta aplikacji (`PvEstimator.trackerComparison`, geometria trackera wspólna z `PvSimulationEngine` – `trackerSurfaceOrientation`). Szacunek bez zużycia silników, pozycji wiatrowej i cieni między rzędami.
 

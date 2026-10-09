@@ -935,4 +935,10 @@
     <string name="trk_single_short">1-oś</string>
     <string name="trk_dual_short">2-osie</string>
     <string name="trk_note">Szacunek z modelu (nie pomiar), krok 15 min. Bez zużycia energii przez silniki trackera, pozycji bezpiecznej przy silnym wietrze, cieni między rzędami i awarii – rzeczywisty zysk będzie mniejszy. Przy modelu czystego nieba zysk jest zawyżony (w pochmurne dni światło rozproszone daje trackerowi niewiele).</string>
+    <string name="scene_dolomites">Ilustracja · Dolomity</string>
+    <string name="scene_provence">Ilustracja · Prowansja</string>
+    <string name="scene_tuscany">Ilustracja · Toskania</string>
+    <string name="scene_atacama">Ilustracja · Pustynia Atakama</string>
+    <string name="scene_santorini">Ilustracja · Santorini</string>
+    <string name="scene_algarve">Ilustracja · Algarve</string>
 </resources>

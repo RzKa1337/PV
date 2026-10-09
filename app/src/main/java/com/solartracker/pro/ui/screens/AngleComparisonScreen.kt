@@ -30,6 +30,7 @@ import com.solartracker.pro.ui.Format
 import com.solartracker.pro.ui.TiltComparisonState
 import com.solartracker.pro.ui.components.EstimateBadge
 import com.solartracker.pro.ui.components.ScreenTitle
+import com.solartracker.pro.ui.components.SunnyScene
 import com.solartracker.pro.ui.components.SectionCard
 import java.time.format.DateTimeFormatter
 import kotlin.math.abs
@@ -53,6 +54,7 @@ fun AngleComparisonScreen(state: TiltComparisonState?, modifier: Modifier = Modi
             ScreenTitle(
                 stringResource(R.string.angles_title),
                 stringResource(R.string.angles_subtitle, dateText, Format.decimal(state.system.peakPowerKw), Format.degrees(state.system.azimuthDeg), Format.compass(state.system.azimuthDeg)),
+                scene = SunnyScene.DOLOMITES,
             )
         }
         if (best != null) {

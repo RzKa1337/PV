@@ -68,6 +68,7 @@ import com.solartracker.pro.core.vehicle.VehicleSolarEstimator
 import com.solartracker.pro.data.AppSettings
 import com.solartracker.pro.ui.components.EstimateBadge
 import com.solartracker.pro.ui.components.ScreenTitle
+import com.solartracker.pro.ui.components.SunnyScene
 import com.solartracker.pro.ui.components.SectionCard
 import com.solartracker.pro.ui.uiLabel
 import kotlinx.coroutines.Dispatchers
@@ -91,7 +92,7 @@ fun ToolsScreen(settings: AppSettings, access: FeatureAccessManager, subscriptio
     // System Back returns to the first tool before leaving the tab.
     BackHandler(enabled = tool != 0) { tool = 0 }
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        ScreenTitle(stringResource(R.string.tab_tools), stringResource(R.string.tools_subtitle))
+        ScreenTitle(stringResource(R.string.tab_tools), stringResource(R.string.tools_subtitle), scene = SunnyScene.ATACAMA)
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Tool.entries.forEach { t ->
                 FilterChip(selected = tool == t.ordinal, onClick = { tool = t.ordinal }, label = { Text(stringResource(t.label)) }, modifier = Modifier.testTag("tool_${t.name}"))
