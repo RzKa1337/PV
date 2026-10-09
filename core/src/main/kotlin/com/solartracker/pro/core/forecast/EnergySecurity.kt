@@ -138,11 +138,15 @@ class EnergySecurityAnalyzer(
         val h = step.seconds / 3600.0
         val labels = listOf("DZIŚ", "JUTRO", "POJUTRZE", "ZA 3 DNI")
         if (predictor == null || socNow == null) {
-            val rows = generateSequence(now) { it.plus(step) }.takeWhile { it.isBefore(end) }.toList()
-            return rows.groupBy { it.atZone(zone).toLocalDate() }.toSortedMap().entries.mapIndexed { i, (date, ts) ->
-                val p = ts.map { pv(it) }
-                DayOutlook(date, labels.getOrElse(i) { date.toString() }, p.sumOf { it.expectedKw } * h, ts.sumOf { load(it).kw } * h,
-                    0.0, 0.0, 0.0, null, null, null, null, EnergyRisk.UNKNOWN, p.map { it.confidence }.average(), date == today)
+            // Midpoint rule per local day (energy = Σ kW · hours over exact slices, the first one starting at `now`).
+            return generateSequence(today) { it.plusDays(1) }.take(days).toList().mapIndexed { i, date ->
+                val from = maxOf(now, date.atStartOfDay(zone).toInstant())
+                val slices = midpointSlices(from, date.plusDays(1).atStartOfDay(zone).toInstant(), step)
+                val p = slices.map { (mid, hours) -> hours to pv(mid) }
+                val pvKwh = p.sumOf { (hours, f) -> f.expectedKw * hours }
+                val loadKwh = slices.sumOf { (mid, hours) -> load(mid).kw * hours }
+                DayOutlook(date, labels.getOrElse(i) { date.toString() }, pvKwh, loadKwh,
+                    0.0, 0.0, 0.0, null, null, null, null, EnergyRisk.UNKNOWN, p.map { it.second.confidence }.average().takeIf { !it.isNaN() } ?: 0.0, date == today)
             }
         }
         val (expected, pess, _) = scenarios(now, socNow, socKind, pv, load, horizon, step)

@@ -680,7 +680,8 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
         val engine = EnergyForecastEngine(pv, load, battery, zone)
         val live = _live.value
         val fresh = live.freshness == Freshness.LIVE
-        val nowcast = _model.value.comparison?.takeIf { fresh && !it.curtailed && it.modelKw > 0.2 }?.let { it.realKw / it.modelKw }
+        // measured / what THIS engine expects (calibration and shading included), so they are not applied twice
+        val nowcast = _model.value.comparison?.takeIf { fresh && !it.curtailed }?.let { pv.nowcastRatio(it.realKw, live.telemetry?.timestamp ?: now) }
         // Inverter SOC when reported, otherwise the resting-voltage estimate (never a guess under load).
         val socQ = live.soc
         val soc = socQ?.value
@@ -784,8 +785,9 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
             val weather = WeatherAwareIrradianceModel(s.location, _weather.value.first, _weather.value.second)
             val model = currentCalibrationModel(now)
             val live = _live.value
-            val nowcast = _model.value.comparison?.takeIf { live.freshness == Freshness.LIVE && !it.curtailed && it.modelKw > 0.2 }?.let { it.realKw / it.modelKw }
-            computeRadarForecast(s, weather, pvEngine(s, weather, model), model, now, nowcast)
+            val pv = pvEngine(s, weather, model)
+            val nowcast = _model.value.comparison?.takeIf { live.freshness == Freshness.LIVE && !it.curtailed }?.let { pv.nowcastRatio(it.realKw, live.telemetry?.timestamp ?: now) }
+            computeRadarForecast(s, weather, pv, model, now, nowcast)
         }
     }
 

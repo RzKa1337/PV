@@ -104,6 +104,44 @@ class PredictivePvEngine(
 
     fun series(from: Instant, to: Instant, step: Duration, now: Instant, nowcastRatio: Double? = null): List<PvForecastPoint> =
         generateSequence(from) { it.plus(step) }.takeWhile { !it.isAfter(to) }.map { at(it, now, nowcastRatio) }.toList()
+
+    /**
+     * Nowcast ratio for [at] (the instant of the measurement): measured power / what this engine expects right now WITHOUT a nowcast (so calibration,
+     * shading and limits are already in the denominator and are not applied a second time). Null when the expectation
+     * is below [minExpectedKw] (dawn/dusk: a ratio of two tiny numbers is noise).
+     */
+    fun nowcastRatio(measuredKw: Double, at: Instant, minExpectedKw: Double = MIN_NOWCAST_EXPECTED_KW): Double? {
+        if (!measuredKw.isFinite() || measuredKw < 0) return null
+        val expected = at(at, at).expectedKw
+        return if (expected >= minExpectedKw) measuredKw / expected else null
+    }
+
+    /**
+     * Energy slices for [from, to): each is (hours, forecast at the slice MIDDLE). Summing `kW · hours` is the
+     * midpoint rule, exact for partial first/last slices; summing samples taken at slice starts is not (it biases
+     * the energy by about half a step of the power at the boundary).
+     */
+    fun slices(from: Instant, to: Instant, step: Duration, now: Instant, nowcastRatio: Double? = null): List<Pair<Double, PvForecastPoint>> =
+        midpointSlices(from, to, step).map { (mid, hours) -> hours to at(mid, now, nowcastRatio) }
+
+    companion object {
+        /** Below this expected power [kW] a measured/expected ratio is not used as a nowcast. */
+        const val MIN_NOWCAST_EXPECTED_KW = 0.2
+    }
+}
+
+/** Splits [from, to) into slices of at most [step]: (middle of the slice, length in hours). Empty when to <= from. */
+internal fun midpointSlices(from: Instant, to: Instant, step: Duration): List<Pair<Instant, Double>> {
+    require(!step.isZero && !step.isNegative) { "step must be positive" }
+    val out = ArrayList<Pair<Instant, Double>>()
+    var t = from
+    while (t.isBefore(to)) {
+        val next = minOf(t.plus(step), to)
+        val len = Duration.between(t, next)
+        out += t.plus(len.dividedBy(2)) to len.toMillis() / 3_600_000.0
+        t = next
+    }
+    return out
 }
 
 /** Short-term horizons shown to the user. */

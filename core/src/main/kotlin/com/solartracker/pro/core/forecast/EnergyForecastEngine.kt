@@ -38,9 +38,10 @@ class EnergyForecastEngine(
         val start = date.atStartOfDay(zone).toInstant()
         val end = date.plusDays(1).atStartOfDay(zone).toInstant()
         val from = if (producedSoFarKwh != null && now.isAfter(start)) now.coerceAtMost(end) else start
-        val points = generateSequence(from) { it.plus(step) }.takeWhile { it.isBefore(end) }.map { pv.at(it, now, nowcastRatio) }.toList()
-        val h = step.seconds / 3600.0
-        val remaining = points.sumOf { it.expectedKw } * h
+        // Midpoint rule over exact slices (the last and the first may be shorter than the step): energy = Σ kW · hours.
+        val slices = pv.slices(from, end, step, now, nowcastRatio)
+        val points = slices.map { it.second }
+        val remaining = slices.sumOf { (h, p) -> p.expectedKw * h }
         val produced = if (from == start) null else producedSoFarKwh
         val expected = (produced ?: 0.0) + remaining
         return DayProductionForecast(
@@ -49,9 +50,9 @@ class EnergyForecastEngine(
             producedKwh = produced,
             producedKind = if (produced != null) DataKind.MEASURED else DataKind.UNAVAILABLE,
             remainingKwh = remaining,
-            shadingLossKwh = points.sumOf { it.shadingLossKw } * h,
-            minKwh = (produced ?: 0.0) + points.sumOf { it.minKw } * h,
-            maxKwh = (produced ?: 0.0) + points.sumOf { it.maxKw } * h,
+            shadingLossKwh = slices.sumOf { (h, p) -> p.shadingLossKw * h },
+            minKwh = (produced ?: 0.0) + slices.sumOf { (h, p) -> p.minKw * h },
+            maxKwh = (produced ?: 0.0) + slices.sumOf { (h, p) -> p.maxKw * h },
             confidence = weightedConfidence(points),
         )
     }
