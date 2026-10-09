@@ -46,5 +46,18 @@ data class PvSystem(
         const val MIN_AZIMUTH_DEG = 0.0
         const val MAX_AZIMUTH_DEG = 359.0
         const val MAX_PEAK_POWER_KW = 1000.0
+
+        /** Panels facing the equator: south (180°) in the northern hemisphere, north (0°) in the southern. */
+        fun equatorAzimuth(latitude: Double): Double = if (latitude >= 0.0) 180.0 else 0.0
+
+        /**
+         * True when the panels point more than 90° away from the equator outside the tropics band (|lat| > 5°) –
+         * e.g. the default 180° (south) in Chile or Australia, where the sun shines from the north.
+         */
+        fun facesAwayFromEquator(azimuthDeg: Double, latitude: Double): Boolean {
+            if (kotlin.math.abs(latitude) <= 5.0) return false
+            val diff = kotlin.math.abs(((normalizeDegrees(azimuthDeg) - equatorAzimuth(latitude)) + 540.0) % 360.0 - 180.0)
+            return diff > 90.0
+        }
     }
 }

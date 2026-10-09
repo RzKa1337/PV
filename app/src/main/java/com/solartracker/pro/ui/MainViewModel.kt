@@ -195,6 +195,9 @@ data class MonthlyState(
     val tiltPlan: MonthlyTiltPlan? = null,
     /** The same panels on a single-/dual-axis tracker (null if it could not be computed). */
     val trackers: TrackerComparison? = null,
+    val latitude: Double = 0.0,
+    /** Panels point away from the equator: the same plan with the panels turned to face it (null otherwise). */
+    val equatorPlan: MonthlyTiltPlan? = null,
 )
 
 sealed interface GpsStatus {
@@ -445,6 +448,10 @@ class MainViewModel(
             sourceDescription = describeSources(e.weather),
             tiltPlan = runCatching { e.estimator.monthlyTiltPlan(s.system, s.location, year, zoneProvider()) }.getOrNull(),
             trackers = runCatching { e.estimator.trackerComparison(s.system, s.location, year, zoneProvider()) }.getOrNull(),
+            latitude = s.location.latitude,
+            equatorPlan = if (PvSystem.facesAwayFromEquator(s.system.azimuthDeg, s.location.latitude)) runCatching {
+                e.estimator.monthlyTiltPlan(s.system.copy(azimuthDeg = PvSystem.equatorAzimuth(s.location.latitude)), s.location, year, zoneProvider())
+            }.getOrNull() else null,
         )
     }
         .flowOn(Dispatchers.Default)

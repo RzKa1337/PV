@@ -75,6 +75,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import com.solartracker.pro.core.geo.SavedPlace
 import com.solartracker.pro.data.PlaceSearchRepository
+import com.solartracker.pro.ui.components.StatusLabel
+import com.solartracker.pro.ui.components.StatusLevel
 
 /** Callbacks from the settings screen; implemented by the ViewModel. */
 interface SettingsActions {
@@ -116,7 +118,7 @@ fun SettingsScreen(
         ScreenTitle(stringResource(R.string.settings_title), stringResource(R.string.settings_subtitle), scene = SunnyScene.SANTORINI)
         PeakPowerSection(settings.system.peakPowerKw, actions::setPeakPower)
         TiltSection(settings.system.tiltDeg, actions::setTilt)
-        AzimuthSection(settings.system.azimuthDeg, actions::setPanelAzimuth)
+        AzimuthSection(settings.system.azimuthDeg, settings.location.latitude, actions::setPanelAzimuth)
         ModuleInverterSection(settings.system, actions::setModuleAndInverter)
         BatterySection(settings.batteryEnabled, settings.battery, energyActions)
         ConsumptionSection(settings.consumption, energyActions)
@@ -220,7 +222,7 @@ private fun TiltSection(current: Double, onSave: (Double) -> Unit) {
 }
 
 @Composable
-private fun AzimuthSection(current: Double, onSave: (Double) -> Unit) {
+private fun AzimuthSection(current: Double, latitude: Double, onSave: (Double) -> Unit) {
     var value by remember(current) { mutableFloatStateOf(current.toFloat()) }
     SectionCard {
         SectionTitle(stringResource(R.string.settings_azimuth_title, value.roundToInt().toString(), Format.compass(value.toDouble())))
@@ -229,6 +231,11 @@ private fun AzimuthSection(current: Double, onSave: (Double) -> Unit) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (PvSystem.facesAwayFromEquator(value.toDouble(), latitude)) {
+            val target = PvSystem.equatorAzimuth(latitude)
+            StatusLabel(StatusLevel.WARNING, stringResource(R.string.equator_settings_hint, Format.compass(target)),
+                style = MaterialTheme.typography.bodySmall, fontWeight = null, textColor = MaterialTheme.colorScheme.onSurface)
+        }
         Slider(
             value = value,
             onValueChange = { value = it.roundToInt().toFloat() },
@@ -240,7 +247,10 @@ private fun AzimuthSection(current: Double, onSave: (Double) -> Unit) {
             modifier = Modifier.horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            listOf(90.0 to "E", 135.0 to "SE", 180.0 to "S", 225.0 to "SW", 270.0 to "W").forEach { (deg, name) ->
+            // Equator-facing directions first: south in the northern hemisphere, north in the southern one.
+            val south = listOf(90.0 to "E", 135.0 to "SE", 180.0 to "S", 225.0 to "SW", 270.0 to "W")
+            val north = listOf(270.0 to "W", 315.0 to "NW", 0.0 to "N", 45.0 to "NE", 90.0 to "E")
+            (if (latitude < 0) north + south.filter { it.second != "E" && it.second != "W" } else south + north.filter { it.second != "E" && it.second != "W" }).forEach { (deg, name) ->
                 AssistChip(
                     onClick = {
                         value = deg.toFloat()

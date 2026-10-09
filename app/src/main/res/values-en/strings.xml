@@ -984,4 +984,10 @@
     <string name="settings_inverter_limit_hint">empty = none</string>
     <string name="place_search_more">Search more thoroughly (full name, address, country)</string>
     <string name="place_search_not_listed">Place not listed? Search more thoroughly</string>
+    <string name="equator_title">Panels face away from the equator</string>
+    <string name="equator_text_south">Azimuth set to %1$s (%2$s). In the southern hemisphere the sun shines from the north, so south-facing panels give the most when lying flat – hence 0° in every month. Not a calculation error, a consequence of the direction.</string>
+    <string name="equator_text_north">Azimuth set to %1$s (%2$s). In the northern hemisphere the sun shines from the south, so north-facing panels give the most when lying flat – hence 0°. Not a calculation error, a consequence of the direction.</string>
+    <string name="equator_gain">Facing %1$s: best fixed tilt %2$s, %3$s kWh per year (%4$s vs the current direction).</string>
+    <string name="equator_button">Set azimuth %1$s (%2$s)</string>
+    <string name="equator_settings_hint">The panels face away from the equator – here the sun shines from the %1$s.</string>
 </resources>

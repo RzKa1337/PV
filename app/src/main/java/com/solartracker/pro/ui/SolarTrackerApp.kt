@@ -195,7 +195,7 @@ fun SolarTrackerApp(viewModel: MainViewModel, openSettingsRequest: Int = 0) {
             }
             Tab.MONTHLY -> {
                 val state by viewModel.monthly.collectAsStateWithLifecycle()
-                MonthlyScreen(state, contentModifier)
+                MonthlyScreen(state, onFaceEquator = { az -> viewModel.setPanelAzimuth(az) }, modifier = contentModifier)
             }
             Tab.ENERGY -> {
                 val state by viewModel.energy.collectAsStateWithLifecycle()

@@ -985,4 +985,10 @@
     <string name="settings_inverter_limit_hint">puste = brak</string>
     <string name="place_search_more">Szukaj dokładniej (pełna nazwa, adres, kraj)</string>
     <string name="place_search_not_listed">Nie ma tego miejsca? Szukaj dokładniej</string>
+    <string name="equator_title">Panele skierowane od równika</string>
+    <string name="equator_text_south">Ustawiony azymut %1$s (%2$s). Na półkuli południowej słońce świeci z północy, więc panele zwrócone na południe najwięcej dają leżąc płasko – stąd kąt 0° w każdym miesiącu. To nie błąd obliczeń, tylko skutek kierunku.</string>
+    <string name="equator_text_north">Ustawiony azymut %1$s (%2$s). Na półkuli północnej słońce świeci z południa, więc panele zwrócone na północ najwięcej dają leżąc płasko – stąd kąt 0°. To nie błąd obliczeń, tylko skutek kierunku.</string>
+    <string name="equator_gain">Skierowane na %1$s: najlepszy stały kąt %2$s, %3$s kWh rocznie (%4$s względem obecnego kierunku).</string>
+    <string name="equator_button">Ustaw azymut %1$s (%2$s)</string>
+    <string name="equator_settings_hint">Panele są skierowane od równika – tutaj słońce świeci od strony %1$s.</string>
 </resources>

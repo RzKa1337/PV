@@ -1,5 +1,9 @@
 package com.solartracker.pro.ui.screens
 
+import androidx.compose.material3.Button
+import com.solartracker.pro.core.pv.PvSystem
+import com.solartracker.pro.ui.components.StatusLabel
+import com.solartracker.pro.ui.components.StatusLevel
 import androidx.compose.ui.res.stringResource
 import com.solartracker.pro.R
 import androidx.compose.foundation.horizontalScroll
@@ -53,7 +57,7 @@ import com.solartracker.pro.ui.theme.ChartColors
 import java.time.Month
 
 @Composable
-fun MonthlyScreen(state: MonthlyState?, modifier: Modifier = Modifier) {
+fun MonthlyScreen(state: MonthlyState?, onFaceEquator: ((Double) -> Unit)? = null, modifier: Modifier = Modifier) {
     if (state == null) {
         Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         return
@@ -79,6 +83,7 @@ fun MonthlyScreen(state: MonthlyState?, modifier: Modifier = Modifier) {
                 scene = SunnyScene.PROVENCE,
             )
 
+            state.equatorPlan?.let { EquatorWarningCard(state, it, onFaceEquator) }
             state.tiltPlan?.let { MonthlyTiltCard(it) }
             state.trackers?.let { TrackerCard(it, state.tiltPlan) }
 
@@ -316,6 +321,45 @@ private fun TrackerCard(c: TrackerComparison, plan: MonthlyTiltPlan?) {
             GainCell(c.dualAxisKwh, c.fixedKwh, true, Modifier.weight(1f))
         }
         Text(stringResource(R.string.trk_note), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/**
+ * The panels point away from the equator (e.g. south in Chile): the sun shines from the other side, so the best
+ * angle comes out flat (0°). Shows what facing the equator would give and offers to change the azimuth.
+ */
+@Composable
+private fun EquatorWarningCard(state: MonthlyState, equator: MonthlyTiltPlan, onFaceEquator: ((Double) -> Unit)?) {
+    val target = PvSystem.equatorAzimuth(state.latitude)
+    val current = state.tiltPlan?.bestFixedKwh
+    SectionCard(Modifier.testTag("equator_warning"), containerColor = MaterialTheme.colorScheme.tertiaryContainer) {
+        StatusLabel(StatusLevel.WARNING, stringResource(R.string.equator_title), fontWeight = FontWeight.Bold,
+            textColor = MaterialTheme.colorScheme.onTertiaryContainer)
+        Text(
+            stringResource(
+                if (state.latitude < 0) R.string.equator_text_south else R.string.equator_text_north,
+                Format.degrees(state.system.azimuthDeg), Format.compass(state.system.azimuthDeg),
+            ),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onTertiaryContainer,
+        )
+        Text(
+            stringResource(
+                R.string.equator_gain,
+                Format.compass(target),
+                Format.degrees(equator.bestFixedTiltDeg),
+                Format.decimal(equator.bestFixedKwh, 0),
+                current?.takeIf { it > 0 }?.let { "+" + Format.decimal((equator.bestFixedKwh / it - 1) * 100, 0) + "%" } ?: "—",
+            ),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onTertiaryContainer,
+        )
+        if (onFaceEquator != null) {
+            Button(onClick = { onFaceEquator(target) }) {
+                Text(stringResource(R.string.equator_button, Format.degrees(target), Format.compass(target)))
+            }
+        }
     }
 }
 
