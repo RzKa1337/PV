@@ -206,7 +206,9 @@ class LiveSolarViewModelTest {
         )
         val vm = viewModel(CountingWeather(WeatherResult(forecast, null)))
         val s = withTimeout(10_000) { vm.live.filterNotNull().first { it.pv.source == WeatherSource.FORECAST } }
-        assertEquals(300.0, s.pv.dni, 0.0)
+        // Hour means of 300 W/m²: inside the hour the beam follows the sun (clear-sky index interpolation), so the
+        // value at a given second is close to – not exactly – the hourly mean.
+        assertEquals(300.0, s.pv.dni, 300.0 * 0.1)
         assertEquals(31.4, s.pv.ambientTemperatureC!!, 0.0)
         assertTrue(s.pv.sourceLabel.contains("prognozy"))
     }
