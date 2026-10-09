@@ -12,7 +12,7 @@ i **szacowania** produkcji energii z instalacji fotowoltaicznej.
 - Szacowana moc PV teraz, energia od rana i prognoza na cały dzień
 - Wykres godzina → moc PV
 - Porównanie kątów nachylenia paneli (0–90°)
-- Produkcja miesięczna dla kątów 0°, 30°, 45°, 60°, 90°
+- Produkcja miesięczna dla kątów 0°, 30°, 45°, 60°, 90° oraz najlepszy kąt na każdy miesiąc (zysk ze zmiany kąta co miesiąc vs stały kąt)
 - Ustawienia: moc [kWp], kąt, azymut, lokalizacja (GPS lub ręcznie)
 - Tryb ciemny
 - Magazyn energii: symulacja przepływu PV → zużycie → bateria → sieć/agregat,

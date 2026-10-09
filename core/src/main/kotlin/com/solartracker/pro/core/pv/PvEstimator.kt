@@ -37,6 +37,36 @@ data class PvPointEstimate(
 /** Estimated energy for one panel tilt. */
 data class TiltEstimate(val tiltDeg: Double, val energyKwh: Double)
 
+/** One month of the "change the angle every month" plan. */
+data class MonthTilt(
+    val month: Month,
+    /** Angle that gives the most energy in this month (whole degrees). */
+    val bestTiltDeg: Double,
+    val bestKwh: Double,
+    /** The same month with the panels left at the current angle. */
+    val currentTiltKwh: Double,
+)
+
+/**
+ * Monthly re-tilting vs a fixed angle (ESTIMATES from the same irradiance model). The panels are assumed to be set to
+ * [MonthTilt.bestTiltDeg] at the start of each month and left there for the whole month.
+ */
+data class MonthlyTiltPlan(
+    val year: Int,
+    val months: List<MonthTilt>,
+    val currentTiltDeg: Double,
+    /** Best single angle for the whole year and its energy. */
+    val bestFixedTiltDeg: Double,
+    val bestFixedKwh: Double,
+    val stepMinutes: Long,
+) {
+    val monthlyAdjustedKwh: Double get() = months.sumOf { it.bestKwh }
+    val currentFixedKwh: Double get() = months.sumOf { it.currentTiltKwh }
+    val gainVsCurrentKwh: Double get() = monthlyAdjustedKwh - currentFixedKwh
+    val gainVsBestFixedKwh: Double get() = monthlyAdjustedKwh - bestFixedKwh
+    fun gainPercent(baseKwh: Double): Double? = if (baseKwh > 0) (monthlyAdjustedKwh / baseKwh - 1) * 100 else null
+}
+
 /** Estimated energy per month for one panel tilt. */
 data class MonthlyEstimate(val tiltDeg: Double, val energyByMonthKwh: Map<Month, Double>) {
     val yearlyKwh: Double get() = energyByMonthKwh.values.sum()
@@ -142,6 +172,45 @@ class PvEstimator(
         }
     }
 
+    /**
+     * Best panel angle for every month of [year] if the angle is changed once a month, compared with leaving it at
+     * the current angle and with the best single angle for the whole year. All angles [minTiltDeg]..[maxTiltDeg] in
+     * steps of [tiltStepDeg] are evaluated in one pass (the sun is computed once per time step for all of them);
+     * [stepMinutes] = 15 changes monthly sums by well under 1 % vs 5-minute steps.
+     */
+    fun monthlyTiltPlan(
+        system: PvSystem,
+        location: GeoLocation,
+        year: Int,
+        zone: ZoneId,
+        minTiltDeg: Double = PvSystem.MIN_TILT_DEG,
+        maxTiltDeg: Double = PvSystem.MAX_TILT_DEG,
+        tiltStepDeg: Double = 1.0,
+        stepMinutes: Long = PLAN_STEP_MINUTES,
+    ): MonthlyTiltPlan {
+        require(tiltStepDeg > 0) { "tiltStepDeg must be positive" }
+        val base = system.sanitized()
+        val tilts = generateSequence(minTiltDeg.coerceIn(PvSystem.MIN_TILT_DEG, PvSystem.MAX_TILT_DEG)) { it + tiltStepDeg }
+            .takeWhile { it <= maxTiltDeg.coerceAtMost(PvSystem.MAX_TILT_DEG) + 1e-9 }.toList()
+        // The current angle is evaluated exactly, even when it is not on the grid.
+        val all = (tilts + base.tiltDeg).distinct()
+        val systems = all.map { base.copy(tiltDeg = it) }
+        val currentIndex = all.indexOf(base.tiltDeg)
+        val perMonth = Month.entries.associateWith { month ->
+            val ym = YearMonth.of(year, month)
+            integrateKwh(systems, location, ym.atDay(1).atStartOfDay(zone).toInstant(), ym.plusMonths(1).atDay(1).atStartOfDay(zone).toInstant(), stepMinutes)
+        }
+        val gridIdx = tilts.indices
+        val months = Month.entries.map { m ->
+            val e = perMonth.getValue(m)
+            val best = gridIdx.maxBy { e[it] }
+            MonthTilt(m, all[best], e[best], e[currentIndex])
+        }
+        val yearly = DoubleArray(all.size) { i -> Month.entries.sumOf { perMonth.getValue(it)[i] } }
+        val bestFixed = gridIdx.maxBy { yearly[it] }
+        return MonthlyTiltPlan(year, months, base.tiltDeg, all[bestFixed], yearly[bestFixed], stepMinutes)
+    }
+
     /** Midpoint-rule integration; the sun position is computed once per step for all systems. */
     private fun integrateKwh(
         systems: List<PvSystem>,
@@ -234,6 +303,8 @@ class PvEstimator(
         const val STC_IRRADIANCE = 1000.0
         const val DEFAULT_STEP_MINUTES = 5L
         const val MONTHLY_STEP_MINUTES = 10L
+        /** Time step of the monthly tilt plan (91 angles × a whole year). */
+        const val PLAN_STEP_MINUTES = 15L
         val COMPARISON_TILTS = listOf(0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 90.0)
         val MONTHLY_TILTS = listOf(0.0, 30.0, 45.0, 60.0, 90.0)
     }

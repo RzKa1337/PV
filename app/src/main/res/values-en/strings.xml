@@ -916,4 +916,13 @@
     <string name="dash_sunny_thin_clouds">sunny, thin high clouds</string>
     <string name="w_cloud_total">total %1$s</string>
     <string name="tab_radar">Radar</string>
+    <string name="mtilt_title">Angle changed every month</string>
+    <string name="mtilt_subtitle">Best angle for each month – set it at the start of the month. Orientation, power and weather/climate as in settings.</string>
+    <string name="mtilt_monthly">Monthly change</string>
+    <string name="mtilt_current">Fixed angle %1$s (current)</string>
+    <string name="mtilt_best_fixed">Best fixed angle: %1$s</string>
+    <string name="mtilt_gain_vs_fixed">monthly change gives +%1$s kWh (+%2$s%%)</string>
+    <string name="mtilt_angle">Angle</string>
+    <string name="mtilt_vs_current">vs current</string>
+    <string name="mtilt_note">Model estimate (not a measurement), 1° steps, 15-minute time step. The real gain depends on the weather of the year and how precisely the angle is set.</string>
 </resources>

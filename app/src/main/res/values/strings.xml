@@ -917,4 +917,13 @@
     <string name="dash_sunny_thin_clouds">słonecznie, cienkie chmury wysokie</string>
     <string name="w_cloud_total">całkowite %1$s</string>
     <string name="tab_radar">Radar</string>
+    <string name="mtilt_title">Kąt zmieniany co miesiąc</string>
+    <string name="mtilt_subtitle">Najlepszy kąt na każdy miesiąc – ustaw go na początku miesiąca. Kierunek, moc i pogoda/klimat jak w ustawieniach.</string>
+    <string name="mtilt_monthly">Zmiana co miesiąc</string>
+    <string name="mtilt_current">Stały kąt %1$s (obecny)</string>
+    <string name="mtilt_best_fixed">Najlepszy stały kąt: %1$s</string>
+    <string name="mtilt_gain_vs_fixed">zmiana co miesiąc daje +%1$s kWh (+%2$s%%)</string>
+    <string name="mtilt_angle">Kąt</string>
+    <string name="mtilt_vs_current">vs obecny</string>
+    <string name="mtilt_note">Szacunek z modelu (nie pomiar), co 1°, krok 15 min. Rzeczywisty zysk zależy od pogody w danym roku i dokładności ustawienia kąta.</string>
 </resources>
