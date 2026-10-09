@@ -52,7 +52,13 @@ class ToolsInstrumentedTest {
             val compare = scrollTo(By.text("Porównaj"))
             assertNotNull("compare button", compare)
             compare!!.click()
-            val result = device.wait(Until.findObject(By.textContains("kWh/kWp")), 60_000)
+            // The result appears below the button – it can be off screen (header illustration), so scroll while waiting.
+            var result = device.wait(Until.findObject(By.textContains("kWh/kWp")), 5_000)
+            repeat(30) {
+                if (result != null) return@repeat
+                device.findObjects(By.scrollable(true)).maxByOrNull { it.visibleBounds.height() }?.scroll(Direction.DOWN, 0.5f)
+                result = device.wait(Until.findObject(By.textContains("kWh/kWp")), 2_000)
+            }
             assertNotNull("comparison result", result)
             Log.i(tag, "locations: ${result.text}")
         }
