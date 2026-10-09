@@ -143,7 +143,7 @@ fun formatCountdown(d: Duration): String {
 }
 
 fun irradianceSourceLabel(source: WeatherSource, weatherEnabled: Boolean): String = when (source) {
-    WeatherSource.FORECAST -> tr("prognoza Open-Meteo (średnie godzinowe, w obrębie godziny dopasowane do ruchu słońca)",
+    WeatherSource.FORECAST -> tr("dane z prognozy Open-Meteo (średnie godzinowe, w obrębie godziny dopasowane do ruchu słońca)",
         "Open-Meteo forecast (hourly means, shaped by the sun's motion within the hour)")
     WeatherSource.CLIMATE -> tr("średnie klimatyczne (brak prognozy na tę godzinę)", "climate averages (no forecast for this hour)")
     WeatherSource.CLEAR_SKY ->
