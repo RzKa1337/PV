@@ -1,5 +1,7 @@
 package com.solartracker.pro.ui.energy
 
+import com.solartracker.pro.ui.components.StatusLabel
+import com.solartracker.pro.ui.components.StatusLevel
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -89,8 +91,8 @@ fun DiagnosticsScreen(vm: EnergyCenterViewModel, onBack: () -> Unit, modifier: M
         SectionCard {
             Text(stringResource(R.string.dg_status), fontWeight = FontWeight.Bold)
             val status = diagnosis?.status ?: PvHealthStatus.UNKNOWN
-            val dot = when (status) { PvHealthStatus.OK -> "🟢"; PvHealthStatus.ATTENTION -> "🟡"; PvHealthStatus.PROBLEM -> "🔴"; PvHealthStatus.UNKNOWN -> "⚪" }
-            Text("$dot ${status.uiLabel}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            val level = when (status) { PvHealthStatus.OK -> StatusLevel.GOOD; PvHealthStatus.ATTENTION -> StatusLevel.WARNING; PvHealthStatus.PROBLEM -> StatusLevel.CRITICAL; PvHealthStatus.UNKNOWN -> StatusLevel.UNKNOWN }
+            StatusLabel(level, status.uiLabel, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, textColor = MaterialTheme.colorScheme.onSurface)
             if (r == null) {
                 Text(stringResource(R.string.dg_no_reality), style = MaterialTheme.typography.bodyMedium)
             } else {
@@ -274,9 +276,9 @@ private fun DiagnosisItem(d: Diagnosis, primary: Boolean) {
         DiagnosisSeverity.WARNING -> MaterialTheme.colorScheme.tertiary
         DiagnosisSeverity.INFO -> MaterialTheme.colorScheme.onSurface
     }
-    val icon = when (d.severity) { DiagnosisSeverity.CRITICAL -> "⛔"; DiagnosisSeverity.WARNING -> "⚠️"; DiagnosisSeverity.INFO -> "ℹ️" }
+    val level = when (d.severity) { DiagnosisSeverity.CRITICAL -> StatusLevel.CRITICAL; DiagnosisSeverity.WARNING -> StatusLevel.WARNING; DiagnosisSeverity.INFO -> StatusLevel.INFO }
     Column(Modifier.padding(top = 4.dp)) {
-        Text("$icon ${d.type.uiLabel}", fontWeight = if (primary) FontWeight.Bold else FontWeight.SemiBold, color = color,
+        StatusLabel(level, d.type.uiLabel, fontWeight = if (primary) FontWeight.Bold else FontWeight.SemiBold, textColor = color,
             style = if (primary) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium)
         Text(stringResource(R.string.dg_confidence, Fmt.conf(d.confidence)) + (d.impactW?.let { " · " + stringResource(R.string.dg_impact, Fmt.kw(it) ?: "") } ?: ""),
             style = MaterialTheme.typography.bodySmall)

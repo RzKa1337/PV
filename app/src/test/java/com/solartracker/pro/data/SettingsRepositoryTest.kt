@@ -9,6 +9,7 @@ import com.solartracker.pro.core.energy.BatteryType
 import com.solartracker.pro.core.energy.ConsumptionPeriod
 import com.solartracker.pro.core.energy.EnergyPrices
 import com.solartracker.pro.core.solar.GeoLocation
+import com.solartracker.pro.core.geo.SavedPlace
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -49,6 +50,28 @@ class SettingsRepositoryTest {
         assertEquals(GeoLocation(50.06, 19.94), s.location)
         assertEquals("Kraków", s.locationName)
         assertEquals(LocationSource.GPS, s.locationSource)
+    }
+
+    @Test
+    fun selectPlace_savesProviderCoordinatesDetailAndRecentList() = runTest {
+        val store = FakeDataStore()
+        val repo = SettingsRepository(store)
+        val waw = SavedPlace("Warszawa", "Mazowieckie, Polska", 52.22977, 21.01178, 113.0, "OPEN_METEO")
+        val krk = SavedPlace("Kraków", "Małopolskie, Polska", 50.06143, 19.93658, null, "GOOGLE")
+        repo.selectPlace(waw)
+        repo.selectPlace(krk)
+        // A new repository on the same store = app restart: the location is restored.
+        val s = SettingsRepository(store).settings.first()
+        assertEquals(GeoLocation(50.06143, 19.93658, 0.0), s.location)
+        assertEquals("Kraków", s.locationName)
+        assertEquals("Małopolskie, Polska", s.locationDetail)
+        assertEquals(LocationSource.MANUAL, s.locationSource)
+        assertEquals(listOf(krk, waw), s.recentPlaces)
+        repo.forgetRecentPlace(waw)
+        assertEquals(listOf(krk), repo.settings.first().recentPlaces)
+        // GPS clears the provider detail (it would describe another place).
+        repo.setLocation(GeoLocation(50.0, 19.9), "GPS", LocationSource.GPS)
+        assertEquals("", repo.settings.first().locationDetail)
     }
 
     @Test

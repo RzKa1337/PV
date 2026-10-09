@@ -1,5 +1,7 @@
 package com.solartracker.pro.data
 
+import com.solartracker.pro.core.geo.RecentPlaces
+import com.solartracker.pro.core.geo.SavedPlace
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.MutablePreferences
@@ -41,13 +43,33 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         }
     }
 
-    suspend fun setLocation(location: GeoLocation, name: String, source: LocationSource) {
+    suspend fun setLocation(location: GeoLocation, name: String, source: LocationSource, detail: String = "") {
         dataStore.edit { prefs ->
             prefs[Keys.LATITUDE] = location.latitude
             prefs[Keys.LONGITUDE] = location.longitude
             prefs[Keys.ELEVATION] = location.elevationM
             prefs[Keys.LOCATION_NAME] = name.trim().take(MAX_NAME_LENGTH)
             prefs[Keys.LOCATION_SOURCE] = source.name
+            prefs[Keys.LOCATION_DETAIL] = detail.trim().take(MAX_DETAIL_LENGTH)
+        }
+    }
+
+    /** Uses a place picked in the search (provider coordinates) and puts it first in the recent list – one write. */
+    suspend fun selectPlace(place: SavedPlace) {
+        dataStore.edit { prefs ->
+            prefs[Keys.LATITUDE] = place.lat
+            prefs[Keys.LONGITUDE] = place.lon
+            prefs[Keys.ELEVATION] = place.elevationM?.takeIf { it.isFinite() && it in -500.0..9000.0 } ?: 0.0
+            prefs[Keys.LOCATION_NAME] = place.name.trim().take(MAX_NAME_LENGTH)
+            prefs[Keys.LOCATION_SOURCE] = LocationSource.MANUAL.name
+            prefs[Keys.LOCATION_DETAIL] = place.detail.trim().take(MAX_DETAIL_LENGTH)
+            prefs[Keys.RECENT_PLACES] = RecentPlaces.encode(RecentPlaces.push(RecentPlaces.decode(prefs[Keys.RECENT_PLACES]), place))
+        }
+    }
+
+    suspend fun forgetRecentPlace(place: SavedPlace) {
+        dataStore.edit { prefs ->
+            prefs[Keys.RECENT_PLACES] = RecentPlaces.encode(RecentPlaces.decode(prefs[Keys.RECENT_PLACES]).filterNot { it == place })
         }
     }
 
@@ -176,6 +198,8 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             },
             locationName = if (hasLocation) this[Keys.LOCATION_NAME].orEmpty() else defaults.locationName,
             locationSource = enumValueOrDefault(this[Keys.LOCATION_SOURCE], defaults.locationSource),
+            locationDetail = if (hasLocation) this[Keys.LOCATION_DETAIL].orEmpty() else defaults.locationDetail,
+            recentPlaces = RecentPlaces.decode(this[Keys.RECENT_PLACES]),
             themeMode = enumValueOrDefault(this[Keys.THEME_MODE], defaults.themeMode),
             language = enumValueOrDefault(this[Keys.LANGUAGE], defaults.language),
             batteryEnabled = this[Keys.BATTERY_ENABLED] ?: defaults.batteryEnabled,
@@ -198,6 +222,8 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         val ELEVATION = doublePreferencesKey("elevation_m")
         val LOCATION_NAME = stringPreferencesKey("location_name")
         val LOCATION_SOURCE = stringPreferencesKey("location_source")
+        val LOCATION_DETAIL = stringPreferencesKey("location_detail")
+        val RECENT_PLACES = stringPreferencesKey("recent_places")
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val LANGUAGE = stringPreferencesKey("app_language")
         val BATTERY_ENABLED = booleanPreferencesKey("battery_enabled")
@@ -224,6 +250,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
 
     companion object {
         const val MAX_NAME_LENGTH = 60
+        const val MAX_DETAIL_LENGTH = 120
 
         /** Encodes periods as "0-6:0.5;6-10:1.0" (dot decimal, locale independent). */
         internal fun encodePeriods(periods: List<ConsumptionPeriod>): String =

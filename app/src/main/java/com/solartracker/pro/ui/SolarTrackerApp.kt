@@ -1,5 +1,6 @@
 package com.solartracker.pro.ui
 
+import com.solartracker.pro.core.geo.SavedPlace
 import androidx.compose.ui.res.stringResource
 import com.solartracker.pro.R
 import android.Manifest
@@ -124,6 +125,8 @@ fun SolarTrackerApp(viewModel: MainViewModel, openSettingsRequest: Int = 0) {
             override fun setPanelAzimuth(degrees: Double) = viewModel.setPanelAzimuth(degrees)
             override fun setManualLocation(latitude: Double, longitude: Double, name: String, elevationM: Double) =
                 viewModel.setManualLocation(latitude, longitude, name, elevationM)
+            override fun selectPlace(place: SavedPlace) = viewModel.selectPlace(place)
+            override fun forgetRecentPlace(place: SavedPlace) = viewModel.forgetRecentPlace(place)
             override fun setThemeMode(mode: ThemeMode) = viewModel.setThemeMode(mode)
             override fun setLanguage(language: AppLanguage) = viewModel.setLanguage(language)
             override fun setWeatherEnabled(enabled: Boolean) = viewModel.setWeatherEnabled(enabled)

@@ -7,6 +7,7 @@ import com.solartracker.pro.core.energy.ConsumptionProfile
 import com.solartracker.pro.core.energy.EnergyPrices
 import com.solartracker.pro.core.pv.PvSystem
 import com.solartracker.pro.core.solar.GeoLocation
+import com.solartracker.pro.core.geo.SavedPlace
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
@@ -21,6 +22,10 @@ data class AppSettings(
     val location: GeoLocation = DEFAULT_LOCATION,
     val locationName: String = DEFAULT_LOCATION_NAME,
     val locationSource: LocationSource = LocationSource.MANUAL,
+    /** Region and country of the picked place (from the search provider); empty for GPS / typed coordinates. */
+    val locationDetail: String = "",
+    /** Places picked recently in the search (newest first). */
+    val recentPlaces: List<SavedPlace> = emptyList(),
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val language: AppLanguage = AppLanguage.POLISH,
     val batteryEnabled: Boolean = false,

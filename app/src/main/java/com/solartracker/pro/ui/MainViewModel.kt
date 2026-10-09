@@ -1,5 +1,6 @@
 package com.solartracker.pro.ui
 
+import com.solartracker.pro.core.geo.SavedPlace
 import com.solartracker.pro.i18n.tr
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -550,6 +551,15 @@ class MainViewModel(
         viewModelScope.launch {
             settingsRepository.setLocation(GeoLocation(latitude, longitude, elevationM), name, LocationSource.MANUAL)
         }
+    }
+
+    /** A place picked in the city search: provider coordinates, remembered in the recent list. */
+    fun selectPlace(place: SavedPlace) {
+        viewModelScope.launch { settingsRepository.selectPlace(place) }
+    }
+
+    fun forgetRecentPlace(place: SavedPlace) {
+        viewModelScope.launch { settingsRepository.forgetRecentPlace(place) }
     }
 
     fun setThemeMode(mode: ThemeMode) {

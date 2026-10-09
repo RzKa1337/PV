@@ -25,6 +25,11 @@ fun interface HttpClient {
     /** Performs a GET without following redirects. */
     @Throws(IOException::class)
     fun get(url: String, headers: Map<String, String>): HttpResponse
+
+    /** POST with a request body (JSON APIs); clients that only read files do not support it. */
+    @Throws(IOException::class)
+    fun post(url: String, headers: Map<String, String>, body: String): HttpResponse =
+        throw IOException("POST not supported by this client")
 }
 
 /** [HttpClient] on top of [HttpURLConnection] (works on the JVM and on Android). */
@@ -42,6 +47,21 @@ class UrlConnectionHttpClient(
         val body = (if (code >= 400) connection.errorStream else connection.inputStream) ?: ByteArrayInputStream(ByteArray(0))
         val responseHeaders = connection.headerFields.filterKeys { it != null }
         return HttpResponse(code, responseHeaders, body) { connection.disconnect() }
+    }
+
+    override fun post(url: String, headers: Map<String, String>, body: String): HttpResponse {
+        val connection = URI(url).toURL().openConnection() as HttpURLConnection
+        connection.instanceFollowRedirects = false
+        connection.connectTimeout = connectTimeoutMs
+        connection.readTimeout = readTimeoutMs
+        connection.requestMethod = "POST"
+        connection.doOutput = true
+        headers.forEach { (k, v) -> connection.setRequestProperty(k, v) }
+        connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+        val code = connection.responseCode
+        val stream = (if (code >= 400) connection.errorStream else connection.inputStream) ?: ByteArrayInputStream(ByteArray(0))
+        val responseHeaders = connection.headerFields.filterKeys { it != null }
+        return HttpResponse(code, responseHeaders, stream) { connection.disconnect() }
     }
 }
 

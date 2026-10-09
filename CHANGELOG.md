@@ -4,6 +4,15 @@ Wszystkie istotne zmiany w projekcie Solar Tracker PRO.
 Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie [SemVer](https://semver.org/).
 
 ## [Unreleased]
+### Added – wyszukiwanie miast z podpowiedziami
+- Ustawienia → Lokalizacja: podpowiedzi podczas pisania (po ~300 ms przerwy, od 2 znaków), nazwa z regionem i krajem, pogrubiony dopasowany fragment (bez względu na polskie znaki), stany ładowania / brak wyników / brak internetu / limit z „Spróbuj ponownie”, anulowanie nieaktualnych zapytań i pamięć wyników (10 min). Współrzędne zawsze od dostawcy.
+- Dostawcy: Google Places API (New) – Autocomplete + Place Details (`location,formattedAddress`, sesje) gdy skonfigurowano klucz (zaszyfrowany w Android Keystore albo `MAPS_API_KEY` przy budowaniu; nagłówki ograniczenia do aplikacji Android); bez klucza i zapasowo Open-Meteo Geocoding; Nominatim tylko po „Szukaj” (adresy, kody). Dokumentacja: `docs/GOOGLE_PLACES_SETUP.md`.
+- „Ostatnio wybrane” miejsca (do 6, z usuwaniem), karta aktualnej lokalizacji (nazwa, region, współrzędne, wysokość, źródło); ręczne współrzędne zwinięte jako opcja awaryjna. Pulpit pokazuje region/kraj przy lokalizacji.
+
+### Changed – wygląd
+- Pełny zestaw kolorów motywu jasnego i ciemnego (ciemny grafitowo-granatowy z bursztynowym akcentem; wszystkie odcienie kart ustawione – wcześniej część brała fioletowe wartości domyślne Material), skala typografii (pogrubione nagłówki i wartości).
+- Ikony Material zamiast emoji: pogoda (Pulpit, Radar – jeden zestaw `WeatherIcon`), schemat przepływu energii i nagłówek LIVE, statusy diagnostyki i ostrzeżenia (`StatusLabel`: ikona + tekst + kolor, kolor nigdy jedynym sygnałem), nagłówki kart (`SectionHeader`).
+- Pulpit: najpierw produkcja – karta z aktualną mocą (duża wartość, pasek udziału w mocy szczytowej), dziś i prognozą dnia; potem pogoda, wykres mocy, słońce (zamiast czterech osobnych kafelków).
 
 ## [v0.17.0] - 2026-10-09
 ### Added – wygląd: słoneczne miejsca

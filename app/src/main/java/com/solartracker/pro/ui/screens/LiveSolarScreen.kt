@@ -1,5 +1,23 @@
 package com.solartracker.pro.ui.screens
 
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.BatteryChargingFull
+import androidx.compose.material.icons.outlined.FlashOn
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Public
+import androidx.compose.material.icons.outlined.WbSunny
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.material3.Icon
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.graphics.vector.VectorPainter
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import com.solartracker.pro.i18n.tr
 import androidx.compose.ui.res.stringResource
 import com.solartracker.pro.R
@@ -120,15 +138,24 @@ fun LiveSolarScreen(
 private fun LiveStatusRow(clock: String?, active: Boolean, paused: Boolean, onPausedChange: (Boolean) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Text("☀️ LIVE SOLAR", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Outlined.WbSunny, contentDescription = null, tint = ChartColors.pv, modifier = Modifier.size(26.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("LIVE SOLAR", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            }
             val running = active && !paused
-            Text(
-                if (running) "🟢 LIVE" else "🔴 LIVE PAUSED",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                color = if (running) ChartColors.charge else MaterialTheme.colorScheme.error,
-                modifier = Modifier.testTag(LiveTags.STATUS),
-            )
+            val statusColor = if (running) ChartColors.charge else MaterialTheme.colorScheme.error
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(10.dp).clip(CircleShape).background(statusColor))
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    if (running) "LIVE" else "LIVE PAUSED",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = statusColor,
+                    modifier = Modifier.testTag(LiveTags.STATUS),
+                )
+            }
             if (clock != null) {
                 Text(stringResource(R.string.live_updated, clock.toString()), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -480,6 +507,12 @@ private fun EnergyFlowDiagram(e: LiveEnergyUi) {
     val idle = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
     val labelColor = MaterialTheme.colorScheme.onSurface
     val loadLabel = stringResource(R.string.live_load_value, Format.kw(e.loadKw))
+    val sunIcon = rememberVectorPainter(Icons.Outlined.WbSunny)
+    val homeIcon = rememberVectorPainter(Icons.Outlined.Home)
+    val hubIcon = rememberVectorPainter(Icons.Outlined.FlashOn)
+    val batteryIcon = rememberVectorPainter(Icons.Outlined.BatteryChargingFull)
+    val gridIcon = rememberVectorPainter(Icons.Outlined.Public)
+    val nodeFill = MaterialTheme.colorScheme.surfaceContainerHighest
     Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
         Canvas(
             Modifier
@@ -502,20 +535,25 @@ private fun EnergyFlowDiagram(e: LiveEnergyUi) {
             if (e.gridImportKw > FLOW_EPS) flowEdge(grid, hub, e.gridImportKw, ChartColors.grid, idle, phase)
             else flowEdge(hub, grid, e.exportKw, ChartColors.surplus, idle, phase)
 
-            val emoji = TextStyle(fontSize = 26.sp)
             val small = TextStyle(fontSize = 11.sp, color = labelColor, fontWeight = FontWeight.SemiBold)
-            fun node(center: Offset, icon: String, label: String) {
-                drawCircle(Color.White.copy(alpha = 0.12f), 30f * density / 2, center)
-                val m = textMeasurer.measure(icon, emoji)
-                drawText(m, topLeft = Offset(center.x - m.size.width / 2, center.y - m.size.height / 2))
-                val l = textMeasurer.measure(label, small)
-                drawText(l, topLeft = Offset(center.x - l.size.width / 2, center.y + m.size.height / 2))
+            val iconPx = 24.dp.toPx()
+            val radius = 21.dp.toPx()
+            fun node(center: Offset, icon: VectorPainter, tint: Color, label: String) {
+                drawCircle(nodeFill, radius, center)
+                drawCircle(tint.copy(alpha = 0.6f), radius, center, style = Stroke(width = 1.5.dp.toPx()))
+                translate(center.x - iconPx / 2, center.y - iconPx / 2) {
+                    with(icon) { draw(Size(iconPx, iconPx), colorFilter = ColorFilter.tint(tint)) }
+                }
+                if (label.isNotEmpty()) {
+                    val l = textMeasurer.measure(label, small)
+                    drawText(l, topLeft = Offset(center.x - l.size.width / 2, center.y + radius + 2.dp.toPx()))
+                }
             }
-            node(pv, "☀️", "PV ${Format.kw(e.pvKw)}")
-            node(home, "🏠", loadLabel)
-            node(hub, "⚡", "")
-            if (e.hasBattery) node(battery, "🔋", e.socPercent?.let { Format.percent(it) } ?: "")
-            node(grid, "🌐", e.backupLabel)
+            node(pv, sunIcon, ChartColors.pv, "PV ${Format.kw(e.pvKw)}")
+            node(home, homeIcon, ChartColors.consumption, loadLabel)
+            node(hub, hubIcon, labelColor, "")
+            if (e.hasBattery) node(battery, batteryIcon, ChartColors.charge, e.socPercent?.let { Format.percent(it) } ?: "")
+            node(grid, gridIcon, ChartColors.grid, e.backupLabel)
         }
     }
 }

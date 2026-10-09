@@ -1,5 +1,7 @@
 package com.solartracker.pro.ui.energy
 
+import com.solartracker.pro.ui.components.StatusLabel
+import com.solartracker.pro.ui.components.StatusLevel
 import androidx.compose.ui.res.stringResource
 import com.solartracker.pro.R
 import androidx.compose.foundation.layout.Arrangement
@@ -55,7 +57,7 @@ fun EnergySecurityCard(security: EnergySecurity?, modifier: Modifier = Modifier,
             }
         }
         if (security.shortageExpected && !security.gridBackup) {
-            Text(stringResource(R.string.es_shortage), color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+            StatusLabel(StatusLevel.CRITICAL, stringResource(R.string.es_shortage), fontWeight = FontWeight.Bold)
         }
         Text(security.explanation, style = MaterialTheme.typography.bodyMedium)
         security.timeToMinSoc?.let { Text(stringResource(R.string.es_to_min_soc, (hm(it)).toString()), fontWeight = FontWeight.SemiBold) }

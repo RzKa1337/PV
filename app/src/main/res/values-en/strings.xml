@@ -136,7 +136,7 @@
     <string name="consumption_saved">Consumption profile saved</string>
     <string name="consumption_title">Consumption profile</string>
     <string name="dash_azimuth">azimuth %1$s %2$s</string>
-    <string name="dash_battery">🔋 Energy storage</string>
+    <string name="dash_battery">Energy storage</string>
     <string name="dash_battery_sim">Simulated from midnight with the initial SOC from the settings.</string>
     <string name="dash_clear_sky_index">Sun per forecast: %1$s of a clear sky (this is what the PV model uses, not the cloud cover %% alone)</string>
     <string name="dash_climate_no_forecast">climate averages (no forecast for this hour)</string>
@@ -158,7 +158,7 @@
     <string name="dash_since_midnight">from midnight until now</string>
     <string name="dash_snow">snow %1$s cm</string>
     <string name="dash_snow_on_panels">Probably snow on the panels – production may be close to zero (the dashboard estimate does not include it).</string>
-    <string name="dash_sun">☀️ SUN</string>
+    <string name="dash_sun">SUN</string>
     <string name="dash_today">TODAY</string>
     <string name="dash_uv_max">max today %1$s (%2$s)</string>
     <string name="dash_uv_max_at">" around %1$s"</string>
@@ -405,7 +405,7 @@
     <string name="es_risk">Risk: %1$s</string>
     <string name="es_risk_lower">risk %1$s</string>
     <string name="es_security">security %1$s%%</string>
-    <string name="es_shortage">⚠️ ENERGY SHORTAGE EXPECTED</string>
+    <string name="es_shortage">ENERGY SHORTAGE EXPECTED</string>
     <string name="es_soc_range">Expected SOC (range: worse–better scenario)</string>
     <string name="es_title">ENERGY SECURITY</string>
     <string name="es_to_min_soc">Until minimum SOC: %1$s</string>
@@ -484,7 +484,7 @@
     <string name="live_compass">Compass – sun position</string>
     <string name="live_compass_desc">Compass: sun at azimuth %1$s, elevation %2$s</string>
     <string name="live_compass_hint">Centre = zenith, circle = horizon. Blue line: panel direction. Dashed: today\'s sun path.</string>
-    <string name="live_day">☀️ Day</string>
+    <string name="live_day">Day</string>
     <string name="live_declination">Declination</string>
     <string name="live_deficit">Deficit</string>
     <string name="live_elevation">Elevation</string>
@@ -599,7 +599,7 @@
     <string name="settings_location_name">Name (e.g. Home)</string>
     <string name="settings_location_title">Location</string>
     <string name="settings_longitude">Longitude</string>
-    <string name="settings_manual_coords">Or enter the coordinates manually:</string>
+    <string name="settings_manual_coords">Enter coordinates manually</string>
     <string name="settings_power_error">Enter a value 0–%1$s kWp</string>
     <string name="settings_power_label">Power [kWp]</string>
     <string name="settings_power_title">System power</string>
@@ -940,4 +940,30 @@
     <string name="scene_atacama">Illustration · Atacama Desert</string>
     <string name="scene_santorini">Illustration · Santorini</string>
     <string name="scene_algarve">Illustration · Algarve</string>
+    <string name="place_search_label">City, region or address</string>
+    <string name="place_search_hint">e.g. Warsaw, Zakopane, 00-001</string>
+    <string name="place_search_clear">Clear</string>
+    <string name="place_search_resolving">Getting coordinates: %1$s…</string>
+    <string name="place_search_empty">No results for “%1$s”. Check the spelling or type a postcode and press “Search” on the keyboard.</string>
+    <string name="place_search_retry">Try again</string>
+    <string name="place_search_source">Results: %1$s</string>
+    <string name="place_search_fallback">Google unavailable – backup search</string>
+    <string name="place_error_network">No internet connection.</string>
+    <string name="place_error_quota">Request limit reached – try again in a moment.</string>
+    <string name="place_error_key">The Google Places key was rejected – check its restrictions and enabled APIs.</string>
+    <string name="place_error_response">The search service returned an invalid response.</string>
+    <string name="place_recent">Recently picked</string>
+    <string name="place_recent_remove">Remove %1$s from recent</string>
+    <string name="settings_manual_hide">Hide manual coordinates</string>
+    <string name="elevation_m_short">%1$s m a.s.l.</string>
+    <string name="places_provider_google">Search: Google Maps · change key</string>
+    <string name="places_provider_keyless">Search: Open-Meteo (no key) · add a Google key</string>
+    <string name="places_key_help">Optional Google Places API (New) key. Stored encrypted with the Android Keystore on this phone only. Restrict it in Google Cloud to the app com.solartracker.pro and to the Places API, and set a daily quota. Without a key the Open-Meteo search is used.</string>
+    <string name="places_key_label">Google API key</string>
+    <string name="places_key_save">Save key</string>
+    <string name="places_key_remove">Remove key</string>
+    <string name="w_precip_label">Precipitation</string>
+    <string name="w_snow_label">Snow</string>
+    <string name="w_visibility_label">Visibility</string>
+    <string name="dash_share_of_peak">%1$s of the %2$s kWp peak</string>
 </resources>

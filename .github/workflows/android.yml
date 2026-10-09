@@ -64,6 +64,8 @@ jobs:
           SIGNING_KEYSTORE_PASSWORD: ${{ secrets.SIGNING_KEYSTORE_PASSWORD }}
           SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+          # Optional: Google Places key for city autocomplete (empty secret = keyless Open-Meteo search).
+          MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
         run: |
           if [ -n "$SIGNING_KEYSTORE_BASE64" ]; then
             export SIGNING_KEYSTORE_FILE="$RUNNER_TEMP/release.jks"

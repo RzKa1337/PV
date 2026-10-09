@@ -1,5 +1,7 @@
 package com.solartracker.pro.ui.radar
 
+import com.solartracker.pro.ui.components.WeatherGlyph
+import com.solartracker.pro.ui.components.WeatherIcon
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
@@ -132,26 +134,15 @@ private fun levelLabel(l: ConfidenceLevel) = when (l) {
     ConfidenceLevel.LOW -> tr("niska", "low")
 }
 
-/** Weather icon of one hour from the provider's WMO code, precipitation and the sunlight actually blocked. */
-private fun skyIcon(h: HourForecast): String {
-    val wx = h.weather ?: return "·"
-    val code = wx.weatherCode ?: -1
-    val night = h.sunElevationDeg <= 0
-    return when {
-        code >= 95 -> "⛈️"
-        (wx.snowfallCm ?: 0.0) > 0.05 || code in 71..77 || code in 85..86 -> "🌨️"
-        (wx.precipitationMm ?: 0.0) >= 0.1 || code in 51..67 || code in 80..82 -> "🌧️"
-        code in 45..48 -> "🌫️"
-        night -> if ((wx.cloudCoverPercent ?: 0.0) >= 70) "☁️" else "🌙"
-        (h.effectiveCloudPercent ?: wx.cloudCoverPercent ?: 0.0) >= 70 -> "☁️"
-        (h.effectiveCloudPercent ?: wx.cloudCoverPercent ?: 0.0) >= 30 -> "⛅"
-        else -> "☀️"
-    }
+/** Weather symbol of one hour from the provider's WMO code, precipitation and the sunlight actually blocked. */
+private fun skyIcon(h: HourForecast): WeatherGlyph {
+    val wx = h.weather ?: return WeatherGlyph.UNKNOWN
+    return WeatherGlyph.of(wx.weatherCode, wx.precipitationMm, wx.snowfallCm, h.effectiveCloudPercent ?: wx.cloudCoverPercent, h.sunElevationDeg <= 0)
 }
 
 // ---- Screen --------------------------------------------------------------------------------------------------------
 
-/** 🌦️ Radar & Prognoza: now, today's PV, alerts, radar, PV chart, hourly list, next days, accuracy. */
+/** Radar & Prognoza: now, today's PV, alerts, radar, PV chart, hourly list, next days, accuracy. */
 @Composable
 fun RadarScreen(vm: EnergyCenterViewModel, weather: WeatherState, locationName: String, onRefreshWeather: () -> Unit, modifier: Modifier = Modifier) {
     MonitorWhileVisible(vm, weather)
@@ -258,7 +249,7 @@ private fun HeroCard(r: HourlyPvReport?, weather: WeatherState, locationName: St
                 IconButton(onClick = onRefresh) { Icon(Icons.Outlined.Refresh, contentDescription = tr("Odśwież pogodę", "Refresh weather")) }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(h?.let(::skyIcon) ?: "❔", fontSize = 44.sp)
+                WeatherIcon(h?.let(::skyIcon) ?: WeatherGlyph.UNKNOWN, size = 48.dp)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(wx?.temperatureC?.let { c(it) + "C" } ?: "N/A", fontSize = 40.sp, fontWeight = FontWeight.Bold, lineHeight = 42.sp)
@@ -280,11 +271,11 @@ private fun HeroCard(r: HourlyPvReport?, weather: WeatherState, locationName: St
             if (wx != null) {
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     val pb = fg.copy(alpha = 0.16f)
-                    Pill("💧 " + pct(wx.relativeHumidityPercent), pb, fg)
+                    Pill(tr("Wilg. ", "Hum. ") + pct(wx.relativeHumidityPercent), pb, fg)
                     Pill(tr("rosa ", "dew ") + c(h?.dewPointC) + if (h?.dewPointCalculated == true) "*" else "", pb, fg)
-                    Pill("💨 " + kmh(wx.windSpeedMs) + " " + (HourlyPvForecastEngine.compass(wx.windDirectionDeg) ?: ""), pb, fg)
+                    Pill(tr("Wiatr ", "Wind ") + kmh(wx.windSpeedMs) + " " + (HourlyPvForecastEngine.compass(wx.windDirectionDeg) ?: ""), pb, fg)
                     Pill(tr("porywy ", "gusts ") + kmh(wx.windGustsMs), pb, fg)
-                    Pill("🌧 " + mm(wx.precipitationMm) + " · " + pct(wx.precipitationProbabilityPercent), pb, fg)
+                    Pill(tr("Opad ", "Rain ") + mm(wx.precipitationMm) + " · " + pct(wx.precipitationProbabilityPercent), pb, fg)
                     wx.uvIndex?.let { Pill("UV " + String.format(Locale.ROOT, "%.1f", it), pb, fg) }
                 }
             }
@@ -376,13 +367,13 @@ private fun TodayTiles(r: HourlyPvReport, hm: DateTimeFormatter) {
 private fun OutlookCard(r: HourlyPvReport, hm: DateTimeFormatter) {
     SectionCard(Modifier.testTag("radar_outlook")) {
         r.best?.let { b ->
-            OutlookLine("☀️", tr("Najlepsza produkcja", "Best production"), "${hm.format(b.from)}–${hm.format(b.to)}",
+            OutlookLine(WeatherGlyph.SUN, tr("Najlepsza produkcja", "Best production"), "${hm.format(b.from)}–${hm.format(b.to)}",
                 tr("szczyt ok. ", "peak ~") + w(b.expectedW) + (b.reason?.let { " · $it" } ?: ""))
-        } ?: OutlookLine("🌙", tr("Dziś bez produkcji PV", "No PV today"), "", "")
-        r.worst?.let { b -> OutlookLine("🌥️", tr("Najsłabiej", "Weakest"), "${hm.format(b.from)}–${hm.format(b.to)}", tr("do ", "up to ") + w(b.expectedW) + " · " + (b.reason ?: "")) }
+        } ?: OutlookLine(WeatherGlyph.NIGHT, tr("Dziś bez produkcji PV", "No PV today"), "", "")
+        r.worst?.let { b -> OutlookLine(WeatherGlyph.CLOUD, tr("Najsłabiej", "Weakest"), "${hm.format(b.from)}–${hm.format(b.to)}", tr("do ", "up to ") + w(b.expectedW) + " · " + (b.reason ?: "")) }
         r.rain?.let { rain ->
-            if (rain.from == null) OutlookLine("🌤️", tr("Opady", "Rain"), tr("brak w 12 h", "none in 12 h"), "")
-            else OutlookLine("🌧️", if (rain.raining) tr("Pada (prognoza)", "Raining (forecast)") else tr("Opady", "Rain"),
+            if (rain.from == null) OutlookLine(WeatherGlyph.PARTLY, tr("Opady", "Rain"), tr("brak w 12 h", "none in 12 h"), "")
+            else OutlookLine(WeatherGlyph.RAIN, if (rain.raining) tr("Pada (prognoza)", "Raining (forecast)") else tr("Opady", "Rain"),
                 "${hm.format(rain.from)}–${hm.format(rain.to)}",
                 mm(rain.precipitationMm) + (rain.maxProbabilityPercent?.let { " · ${it.roundToInt()}%" } ?: "") + " · " +
                     (rain.impactPercent?.let { "PV −${it.roundToInt()}% (~${String.format(Locale.ROOT, "%.2f", rain.reductionKwh)} kWh)" } ?: rain.note))
@@ -393,9 +384,9 @@ private fun OutlookCard(r: HourlyPvReport, hm: DateTimeFormatter) {
 }
 
 @Composable
-private fun OutlookLine(icon: String, title: String, time: String, detail: String) {
+private fun OutlookLine(icon: WeatherGlyph, title: String, time: String, detail: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(icon, fontSize = 22.sp, modifier = Modifier.width(34.dp))
+        Box(Modifier.width(34.dp)) { WeatherIcon(icon, size = 22.dp) }
         Column(Modifier.weight(1f)) {
             Row { Text(title, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f)); Text(time, fontWeight = FontWeight.Bold) }
             if (detail.isNotEmpty()) Text(detail, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -609,7 +600,7 @@ private fun HourDetails(h: HourForecast, hm: DateTimeFormatter, dayFmt: DateTime
     Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainerHighest, modifier = Modifier.fillMaxWidth().testTag("radar_tooltip")) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(skyIcon(h), fontSize = 22.sp)
+                WeatherIcon(skyIcon(h), size = 24.dp)
                 Spacer(Modifier.width(8.dp))
                 Text("${dayFmt.format(h.start)} ${hm.format(h.start)}–${hm.format(h.end)}", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                 Text(w(h.expectedW), fontWeight = FontWeight.Bold, color = ChartColors.pv)
@@ -628,7 +619,7 @@ private fun HourDetails(h: HourForecast, hm: DateTimeFormatter, dayFmt: DateTime
             DetailLine(tr("Chmury (nis./śr./wys.)", "Clouds (low/mid/high)"), pct(wx?.cloudCoverPercent) + " (" + pct(wx?.cloudLowPercent) + "/" + pct(wx?.cloudMidPercent) + "/" + pct(wx?.cloudHighPercent) + ")")
             DetailLine(tr("Słońce zasłonięte", "Sun blocked"), pct(h.effectiveCloudPercent))
             DetailLine(tr("Opad", "Precipitation"), mm(wx?.precipitationMm) + " · " + pct(wx?.precipitationProbabilityPercent) +
-                ((wx?.snowfallCm)?.takeIf { it > 0 }?.let { String.format(Locale.ROOT, " · ❄ %.1f cm", it) } ?: ""))
+                ((wx?.snowfallCm)?.takeIf { it > 0 }?.let { tr(" · śnieg ", " · snow ") + String.format(Locale.ROOT, "%.1f cm", it) } ?: ""))
             DetailLine(tr("Wiatr", "Wind"), kmh(wx?.windSpeedMs) + " " + (HourlyPvForecastEngine.compass(wx?.windDirectionDeg) ?: "") + " · " + tr("porywy ", "gusts ") + kmh(wx?.windGustsMs))
             DetailLine(tr("Słońce (wys./azymut)", "Sun (elev./azimuth)"), String.format(Locale.ROOT, "%.1f° / %.0f°", h.sunElevationDeg, h.sunAzimuthDeg))
             DetailLine("GHI / POA", (h.ghiWm2?.let { "${it.roundToInt()}" } ?: "N/A") + " / " + (h.poaWm2?.let { "${it.roundToInt()} W/m²" } ?: "N/A"))
@@ -683,7 +674,7 @@ private fun HourRow(h: HourForecast, now: Instant, hm: DateTimeFormatter, dayFmt
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(bg).clickable { open = !open }.padding(vertical = 6.dp, horizontal = 2.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(hm.format(h.start), style = MaterialTheme.typography.bodySmall, fontWeight = if (current) FontWeight.Bold else FontWeight.Medium, modifier = Modifier.width(52.dp))
-            Text(skyIcon(h), modifier = Modifier.width(30.dp))
+            Box(Modifier.width(30.dp)) { WeatherIcon(skyIcon(h), size = 20.dp) }
             Text(c(wx?.temperatureC, 0), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(46.dp))
             Text(wx?.precipitationProbabilityPercent?.let { "${it.roundToInt()}%" } ?: (wx?.precipitationMm?.let { String.format(Locale.ROOT, "%.1f", it) } ?: "—"),
                 style = MaterialTheme.typography.bodySmall, color = if ((wx?.precipitationProbabilityPercent ?: 0.0) >= 50) ChartColors.consumption else MaterialTheme.colorScheme.onSurface,

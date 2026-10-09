@@ -137,7 +137,7 @@
     <string name="consumption_saved">Zapisano profil zużycia</string>
     <string name="consumption_title">Profil zużycia</string>
     <string name="dash_azimuth">azymut %1$s %2$s</string>
-    <string name="dash_battery">🔋 Magazyn energii</string>
+    <string name="dash_battery">Magazyn energii</string>
     <string name="dash_battery_sim">Symulacja od północy z początkowym SOC z ustawień.</string>
     <string name="dash_clear_sky_index">Słońce wg prognozy: %1$s czystego nieba (to liczy model PV, nie sam %% zachmurzenia)</string>
     <string name="dash_climate_no_forecast">średnie klimatyczne (brak prognozy na tę godzinę)</string>
@@ -159,7 +159,7 @@
     <string name="dash_since_midnight">od północy do teraz</string>
     <string name="dash_snow">śnieg %1$s cm</string>
     <string name="dash_snow_on_panels">Prawdopodobnie śnieg na panelach – produkcja może być bliska zera (szacunek pulpitu tego nie uwzględnia).</string>
-    <string name="dash_sun">☀️ SŁOŃCE</string>
+    <string name="dash_sun">SŁOŃCE</string>
     <string name="dash_today">DZISIAJ</string>
     <string name="dash_uv_max">maks. dziś %1$s (%2$s)</string>
     <string name="dash_uv_max_at">" ok. %1$s"</string>
@@ -406,7 +406,7 @@
     <string name="es_risk">Ryzyko: %1$s</string>
     <string name="es_risk_lower">ryzyko %1$s</string>
     <string name="es_security">bezpieczeństwo %1$s%%</string>
-    <string name="es_shortage">⚠️ PRZEWIDYWANY BRAK ENERGII</string>
+    <string name="es_shortage">PRZEWIDYWANY BRAK ENERGII</string>
     <string name="es_soc_range">Przewidywany SOC (zakres: gorszy–lepszy scenariusz)</string>
     <string name="es_title">BEZPIECZEŃSTWO ENERGETYCZNE</string>
     <string name="es_to_min_soc">Do minimum SOC: %1$s</string>
@@ -485,7 +485,7 @@
     <string name="live_compass">Kompas – pozycja Słońca</string>
     <string name="live_compass_desc">Kompas: Słońce na azymucie %1$s, wysokość %2$s</string>
     <string name="live_compass_hint">Środek = zenit, okrąg = horyzont. Niebieska linia: kierunek paneli. Przerywana: dzisiejsza droga Słońca.</string>
-    <string name="live_day">☀️ Dzień</string>
+    <string name="live_day">Dzień</string>
     <string name="live_declination">Deklinacja</string>
     <string name="live_deficit">Deficyt</string>
     <string name="live_elevation">Wysokość (elevation)</string>
@@ -600,7 +600,7 @@
     <string name="settings_location_name">Nazwa (np. Dom)</string>
     <string name="settings_location_title">Lokalizacja</string>
     <string name="settings_longitude">Długość</string>
-    <string name="settings_manual_coords">Lub wpisz współrzędne ręcznie:</string>
+    <string name="settings_manual_coords">Wpisz współrzędne ręcznie</string>
     <string name="settings_power_error">Podaj wartość 0–%1$s kWp</string>
     <string name="settings_power_label">Moc [kWp]</string>
     <string name="settings_power_title">Moc instalacji</string>
@@ -941,4 +941,30 @@
     <string name="scene_atacama">Ilustracja · Pustynia Atakama</string>
     <string name="scene_santorini">Ilustracja · Santorini</string>
     <string name="scene_algarve">Ilustracja · Algarve</string>
+    <string name="place_search_label">Miasto, region lub adres</string>
+    <string name="place_search_hint">np. Warszawa, Zakopane, 00-001</string>
+    <string name="place_search_clear">Wyczyść</string>
+    <string name="place_search_resolving">Pobieram współrzędne: %1$s…</string>
+    <string name="place_search_empty">Brak wyników dla „%1$s”. Sprawdź pisownię albo wpisz kod pocztowy i naciśnij „Szukaj” na klawiaturze.</string>
+    <string name="place_search_retry">Spróbuj ponownie</string>
+    <string name="place_search_source">Wyniki: %1$s</string>
+    <string name="place_search_fallback">Google niedostępne – wyszukiwarka zapasowa</string>
+    <string name="place_error_network">Brak połączenia z internetem.</string>
+    <string name="place_error_quota">Przekroczono limit zapytań – spróbuj za chwilę.</string>
+    <string name="place_error_key">Klucz Google Places został odrzucony – sprawdź jego ograniczenia i włączone API.</string>
+    <string name="place_error_response">Wyszukiwarka zwróciła nieprawidłową odpowiedź.</string>
+    <string name="place_recent">Ostatnio wybrane</string>
+    <string name="place_recent_remove">Usuń %1$s z ostatnich</string>
+    <string name="settings_manual_hide">Ukryj współrzędne ręczne</string>
+    <string name="elevation_m_short">%1$s m n.p.m.</string>
+    <string name="places_provider_google">Wyszukiwarka: Google Maps · zmień klucz</string>
+    <string name="places_provider_keyless">Wyszukiwarka: Open-Meteo (bez klucza) · dodaj klucz Google</string>
+    <string name="places_key_help">Opcjonalny klucz Google Places API (New). Zapisywany zaszyfrowany w Android Keystore tylko na tym telefonie. Ogranicz go w Google Cloud do aplikacji com.solartracker.pro i do Places API oraz ustaw dzienny limit. Bez klucza działa wyszukiwarka Open-Meteo.</string>
+    <string name="places_key_label">Klucz API Google</string>
+    <string name="places_key_save">Zapisz klucz</string>
+    <string name="places_key_remove">Usuń klucz</string>
+    <string name="w_precip_label">Opady</string>
+    <string name="w_snow_label">Śnieg</string>
+    <string name="w_visibility_label">Widoczność</string>
+    <string name="dash_share_of_peak">%1$s mocy szczytowej %2$s kWp</string>
 </resources>

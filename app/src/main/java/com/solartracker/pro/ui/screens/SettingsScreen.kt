@@ -66,6 +66,15 @@ import com.solartracker.pro.ui.components.ScreenTitle
 import com.solartracker.pro.ui.components.SunnyScene
 import com.solartracker.pro.ui.components.SectionCard
 import kotlin.math.roundToInt
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.outlined.Place
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
+import com.solartracker.pro.core.geo.SavedPlace
+import com.solartracker.pro.data.PlaceSearchRepository
 
 /** Callbacks from the settings screen; implemented by the ViewModel. */
 interface SettingsActions {
@@ -73,6 +82,8 @@ interface SettingsActions {
     fun setTilt(degrees: Double)
     fun setPanelAzimuth(degrees: Double)
     fun setManualLocation(latitude: Double, longitude: Double, name: String, elevationM: Double)
+    fun selectPlace(place: SavedPlace)
+    fun forgetRecentPlace(place: SavedPlace)
     fun requestGpsLocation()
     fun setThemeMode(mode: ThemeMode)
     fun setLanguage(language: AppLanguage)
@@ -206,6 +217,7 @@ private fun LocationSection(settings: AppSettings, gpsStatus: GpsStatus, actions
     var latText by rememberSaveable(loc) { mutableStateOf(Format.decimal(loc.latitude, 4)) }
     var lonText by rememberSaveable(loc) { mutableStateOf(Format.decimal(loc.longitude, 4)) }
     var elevationText by rememberSaveable(loc) { mutableStateOf(Format.decimal(loc.elevationM, 0)) }
+    var manualOpen by rememberSaveable { mutableStateOf(false) }
     val lat = Format.parseDecimal(latText)
     val lon = Format.parseDecimal(lonText)
     val elevation = if (elevationText.isBlank()) 0.0 else Format.parseDecimal(elevationText)
@@ -213,20 +225,17 @@ private fun LocationSection(settings: AppSettings, gpsStatus: GpsStatus, actions
     val latValid = lat != null && lat in -90.0..90.0
     val lonValid = lon != null && lon in -180.0..180.0
 
-    SectionCard {
+    SectionCard(Modifier.testTag("settings_location")) {
         SectionTitle(stringResource(R.string.settings_location_title))
-        Text(
-            stringResource(
-                R.string.settings_location_current,
-                settings.locationName.ifBlank { "—" },
-                if (settings.locationSource == LocationSource.GPS) "GPS" else stringResource(R.string.settings_location_manual),
-                Format.coordinates(loc.latitude, loc.longitude),
-            ),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        CurrentLocationCard(settings)
+
+        PlaceSearchField(
+            recent = settings.recentPlaces,
+            onPick = actions::selectPlace,
+            onForget = actions::forgetRecentPlace,
         )
 
-        FilledTonalButton(onClick = actions::requestGpsLocation, enabled = gpsStatus != GpsStatus.Locating) {
+        FilledTonalButton(onClick = actions::requestGpsLocation, enabled = gpsStatus != GpsStatus.Locating, modifier = Modifier.fillMaxWidth()) {
             Icon(Icons.Outlined.MyLocation, contentDescription = null)
             Spacer(Modifier.size(8.dp))
             Text(if (gpsStatus == GpsStatus.Locating) stringResource(R.string.settings_gps_locating) else stringResource(R.string.settings_gps_use))
@@ -237,53 +246,117 @@ private fun LocationSection(settings: AppSettings, gpsStatus: GpsStatus, actions
             else -> Unit
         }
 
-        CitySearch(onPick = { r ->
-            actions.setManualLocation(r.point.lat, r.point.lon, r.name.substringBefore(',').take(60), r.elevationM ?: 0.0)
-        })
+        TextButton(onClick = { manualOpen = !manualOpen }) {
+            Text(stringResource(if (manualOpen) R.string.settings_manual_hide else R.string.settings_manual_coords))
+        }
+        if (manualOpen) {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it.take(60) },
+                label = { Text(stringResource(R.string.settings_location_name)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = latText,
+                    onValueChange = { latText = it.take(12) },
+                    label = { Text(stringResource(R.string.settings_latitude)) },
+                    supportingText = { Text("-90…90, N +") },
+                    isError = !latValid,
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                    modifier = Modifier.weight(1f),
+                )
+                OutlinedTextField(
+                    value = lonText,
+                    onValueChange = { lonText = it.take(12) },
+                    label = { Text(stringResource(R.string.settings_longitude)) },
+                    supportingText = { Text("-180…180, E +") },
+                    isError = !lonValid,
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            OutlinedTextField(
+                value = elevationText,
+                onValueChange = { elevationText = it.take(6) },
+                label = { Text(stringResource(R.string.settings_elevation)) },
+                isError = !elevationValid,
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Button(
+                onClick = { if (lat != null && lon != null) actions.setManualLocation(lat, lon, name, elevation ?: 0.0) },
+                enabled = latValid && lonValid && elevationValid,
+            ) { Text(stringResource(R.string.settings_save_location)) }
+        }
+        GooglePlacesKeySection()
+    }
+}
 
-        Text(stringResource(R.string.settings_manual_coords), style = MaterialTheme.typography.bodyMedium)
+/** The location every calculation uses: name, region/country, coordinates and where it came from. */
+@Composable
+private fun CurrentLocationCard(settings: AppSettings) {
+    val loc = settings.location
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)).padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Icon(Icons.Outlined.Place, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
+        Column(Modifier.weight(1f)) {
+            Text(settings.locationName.ifBlank { "—" }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold,
+                maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("current_location_name"))
+            if (settings.locationDetail.isNotBlank()) {
+                Text(settings.locationDetail, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+            Text(
+                Format.coordinates(loc.latitude, loc.longitude) + " · " + stringResource(R.string.elevation_m_short, Format.decimal(loc.elevationM, 0)) +
+                    " · " + if (settings.locationSource == LocationSource.GPS) "GPS" else stringResource(R.string.settings_location_manual),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/** Optional Google Places key typed on the phone (encrypted); without it the keyless search is used. */
+@Composable
+private fun GooglePlacesKeySection() {
+    val context = LocalContext.current
+    val repo = remember { PlaceSearchRepository(context) }
+    var open by rememberSaveable { mutableStateOf(false) }
+    var configured by remember { mutableStateOf(repo.googleConfigured) }
+    var userKey by remember { mutableStateOf(repo.hasUserKey) }
+    var text by remember { mutableStateOf("") }
+    TextButton(onClick = { open = !open }) {
+        Text(stringResource(if (configured) R.string.places_provider_google else R.string.places_provider_keyless))
+    }
+    if (open) {
+        Text(stringResource(R.string.places_key_help), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         OutlinedTextField(
-            value = name,
-            onValueChange = { name = it.take(60) },
-            label = { Text(stringResource(R.string.settings_location_name)) },
+            value = text,
+            onValueChange = { text = it.trim().take(100) },
+            label = { Text(stringResource(R.string.places_key_label)) },
             singleLine = true,
+            visualTransformation = PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             modifier = Modifier.fillMaxWidth(),
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(
-                value = latText,
-                onValueChange = { latText = it.take(12) },
-                label = { Text(stringResource(R.string.settings_latitude)) },
-                supportingText = { Text("-90…90, N +") },
-                isError = !latValid,
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-                modifier = Modifier.weight(1f),
-            )
-            OutlinedTextField(
-                value = lonText,
-                onValueChange = { lonText = it.take(12) },
-                label = { Text(stringResource(R.string.settings_longitude)) },
-                supportingText = { Text("-180…180, E +") },
-                isError = !lonValid,
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-                modifier = Modifier.weight(1f),
-            )
+            FilledTonalButton(onClick = {
+                repo.setUserKey(text); text = ""; configured = repo.googleConfigured; userKey = repo.hasUserKey
+            }, enabled = text.length >= 20) { Text(stringResource(R.string.places_key_save)) }
+            if (userKey) {
+                TextButton(onClick = { repo.setUserKey(""); configured = repo.googleConfigured; userKey = false }) {
+                    Text(stringResource(R.string.places_key_remove))
+                }
+            }
         }
-        OutlinedTextField(
-            value = elevationText,
-            onValueChange = { elevationText = it.take(6) },
-            label = { Text(stringResource(R.string.settings_elevation)) },
-            isError = !elevationValid,
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Button(
-            onClick = { if (lat != null && lon != null) actions.setManualLocation(lat, lon, name, elevation ?: 0.0) },
-            enabled = latValid && lonValid && elevationValid,
-        ) { Text(stringResource(R.string.settings_save_location)) }
     }
 }
 
@@ -379,63 +452,3 @@ private fun WeatherSection(enabled: Boolean, weather: WeatherState, actions: Set
     }
 }
 
-/** Search a city, address or postcode (OpenStreetMap / Open-Meteo) and use its coordinates. */
-@Composable
-private fun CitySearch(onPick: (GeocodeResult) -> Unit) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val repo = remember { ShadingRepository(context) }
-    var query by rememberSaveable { mutableStateOf("") }
-    var results by remember { mutableStateOf(emptyList<GeocodeResult>()) }
-    var searching by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var picked by remember { mutableStateOf<String?>(null) }
-    fun search() {
-        if (query.trim().length < 2 || searching) return
-        searching = true
-        error = null
-        picked = null
-        scope.launch {
-            results = runCatching { repo.search(query) }.getOrElse {
-                error = context.getString(R.string.search_failed, it.message ?: context.getString(R.string.no_internet))
-                emptyList()
-            }
-            if (results.isEmpty() && error == null) error = context.getString(R.string.search_not_found, query.trim())
-            searching = false
-        }
-    }
-    Text(stringResource(R.string.search_prompt), style = MaterialTheme.typography.bodyMedium)
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        OutlinedTextField(
-            value = query,
-            onValueChange = { query = it.take(100) },
-            label = { Text(stringResource(R.string.search_example)) },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { search() }),
-            modifier = Modifier.weight(1f),
-        )
-        Spacer(Modifier.size(8.dp))
-        FilledTonalButton(onClick = { search() }, enabled = !searching && query.trim().length >= 2) {
-            Text(if (searching) "…" else stringResource(R.string.search))
-        }
-    }
-    error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-    results.forEach { r ->
-        TextButton(onClick = {
-            onPick(r)
-            picked = r.name
-            results = emptyList()
-        }) {
-            Column(Modifier.fillMaxWidth()) {
-                Text(r.name, style = MaterialTheme.typography.bodyMedium)
-                Text(
-                    "${Format.coordinates(r.point.lat, r.point.lon)}" + (r.elevationM?.let { stringResource(R.string.elevation_asl_m, it.toInt().toString()) } ?: "") + " · ${r.accuracy.label}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
-    picked?.let { Text(stringResource(R.string.saved_item, it), style = MaterialTheme.typography.bodySmall) }
-}

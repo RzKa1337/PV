@@ -1,5 +1,7 @@
 package com.solartracker.pro.ui.tools
 
+import com.solartracker.pro.ui.components.StatusLabel
+import com.solartracker.pro.ui.components.StatusLevel
 import androidx.compose.ui.res.stringResource
 import com.solartracker.pro.R
 import androidx.activity.compose.BackHandler
@@ -207,7 +209,7 @@ private fun DesignerTool(settings: AppSettings) {
                 r.investment?.let { Line(stringResource(R.string.ds_panel_cost), "${f(it, 0)} zł") }
             }
             Text(stringResource(R.string.ds_series_range, r.minSeries.toString(), r.maxSeries.toString(), r.maxParallel.toString()), style = MaterialTheme.typography.bodySmall)
-            r.warnings.forEach { Text("⚠ $it", color = MaterialTheme.colorScheme.error) }
+            r.warnings.forEach { StatusLabel(StatusLevel.CRITICAL, it, fontWeight = null) }
             yield?.let { y ->
                 Line(stringResource(R.string.ds_annual_clear), "${f(y.clearSkyKwh, 0)} kWh")
                 Line(stringResource(R.string.ds_specific_clear), "${f(y.specificClearSkyKwhPerKwp, 0)} kWh/kWp")

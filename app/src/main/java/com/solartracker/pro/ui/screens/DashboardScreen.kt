@@ -1,5 +1,13 @@
 package com.solartracker.pro.ui.screens
 
+import androidx.compose.material.icons.outlined.BatteryChargingFull
+import androidx.compose.material.icons.outlined.WbSunny
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextOverflow
+import com.solartracker.pro.ui.components.SectionHeader
+import com.solartracker.pro.ui.components.WeatherGlyph
+import com.solartracker.pro.ui.components.WeatherIcon
 import androidx.compose.ui.res.stringResource
 import com.solartracker.pro.R
 import androidx.compose.foundation.layout.Arrangement
@@ -76,42 +84,9 @@ fun DashboardScreen(
     ) {
         LocationHeader(state)
         energyOverview()
+        // Most important first: what the panels produce now and today, then the conditions behind it.
+        ProductionCard(state)
         state.weather?.let { WeatherCard(it, onRefreshWeather) }
-        SunCard(state)
-
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            StatTile(
-                label = "PV",
-                value = "${Format.decimal(s.system.peakPowerKw)} kWp",
-                footnote = stringResource(R.string.dash_pv_footnote, Format.degrees(s.system.tiltDeg), Format.degrees(s.system.azimuthDeg), Format.compass(s.system.azimuthDeg)),
-                modifier = Modifier.weight(1f),
-            )
-            StatTile(
-                label = stringResource(R.string.dash_current_power),
-                value = Format.kw(state.currentPowerKw),
-                estimate = true,
-                modifier = Modifier.weight(1f),
-            )
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            StatTile(
-                label = stringResource(R.string.dash_today),
-                value = Format.kwh(state.energySoFarKwh),
-                footnote = stringResource(R.string.dash_since_midnight),
-                estimate = true,
-                modifier = Modifier.weight(1f),
-            )
-            StatTile(
-                label = stringResource(R.string.dash_day_forecast),
-                value = Format.kwh(state.energyTodayKwh),
-                footnote = stringResource(R.string.dash_whole_day),
-                estimate = true,
-                modifier = Modifier.weight(1f),
-            )
-        }
-
-        state.battery?.let { BatteryCard(it) }
-
         SectionCard {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -124,6 +99,9 @@ fun DashboardScreen(
             }
             PowerChart(points = state.profile, now = state.now, peakPowerKw = s.system.peakPowerKw)
         }
+        SunCard(state)
+
+        state.battery?.let { BatteryCard(it) }
 
         Text(
             stringResource(
@@ -133,6 +111,46 @@ fun DashboardScreen(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+/** Current production as the hero value, its share of the installed peak power, today so far and the day forecast. */
+@Composable
+private fun ProductionCard(state: DashboardState) {
+    val s = state.settings
+    val share = if (s.system.peakPowerKw > 0) (state.currentPowerKw / s.system.peakPowerKw).coerceIn(0.0, 1.0) else 0.0
+    SectionCard(Modifier.testTag("dash_production")) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            SectionHeader(stringResource(R.string.dash_current_power), Icons.Outlined.WbSunny, ChartColors.pv, Modifier.weight(1f))
+            EstimateBadge()
+        }
+        Text(Format.kw(state.currentPowerKw), style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
+        LinearProgressIndicator(
+            progress = { share.toFloat() },
+            modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
+            color = ChartColors.pv,
+            trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+        )
+        Text(
+            stringResource(R.string.dash_share_of_peak, Format.percent(share * 100), Format.decimal(s.system.peakPowerKw)) + " · " +
+                stringResource(R.string.dash_pv_footnote, Format.degrees(s.system.tiltDeg), Format.degrees(s.system.azimuthDeg), Format.compass(s.system.azimuthDeg)),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        HorizontalDivider(Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant)
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            MetricColumn(stringResource(R.string.dash_today), Format.kwh(state.energySoFarKwh), stringResource(R.string.dash_since_midnight), Modifier.weight(1f))
+            MetricColumn(stringResource(R.string.dash_day_forecast), Format.kwh(state.energyTodayKwh), stringResource(R.string.dash_whole_day), Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun MetricColumn(label: String, value: String, footnote: String, modifier: Modifier) {
+    Column(modifier) {
+        Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Text(footnote, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -150,9 +168,11 @@ private fun LocationHeader(state: DashboardState) {
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                text = Format.coordinates(s.location.latitude, s.location.longitude),
+                text = listOf(s.locationDetail, Format.coordinates(s.location.latitude, s.location.longitude)).filter { it.isNotBlank() }.joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
@@ -161,12 +181,7 @@ private fun LocationHeader(state: DashboardState) {
 @Composable
 private fun SunCard(state: DashboardState) {
     SectionCard(containerColor = MaterialTheme.colorScheme.primaryContainer) {
-        Text(
-            stringResource(R.string.dash_sun),
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onPrimaryContainer,
-        )
+        SectionHeader(stringResource(R.string.dash_sun), Icons.Outlined.WbSunny, MaterialTheme.colorScheme.onPrimaryContainer)
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
                 Format.degrees(state.sun.elevationDeg),
@@ -231,12 +246,7 @@ private fun SunEvent(label: String, value: String) {
 private fun BatteryCard(b: BatteryNow) {
     SectionCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                stringResource(R.string.dash_battery),
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f),
-            )
+            SectionHeader(stringResource(R.string.dash_battery), Icons.Outlined.BatteryChargingFull, ChartColors.charge, Modifier.weight(1f))
             EstimateBadge()
         }
         Row(verticalAlignment = Alignment.Bottom) {
@@ -289,13 +299,9 @@ private fun WeatherCard(w: WeatherNow, onRefresh: () -> Unit) {
             // Headline from the sunlight that gets through (forecast irradiance), not from total cloud cover:
             // a sky of thin cirrus counts as 100 % cloud cover while being practically sunny.
             val blocked = com.solartracker.pro.core.analytics.SkyClassifier.effectiveCloudPercent(w.clearSkyIndex, w.cloudCoverPercent)
-            val icon = when {
-                w.source != WeatherSource.FORECAST -> "📊"
-                (blocked ?: 0.0) >= 70 -> "☁️"
-                (blocked ?: 0.0) >= 30 -> "⛅"
-                else -> "☀️"
-            }
-            Text(icon, fontSize = 34.sp)
+            val glyph = if (w.source != WeatherSource.FORECAST) WeatherGlyph.MODEL
+                else WeatherGlyph.of(null, forecastHour?.precipitationMm, null, blocked, night = false)
+            WeatherIcon(glyph, size = 40.dp)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(stringResource(R.string.dash_weather, "").trim(), style = MaterialTheme.typography.labelMedium,
@@ -335,9 +341,9 @@ private fun WeatherCard(w: WeatherNow, onRefresh: () -> Unit) {
         val pills = listOfNotNull(
             forecastHour?.windSpeedMs?.let { Triple(stringResource(R.string.w_wind), "${Format.decimal(it, 1)} m/s", null) },
             forecastHour?.relativeHumidityPercent?.let { Triple(stringResource(R.string.w_humidity), Format.percent(it), null) },
-            forecastHour?.precipitationMm?.takeIf { it > 0 }?.let { Triple("💧", stringResource(R.string.dash_precip, Format.decimal(it, 1)), null) },
-            forecastHour?.snowDepthM?.takeIf { it > 0 }?.let { Triple("❄", stringResource(R.string.dash_snow, Format.decimal(it * 100, 0)), null) },
-            forecastHour?.visibilityM?.takeIf { it < 5000 }?.let { Triple("👁", stringResource(R.string.dash_visibility, Format.decimal(it / 1000, 1)), null) },
+            forecastHour?.precipitationMm?.takeIf { it > 0 }?.let { Triple(stringResource(R.string.w_precip_label), "${Format.decimal(it, 1)} mm", null) },
+            forecastHour?.snowDepthM?.takeIf { it > 0 }?.let { Triple(stringResource(R.string.w_snow_label), "${Format.decimal(it * 100, 0)} cm", null) },
+            forecastHour?.visibilityM?.takeIf { it < 5000 }?.let { Triple(stringResource(R.string.w_visibility_label), "${Format.decimal(it / 1000, 1)} km", null) },
             uvNow?.let { Triple(stringResource(R.string.w_uv), "${Format.decimal(it, 1)} · ${UvLevel.of(it).uiLabel}", uvColor(UvLevel.of(it))) },
         )
         if (pills.isNotEmpty()) {
@@ -348,7 +354,7 @@ private fun WeatherCard(w: WeatherNow, onRefresh: () -> Unit) {
         uvMax?.let { m ->
             val level = UvLevel.of(m)
             val at = w.uv?.todayMaxAt?.let { stringResource(R.string.dash_uv_max_at, Format.time(it.minusSeconds(1800), zone)) } ?: ""
-            Text("☀ " + stringResource(R.string.w_uv_max, Format.decimal(m, 1), level.uiLabel) + at,
+            Text(stringResource(R.string.w_uv_max, Format.decimal(m, 1), level.uiLabel) + at,
                 style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
             (w.uv?.levelMax ?: w.uv?.levelNow)?.takeIf { it != UvLevel.LOW }?.let {
                 Text(it.uiAdvice, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

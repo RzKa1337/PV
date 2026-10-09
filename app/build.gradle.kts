@@ -15,6 +15,16 @@ android {
         versionCode = 21
         versionName = "0.17.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // Optional Google Places key (city autocomplete). Read from the environment (GitHub Secret MAPS_API_KEY in
+        // CI) or from the untracked local.properties – never committed. Empty = keyless search (Open-Meteo).
+        // A key shipped in an APK can be extracted: it must be restricted to this app (package + SHA-1) and to
+        // the Places API in Google Cloud, with a quota cap – see docs/GOOGLE_PLACES_SETUP.md.
+        val localProps = java.util.Properties().apply {
+            rootProject.file("local.properties").takeIf { it.isFile }?.inputStream()?.use(::load)
+        }
+        val mapsKey = (System.getenv("MAPS_API_KEY") ?: localProps.getProperty("MAPS_API_KEY") ?: "")
+            .trim().filter { it.isLetterOrDigit() || it == '-' || it == '_' }
+        buildConfigField("String", "MAPS_API_KEY", "\"$mapsKey\"")
     }
 
     // Release signing key comes only from the environment (GitHub Secrets in CI), never from the repo.
