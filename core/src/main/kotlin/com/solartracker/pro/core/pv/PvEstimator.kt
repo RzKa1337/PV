@@ -365,7 +365,8 @@ class PvEstimator(
         val cell = irradiance.ambientTemperatureC?.let { cellTemperatureC(poa, it, irradiance.windMs) }
         val raw = s.peakPowerKw * optical / STC_IRRADIANCE * s.performanceRatio * cellTemperatureFactor(cell, s.temperatureCoefficient)
         val limit = minOf(s.peakPowerKw, s.inverterLimitKw ?: Double.MAX_VALUE)
-        return PlanePower(poa, cell, raw.coerceIn(0.0, limit), raw > limit + 1e-9)
+        // The cap at kWp without a configured inverter limit is only a sanity bound, not inverter clipping.
+        return PlanePower(poa, cell, raw.coerceIn(0.0, limit), s.inverterLimitKw != null && raw > limit + 1e-9)
     }
 
     private val angleFactors = java.util.concurrent.ConcurrentHashMap<Long, Double>()
