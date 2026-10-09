@@ -41,6 +41,9 @@ class WeatherAwareIrradianceModel(
         }
     }
 
+    /** When the forecast was downloaded (not when the provider issued it); null without a forecast. */
+    val forecastFetchedAt: Instant? get() = forecast?.fetchedAt
+
     /** Forecast hour covering [instant] (wind, snow, humidity…), or null outside the forecast. */
     fun hourAt(instant: Instant): HourlyWeather? = forecast?.at(instant)
 

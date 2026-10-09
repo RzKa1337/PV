@@ -65,6 +65,11 @@ class PredictivePvEngine(
         val calibrated = if (snow) 0.0 else estimate.powerKw * factor
         val shadeFactor = shading?.snapshot(system, time, estimate)?.powerFactor ?: 1.0
         val horizonMin = Duration.between(now, time).toMinutes().coerceAtLeast(0)
+        // Forecast skill falls with the time since the forecast was DOWNLOADED, not only with the distance from now:
+        // an hour predicted by a 2-day-old cached forecast is a 2-day-old prediction even when it is "now".
+        val fetchedAt = weather.forecastFetchedAt
+        val leadMin = fetchedAt?.let { Duration.between(it, time).toMinutes() }?.coerceAtLeast(horizonMin) ?: horizonMin
+        val forecastAgeH = fetchedAt?.let { Duration.between(it, now).toHours() }?.coerceAtLeast(0)
         val nowcastWeight = if (nowcastRatio == null) 0.0 else exp(-horizonMin / 60.0)
         val ratio = 1.0 + ((nowcastRatio ?: 1.0).coerceIn(0.0, 1.5) - 1.0) * nowcastWeight
         val limit = listOfNotNull(inverterLimitKw, mpptLimitKw).minOrNull() ?: Double.MAX_VALUE
@@ -73,7 +78,7 @@ class PredictivePvEngine(
 
         val source = weather.sourceAt(time)
         val base = when (source) {
-            WeatherSource.FORECAST -> 0.8 - (horizonMin / 60.0 / 72.0).coerceAtMost(0.3)
+            WeatherSource.FORECAST -> 0.8 - (leadMin / 60.0 / 72.0).coerceAtMost(0.3)
             WeatherSource.CLIMATE -> 0.35
             WeatherSource.CLEAR_SKY -> 0.2
         }
@@ -95,7 +100,8 @@ class PredictivePvEngine(
                 WeatherSource.FORECAST -> "prognoza pogody"
                 WeatherSource.CLIMATE -> "średnie klimatyczne (brak prognozy)"
                 WeatherSource.CLEAR_SKY -> "bezchmurne niebo (górna granica)"
-            } + (if (nowcastWeight > 0.05) " + bieżący pomiar" else "") +
+            } + (if (source == WeatherSource.FORECAST && forecastAgeH != null && forecastAgeH >= STALE_FORECAST_HOURS) " (pobrana ${forecastAgeH} h temu)" else "") +
+                (if (nowcastWeight > 0.05) " + bieżący pomiar" else "") +
                 (if (snow) " · śnieg na panelach (prognoza)" else "") +
                 (WeatherEffects.describe(hour)?.takeIf { !snow }?.let { " · $it" } ?: ""),
             clipped = raw > limit,
@@ -127,6 +133,9 @@ class PredictivePvEngine(
     companion object {
         /** Below this expected power [kW] a measured/expected ratio is not used as a nowcast. */
         const val MIN_NOWCAST_EXPECTED_KW = 0.2
+
+        /** A forecast downloaded at least this long ago is flagged as old in [PvForecastPoint.basis]. */
+        const val STALE_FORECAST_HOURS = 3L
     }
 }
 

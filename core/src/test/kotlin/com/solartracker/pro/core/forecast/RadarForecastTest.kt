@@ -47,7 +47,9 @@ class RadarForecastTest {
 
     private fun forecast(days: Int = 2, zone: ZoneId? = this.zone, f: (Instant) -> HourlyWeather = { hour(it) }): WeatherForecast {
         val start = day.atStartOfDay(this.zone).toInstant()
-        return WeatherForecast((1..days * 24).map { f(start.plus(Duration.ofHours(it.toLong()))) }, start, zone, loc.latitude, loc.longitude)
+        // The fixtures evaluate every hour as "now" (pv.at(t, t)), i.e. as a forecast that was just downloaded: fetched after
+        // the last hour, so no hour is older than its download (forecast age is tested in StaleForecastTest).
+        return WeatherForecast((1..days * 24).map { f(start.plus(Duration.ofHours(it.toLong()))) }, start.plus(Duration.ofDays(days.toLong())), zone, loc.latitude, loc.longitude)
     }
 
     private fun engine(fc: WeatherForecast?): HourlyPvForecastEngine {
