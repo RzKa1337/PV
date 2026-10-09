@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -19,9 +21,8 @@ android {
         // CI) or from the untracked local.properties – never committed. Empty = keyless search (Open-Meteo).
         // A key shipped in an APK can be extracted: it must be restricted to this app (package + SHA-1) and to
         // the Places API in Google Cloud, with a quota cap – see docs/GOOGLE_PLACES_SETUP.md.
-        val localProps = java.util.Properties().apply {
-            rootProject.file("local.properties").takeIf { it.isFile }?.inputStream()?.use(::load)
-        }
+        val localProps = Properties()
+        rootProject.file("local.properties").takeIf { it.isFile }?.inputStream()?.use { localProps.load(it) }
         val mapsKey = (System.getenv("MAPS_API_KEY") ?: localProps.getProperty("MAPS_API_KEY") ?: "")
             .trim().filter { it.isLetterOrDigit() || it == '-' || it == '_' }
         buildConfigField("String", "MAPS_API_KEY", "\"$mapsKey\"")
