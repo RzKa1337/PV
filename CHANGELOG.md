@@ -4,6 +4,8 @@ Wszystkie istotne zmiany w projekcie Solar Tracker PRO.
 Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie [SemVer](https://semver.org/).
 
 ## [Unreleased]
+
+## [v0.18.0] - 2026-10-09
 ### Changed – dokładniejszy model produkcji PV (`docs/PV_MODEL.md`)
 - Rozproszona z nieba: Hay–Davies (składowa okołosłoneczna) zamiast izotropowej – wyższa, realistyczna POA paneli zwróconych do słońca w pogodne dni; ta sama funkcja w estymatorze i w silniku strat.
 - Prognoza godzinowa w obrębie godziny: interpolacja indeksu czystego nieba i udziału rozproszonej między środkami godzin, zastosowana do irradiancji czystego nieba danej chwili – bez skoków co pełną godzinę i bez wiązki „na złym kącie” o wschodzie/zachodzie; energia godziny zachowana; temperatura i wiatr interpolowane; indeks ograniczony do 1,2.
