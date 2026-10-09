@@ -172,6 +172,12 @@ data class CorrectionChange(val time: Instant, val kind: CorrectionKind, val fro
 class AutoCalibrationEngine(
     private val disabled: Set<CorrectionKind> = emptySet(),
     private val minSamples: Int = 60,
+    /**
+     * Samples whose plane-of-array irradiance is below this [W/m²] are not learned from: at dawn/dusk and under
+     * heavy overcast the inverter's start-up threshold and own consumption dominate the real/model ratio.
+     * A conservative filter (PR analyses typically drop the low-light tail); only applied when the irradiance is known.
+     */
+    private val minIrradianceWm2: Double = DEFAULT_MIN_IRRADIANCE_WM2,
 ) {
     private val history = mutableListOf<CorrectionChange>()
     private val last = mutableMapOf<CorrectionKind, Double>()
@@ -192,6 +198,7 @@ class AutoCalibrationEngine(
         !o.realKw.isFinite() || !o.modelKw.isFinite() || o.realKw < 0 -> "nieprawidłowe wartości"
         o.modelKw < 0.05 -> "model bliski zeru"
         (o.sunElevationDeg ?: 90.0) < 10 -> "słońce zbyt nisko"
+        (o.irradianceWm2 ?: Double.MAX_VALUE) < minIrradianceWm2 -> "zbyt małe nasłonecznienie (< ${minIrradianceWm2.toInt()} W/m²)"
         o.realKw == 0.0 && o.modelKw > 0.3 -> "PV wyłączone lub awaria (0 W)"
         (o.shadingFactor ?: 1.0) < 0.5 -> "silne zacienienie (niepewny model cienia)"
         else -> null
@@ -249,7 +256,11 @@ class AutoCalibrationEngine(
     }
 
     fun evaluate(observations: List<CalibrationObservation>, forecast: AccuracyReport?, now: Instant): List<Correction> {
-        val obs = observations.filter { it.modelKw > 0.05 && it.realKw >= 0 && it.ratio.isFinite() }
+        // Same exclusions as the conditional model (link lost, fault, invalid telemetry, low sun/light, 0 W failures);
+        // clipped samples stay in the list only to measure the clipping share and are dropped from the learning below.
+        val obs = observations.filter { o ->
+            (exclusionReason(o) == null || o.nearLimit && exclusionReason(o.copy(nearLimit = false)) == null) && o.ratio.isFinite()
+        }
         val start = obs.minOfOrNull { it.time }
         val end = obs.maxOfOrNull { it.time }
         val days = obs.map { it.time.epochSecond / 86_400 }.toSet().size
@@ -327,6 +338,8 @@ class AutoCalibrationEngine(
     data class Fit(val slope: Double, val intercept: Double, val r2: Double)
 
     companion object {
+        const val DEFAULT_MIN_IRRADIANCE_WM2 = 100.0
+
         fun linearFit(xs: List<Double>, ys: List<Double>): Fit {
             require(xs.size == ys.size && xs.size >= 2)
             val mx = xs.average()

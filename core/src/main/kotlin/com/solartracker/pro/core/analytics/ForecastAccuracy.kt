@@ -1,7 +1,6 @@
 package com.solartracker.pro.core.analytics
 
 import java.time.Instant
-import java.time.temporal.ChronoUnit
 import kotlin.math.abs
 import kotlin.math.sqrt
 
@@ -55,9 +54,17 @@ object ForecastAccuracy {
      * are never counted as zero production.
      */
     fun pairHourly(forecasts: Map<Instant, Double>, samples: List<HistorySample>, minCoverage: Double = 0.9): List<ForecastPair> {
-        val byHour = samples.groupBy { it.start.truncatedTo(ChronoUnit.HOURS) }
+        // Rows are attributed to the forecast hour [key, key + 1 h) – the keys are LOCAL hour starts, which are not UTC
+        // hour starts in zones with a 30/45-minute offset, so the rows are not grouped by UTC-truncated hours.
+        val sorted = samples.sortedBy { it.start }
+        val starts = sorted.map { it.start }
         return forecasts.entries.sortedBy { it.key }.mapNotNull { (hour, forecast) ->
-            val rows = byHour[hour] ?: return@mapNotNull null
+            val end = hour.plus(java.time.Duration.ofHours(1))
+            var lo = starts.binarySearch(hour).let { if (it < 0) -it - 1 else it }
+            while (lo > 0 && starts[lo - 1] == hour) lo--
+            val rows = ArrayList<HistorySample>()
+            while (lo < sorted.size && sorted[lo].start.isBefore(end)) rows += sorted[lo++]
+            if (rows.isEmpty()) return@mapNotNull null
             val covered = rows.sumOf { it.duration.seconds } / 3600.0
             if (covered < minCoverage) null else ForecastPair(hour, forecast, rows.sumOf { it.pvEnergyKwh })
         }

@@ -599,7 +599,7 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
         val irradiance = weather.irradiance(estimate.sun.position, t.timestamp)
         val performance = runCatching {
             PvPerformanceAnalyzer.analyze(
-                PvArrayConfig(1, s.system.peakPowerKw * 1000, s.system.tiltDeg, s.system.azimuthDeg),
+                PvArrayConfig(1, s.system.peakPowerKw * 1000, s.system.tiltDeg, s.system.azimuthDeg, temperatureCoefficient = s.system.temperatureCoefficient),
                 LossProfile(inverterLimitW = inv?.takeIf { it.enabled }?.ratedPowerW, inverterRatedW = inv?.takeIf { it.enabled }?.ratedPowerW),
                 s.location, t.timestamp,
                 PvConditions(irradiance, irradiance.ambientTemperatureC, hourNow?.windSpeedMs, hourNow?.snowDepthM),
@@ -1033,7 +1033,7 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
         val csi = WeatherEffects.clearSkyIndex(hourNow, position, t.timestamp)
         // The learned calibration belongs to the PR model, not to the loss chain, so it is not applied here.
         val reality = PvRealityEngine.assess(
-            PvArrayConfig(1, s.system.peakPowerKw * 1000, s.system.tiltDeg, s.system.azimuthDeg),
+            PvArrayConfig(1, s.system.peakPowerKw * 1000, s.system.tiltDeg, s.system.azimuthDeg, temperatureCoefficient = s.system.temperatureCoefficient),
             LossProfile(inverterLimitW = inv?.ratedPowerW, inverterRatedW = inv?.ratedPowerW),
             s.location, t.timestamp,
             PvConditions(irradiance, irradiance.ambientTemperatureC, hourNow?.windSpeedMs, hourNow?.snowDepthM),
