@@ -967,4 +967,20 @@
     <string name="w_snow_label">Śnieg</string>
     <string name="w_visibility_label">Widoczność</string>
     <string name="dash_share_of_peak">%1$s mocy szczytowej %2$s kWp</string>
+    <string name="live_cell_temp">ogniwa ≈ %1$s °C</string>
+    <string name="live_air_temp">powietrze %1$s °C</string>
+    <string name="live_ghi_dni_dhi">GHI %1$s · DNI %2$s · DHI %3$s W/m²</string>
+    <string name="live_weather_stale">Dane pogodowe nieaktualne: %1$s – szacunek mniej pewny</string>
+    <string name="live_outlook_title">NAJBLIŻSZA GODZINA I DZIŚ</string>
+    <string name="live_forecast_badge">PROGNOZA</string>
+    <string name="live_today_max">Maksimum dziś</string>
+    <string name="live_energy_so_far">Energia od północy</string>
+    <string name="live_energy_remaining">Energia do końca dnia</string>
+    <string name="live_energy_day">Cały dzień</string>
+    <string name="live_outlook_note">Ten sam model co moc na żywo (pozycja słońca, irradiancja z prognozy, temperatura ogniw, straty). Prognoza, nie pomiar; aktualizacja co minutę. Energia = całka mocy w czasie (krok 5 min).</string>
+    <string name="settings_module_title">Moduły i falownik</string>
+    <string name="settings_module_hint">Opcjonalnie, z kart katalogowych. Współczynnik temperaturowy mocy (np. −0,35 %/°C) zmienia straty w upale; limit falownika obcina moc AC (clipping). Bez limitu – moc ograniczona do mocy szczytowej.</string>
+    <string name="settings_gamma_label">γ mocy [%/°C]</string>
+    <string name="settings_inverter_limit_label">Limit falownika [kW]</string>
+    <string name="settings_inverter_limit_hint">puste = brak</string>
 </resources>

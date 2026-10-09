@@ -123,6 +123,8 @@ fun SolarTrackerApp(viewModel: MainViewModel, openSettingsRequest: Int = 0) {
             override fun setPeakPower(kwp: Double) = viewModel.setPeakPower(kwp)
             override fun setTilt(degrees: Double) = viewModel.setTilt(degrees)
             override fun setPanelAzimuth(degrees: Double) = viewModel.setPanelAzimuth(degrees)
+            override fun setModuleAndInverter(temperatureCoefficient: Double, inverterLimitKw: Double?) =
+                viewModel.setModuleAndInverter(temperatureCoefficient, inverterLimitKw)
             override fun setManualLocation(latitude: Double, longitude: Double, name: String, elevationM: Double) =
                 viewModel.setManualLocation(latitude, longitude, name, elevationM)
             override fun selectPlace(place: SavedPlace) = viewModel.selectPlace(place)

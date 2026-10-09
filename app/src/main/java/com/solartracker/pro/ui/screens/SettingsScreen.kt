@@ -81,6 +81,7 @@ interface SettingsActions {
     fun setPeakPower(kwp: Double)
     fun setTilt(degrees: Double)
     fun setPanelAzimuth(degrees: Double)
+    fun setModuleAndInverter(temperatureCoefficient: Double, inverterLimitKw: Double?)
     fun setManualLocation(latitude: Double, longitude: Double, name: String, elevationM: Double)
     fun selectPlace(place: SavedPlace)
     fun forgetRecentPlace(place: SavedPlace)
@@ -116,6 +117,7 @@ fun SettingsScreen(
         PeakPowerSection(settings.system.peakPowerKw, actions::setPeakPower)
         TiltSection(settings.system.tiltDeg, actions::setTilt)
         AzimuthSection(settings.system.azimuthDeg, actions::setPanelAzimuth)
+        ModuleInverterSection(settings.system, actions::setModuleAndInverter)
         BatterySection(settings.batteryEnabled, settings.battery, energyActions)
         ConsumptionSection(settings.consumption, energyActions)
         PricesSection(settings.prices, energyActions)
@@ -153,6 +155,47 @@ private fun PeakPowerSection(current: Double, onSave: (Double) -> Unit) {
             Spacer(Modifier.size(12.dp))
             Button(onClick = { parsed?.let(onSave) }, enabled = valid && parsed != current) { Text(stringResource(R.string.save)) }
         }
+    }
+}
+
+/** Datasheet temperature coefficient and inverter AC limit – optional, defaults are typical values. */
+@Composable
+private fun ModuleInverterSection(system: PvSystem, onSave: (Double, Double?) -> Unit) {
+    var gammaText by rememberSaveable(system.temperatureCoefficient) { mutableStateOf(Format.decimal(system.temperatureCoefficient * 100, 2)) }
+    var limitText by rememberSaveable(system.inverterLimitKw) { mutableStateOf(system.inverterLimitKw?.let { Format.decimal(it) } ?: "") }
+    val gamma = Format.parseDecimal(gammaText.replace('−', '-'))?.div(100)
+    val limit = if (limitText.isBlank()) null else Format.parseDecimal(limitText)
+    val gammaValid = gamma != null && gamma in PvSystem.MIN_TEMPERATURE_COEFFICIENT..0.0
+    val limitValid = limitText.isBlank() || (limit != null && limit > 0.0 && limit <= PvSystem.MAX_PEAK_POWER_KW)
+    SectionCard(Modifier.testTag("settings_module")) {
+        SectionTitle(stringResource(R.string.settings_module_title))
+        Text(stringResource(R.string.settings_module_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                value = gammaText,
+                onValueChange = { gammaText = it.take(8) },
+                label = { Text(stringResource(R.string.settings_gamma_label)) },
+                supportingText = { Text("−1…0 %/°C") },
+                isError = !gammaValid,
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                modifier = Modifier.weight(1f),
+            )
+            OutlinedTextField(
+                value = limitText,
+                onValueChange = { limitText = it.take(10) },
+                label = { Text(stringResource(R.string.settings_inverter_limit_label)) },
+                supportingText = { Text(stringResource(R.string.settings_inverter_limit_hint)) },
+                isError = !limitValid,
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.weight(1f),
+            )
+        }
+        Button(
+            onClick = { if (gamma != null) onSave(gamma, limit) },
+            enabled = gammaValid && limitValid && (gamma != system.temperatureCoefficient || limit != system.inverterLimitKw),
+        ) { Text(stringResource(R.string.save)) }
     }
 }
 

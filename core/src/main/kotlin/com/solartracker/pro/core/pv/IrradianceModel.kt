@@ -17,6 +17,8 @@ data class Irradiance(
     val dhi: Double,
     /** Ambient air temperature [°C]; null = unknown (typical temperature losses assumed). */
     val ambientTemperatureC: Double? = null,
+    /** Wind speed at 10 m [m/s]; null = unknown (cell temperature from the NOCT model, without wind). */
+    val windMs: Double? = null,
 ) {
     fun ghi(position: SolarPosition): Double =
         dni * max(0.0, cos(Math.toRadians(position.zenithDeg))) + dhi
@@ -69,9 +71,24 @@ data class PoaComponents(val beam: Double, val skyDiffuse: Double, val groundRef
     }
 }
 
+/** Transposition of the diffuse sky light onto a tilted plane. */
+enum class SkyDiffuseModel {
+    /** Liu–Jordan: uniform sky. Underestimates sun-facing planes on clear days. */
+    ISOTROPIC,
+
+    /**
+     * Hay–Davies (1980): a circumsolar part, weighted by the anisotropy index A = DNI / extraterrestrial DNI and
+     * projected like the beam, plus an isotropic rest. Same formula as pvlib `irradiance.haydavies`.
+     */
+    HAY_DAVIES,
+}
+
+/** Lower limit of cos(zenith) in the beam projection ratio (pvlib uses the same 0.01745 ≈ cos 89°). */
+private const val MIN_COS_ZENITH = 0.01745
+
 /**
- * Components of the plane-of-array irradiance for a tilted surface: beam + isotropic sky diffuse
- * + ground reflected.
+ * Components of the plane-of-array irradiance for a tilted surface: beam + sky diffuse ([skyModel]) + ground
+ * reflected (isotropic, [albedo]). [extraterrestrialDni] [W/m²] is only used by Hay–Davies.
  */
 fun poaComponents(
     irradiance: Irradiance,
@@ -79,12 +96,25 @@ fun poaComponents(
     tiltDeg: Double,
     panelAzimuthDeg: Double,
     albedo: Double = 0.2,
+    skyModel: SkyDiffuseModel = SkyDiffuseModel.HAY_DAVIES,
+    extraterrestrialDni: Double = ClearSkyModel.SOLAR_CONSTANT,
 ): PoaComponents {
     if (!position.isAboveHorizon) return PoaComponents.ZERO
     val tilt = Math.toRadians(tiltDeg)
+    val cosAoi = max(0.0, cosIncidence(position, tiltDeg, panelAzimuthDeg))
+    val dhi = max(0.0, irradiance.dhi)
+    val isotropicView = (1.0 + cos(tilt)) / 2.0
+    val sky = when (skyModel) {
+        SkyDiffuseModel.ISOTROPIC -> dhi * isotropicView
+        SkyDiffuseModel.HAY_DAVIES -> {
+            val ai = if (extraterrestrialDni > 0) (max(0.0, irradiance.dni) / extraterrestrialDni).coerceIn(0.0, 1.0) else 0.0
+            val rb = cosAoi / max(cos(Math.toRadians(position.zenithDeg)), MIN_COS_ZENITH)
+            dhi * (ai * rb + (1.0 - ai) * isotropicView)
+        }
+    }
     return PoaComponents(
-        beam = irradiance.dni * max(0.0, cosIncidence(position, tiltDeg, panelAzimuthDeg)),
-        skyDiffuse = irradiance.dhi * (1.0 + cos(tilt)) / 2.0,
+        beam = max(0.0, irradiance.dni) * cosAoi,
+        skyDiffuse = sky,
         groundReflected = irradiance.ghi(position) * albedo * (1.0 - cos(tilt)) / 2.0,
     )
 }
@@ -96,7 +126,9 @@ fun planeOfArrayIrradiance(
     tiltDeg: Double,
     panelAzimuthDeg: Double,
     albedo: Double = 0.2,
-): Double = poaComponents(irradiance, position, tiltDeg, panelAzimuthDeg, albedo).total
+    skyModel: SkyDiffuseModel = SkyDiffuseModel.HAY_DAVIES,
+    extraterrestrialDni: Double = ClearSkyModel.SOLAR_CONSTANT,
+): Double = poaComponents(irradiance, position, tiltDeg, panelAzimuthDeg, albedo, skyModel, extraterrestrialDni).total
 
 /**
  * ASHRAE incidence angle modifier for the beam component: 1 − b₀·(1/cos θ − 1), 0 at θ ≥ 90°.

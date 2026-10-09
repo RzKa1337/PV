@@ -58,11 +58,11 @@ class PredictivePvEngine(
         val estimate = estimator.pointEstimate(system, location, time)
         val hour = weather.hourAt(time)
         val snow = WeatherEffects.snowCovered(hour, system.tiltDeg)
-        val wind = WeatherEffects.windFactor(estimate.poa, estimate.irradiance.ambientTemperatureC, hour?.windSpeedMs)
+        // Wind cooling is part of the estimator's cell temperature (Faiman) – not applied a second time here.
         val factor = calibrationModel?.takeIf { it.ready }?.factor(
             CalibrationContext(time, estimate.sun.position.elevationDeg, WeatherEffects.skyCondition(hour, estimate.sun.position, time)),
         ) ?: calibrationFactor
-        val calibrated = if (snow) 0.0 else estimate.powerKw * factor * wind
+        val calibrated = if (snow) 0.0 else estimate.powerKw * factor
         val shadeFactor = shading?.snapshot(system, time, estimate)?.powerFactor ?: 1.0
         val horizonMin = Duration.between(now, time).toMinutes().coerceAtLeast(0)
         val nowcastWeight = if (nowcastRatio == null) 0.0 else exp(-horizonMin / 60.0)

@@ -166,7 +166,7 @@ class PvSimulationEngine {
         if (!sun.isAboveHorizon) {
             return PvSimulationPoint(instant, sun, tilt, azimuth, c.ambientC, false, zero())
         }
-        val components = poaComponents(c.irradiance, sun, tilt, azimuth, array.albedo)
+        val components = poaComponents(c.irradiance, sun, tilt, azimuth, array.albedo, extraterrestrialDni = ClearSkyModel.extraterrestrialIrradiance(instant))
         val poa = components.total
         val ghi = c.irradiance.ghi(sun)
         val ideal = array.peakPowerW * poa / PvEstimator.STC_IRRADIANCE

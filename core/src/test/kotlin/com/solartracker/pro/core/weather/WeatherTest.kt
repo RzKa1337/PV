@@ -131,13 +131,24 @@ class WeatherTest {
     }
 
     @Test
-    fun forecastIrradianceIsUsedDirectly() {
+    fun forecastHourMeansArePreservedInsideTheHour() {
+        // Provider values are hour means. Inside the hour the irradiance follows the sun (clear-sky index
+        // interpolation), but the hour's mean global irradiance, its diffuse share and the air temperature stay.
         val noon = SolarCalculator.sunTimes(warsaw, day).solarNoon
         val json = forecastJson(day, dni = { "300.0" }, dhi = { "120.0" }, temp = { "25.0" })
         val model = WeatherAwareIrradianceModel(warsaw, OpenMeteo.parseForecast(json, Instant.EPOCH))
+        val hourEnd = Instant.ofEpochSecond((noon.epochSecond / 3600 + 1) * 3600)
+        var ghiSum = 0.0; var dhiSum = 0.0; var cosSum = 0.0
+        for (k in 0 until 60) {
+            val t = hourEnd.minusSeconds(3600L - k * 60L - 30L)
+            val pos = SolarCalculator.position(warsaw, t)
+            val irr = model.irradiance(pos, t)
+            ghiSum += irr.ghi(pos); dhiSum += irr.dhi; cosSum += kotlin.math.cos(Math.toRadians(pos.zenithDeg))
+        }
+        val providerGhi = 300.0 * cosSum / 60 + 120.0
+        assertEquals(providerGhi, ghiSum / 60, providerGhi * 0.02)
+        assertEquals(120.0, dhiSum / 60, 120.0 * 0.03)
         val irr = model.irradiance(SolarCalculator.position(warsaw, noon), noon)
-        assertEquals(300.0, irr.dni, 0.0)
-        assertEquals(120.0, irr.dhi, 0.0)
         assertEquals(25.0, irr.ambientTemperatureC!!, 0.0)
         assertEquals(WeatherSource.FORECAST, model.sourceAt(noon))
     }

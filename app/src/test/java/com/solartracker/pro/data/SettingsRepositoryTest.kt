@@ -43,6 +43,22 @@ class SettingsRepositoryTest {
     }
 
     @Test
+    fun moduleCoefficientAndInverterLimit_persistAndClear() = runTest {
+        val store = FakeDataStore()
+        val repo = SettingsRepository(store)
+        assertEquals(-0.004, repo.settings.first().system.temperatureCoefficient, 0.0)
+        assertNull(repo.settings.first().system.inverterLimitKw)
+        repo.updateSystem { it.copy(temperatureCoefficient = -0.0035, inverterLimitKw = 3.0) }
+        val restored = SettingsRepository(store).settings.first().system
+        assertEquals(-0.0035, restored.temperatureCoefficient, 0.0)
+        assertEquals(3.0, restored.inverterLimitKw!!, 0.0)
+        repo.updateSystem { it.copy(inverterLimitKw = null, temperatureCoefficient = 0.5) }
+        val cleared = repo.settings.first().system
+        assertNull(cleared.inverterLimitKw)
+        assertEquals(0.0, cleared.temperatureCoefficient, 0.0) // positive γ is not physical for c-Si: clamped
+    }
+
+    @Test
     fun setLocation_persistsLocationNameAndSource() = runTest {
         val repo = SettingsRepository(FakeDataStore())
         repo.setLocation(GeoLocation(50.06, 19.94), "  Kraków  ", LocationSource.GPS)

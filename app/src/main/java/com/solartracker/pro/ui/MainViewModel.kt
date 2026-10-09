@@ -1,5 +1,6 @@
 package com.solartracker.pro.ui
 
+import com.solartracker.pro.core.live.LiveOutlook
 import com.solartracker.pro.core.geo.SavedPlace
 import com.solartracker.pro.i18n.tr
 import androidx.lifecycle.ViewModel
@@ -76,6 +77,7 @@ import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.Duration
 
 /** Snapshot shown on the dashboard. All PV values are estimates. */
 data class DashboardState(
@@ -359,12 +361,42 @@ class MainViewModel(
         val sourceAt: (Instant) -> WeatherSource = e.model?.let { m -> { t: Instant -> m.sourceAt(t) } } ?: { WeatherSource.CLEAR_SKY }
         val snapshot = LiveSolarCalculator(e.estimator, e.simulator, sourceAt)
             .snapshot(now, zone, s.location, s.system, consumption, battery, soc)
+        val fetched = e.weather.forecast?.fetchedAt
+        val ageMin = fetched?.let { Duration.between(it, now).toMinutes().coerceAtLeast(0) }
         return snapshot.toUi(
             locationName = s.locationName,
             weatherEnabled = e.weather.enabled,
             usableKwh = battery?.usableCapacityKwh,
             backupLabel = if (s.prices.backupSource == BackupSource.GENERATOR) tr("Agregat", "Generator") else tr("Sieć", "Grid"),
+        ).copy(
+            outlook = liveOutlook(now, s, e, zone),
+            weatherAgeText = fetched?.let {
+                tr("prognoza pobrana ", "forecast fetched ") + Format.time(it, zone) + " (" +
+                    (if (ageMin!! < 60) "$ageMin min" else "${ageMin / 60} h ${ageMin % 60} min") + tr(" temu)", " ago)")
+            },
+            weatherStale = ageMin != null && ageMin >= WEATHER_STALE_HOURS * 60,
         )
+    }
+
+    @Volatile
+    private var liveOutlookCache: Pair<List<Any?>, LiveOutlookUi>? = null
+    @Volatile
+    private var liveOutlookJob: kotlinx.coroutines.Job? = null
+
+    /**
+     * The model's next hour and today's energy, recomputed once a minute or when the inputs change – in a separate
+     * coroutine, so the 1-second tick is never delayed by the day integration (the previous value is shown meanwhile).
+     */
+    private fun liveOutlook(now: Instant, s: AppSettings, e: Engine, zone: ZoneId): LiveOutlookUi? {
+        val key = listOf(now.epochSecond / 60, s.system, s.location, zone, e)
+        val cached = liveOutlookCache
+        if (cached?.first != key && liveOutlookJob?.isActive != true) {
+            liveOutlookJob = viewModelScope.launch(Dispatchers.Default) {
+                liveOutlookCache = key to LiveOutlook.compute(e.estimator, s.system, s.location, now, zone).toUi(zone)
+            }
+        }
+        // A value for other inputs (location / system just changed) is not shown.
+        return cached?.takeIf { it.first.drop(1) == key.drop(1) }?.second
     }
 
     /** Today's 15-minute simulation for the live SOC, cached until any input changes. */
@@ -542,6 +574,10 @@ class MainViewModel(
     fun setTilt(degrees: Double) = updateSystem { it.copy(tiltDeg = degrees) }
 
     fun setPanelAzimuth(degrees: Double) = updateSystem { it.copy(azimuthDeg = degrees) }
+
+    /** Module datasheet γ [1/°C] and the inverter AC limit [kW] (null = none). */
+    fun setModuleAndInverter(temperatureCoefficient: Double, inverterLimitKw: Double?) =
+        updateSystem { it.copy(temperatureCoefficient = temperatureCoefficient, inverterLimitKw = inverterLimitKw) }
 
     private fun updateSystem(transform: (PvSystem) -> PvSystem) {
         viewModelScope.launch { settingsRepository.updateSystem(transform) }

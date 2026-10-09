@@ -1,5 +1,8 @@
 package com.solartracker.pro.ui.screens
 
+import com.solartracker.pro.ui.LiveOutlookUi
+import com.solartracker.pro.ui.components.StatusLabel
+import com.solartracker.pro.ui.components.StatusLevel
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BatteryChargingFull
@@ -114,7 +117,8 @@ fun LiveSolarScreen(
             return@Column
         }
         SunHeader(state.clockText, state.dateText, state.sun)
-        PowerCard(state.pv, state.sun.isDay)
+        PowerCard(state.pv, state.sun.isDay, state.weatherAgeText, state.weatherStale)
+        state.outlook?.let { OutlookCard(it) }
         if (sunPath != null) {
             CompassCard(sunPath, state.sun, state.pv.panelAzimuthDeg)
             SunPathCard(sunPath, state.sun)
@@ -227,7 +231,7 @@ private fun SunHeader(clock: String, date: String, sun: LiveSunUi) {
 }
 
 @Composable
-private fun PowerCard(pv: LivePvUi, isDay: Boolean) {
+private fun PowerCard(pv: LivePvUi, isDay: Boolean, weatherAge: String?, weatherStale: Boolean) {
     SectionCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -259,6 +263,21 @@ private fun PowerCard(pv: LivePvUi, isDay: Boolean) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (isDay) {
+            Text(
+                listOfNotNull(
+                    pv.cellTemperatureC?.let { stringResource(R.string.live_cell_temp, Format.decimal(it, 0)) },
+                    pv.ambientTemperatureC?.let { stringResource(R.string.live_air_temp, Format.decimal(it, 0)) },
+                    stringResource(R.string.live_ghi_dni_dhi, Format.decimal(pv.ghi, 0), Format.decimal(pv.dni, 0), Format.decimal(pv.dhi, 0)),
+                ).joinToString(" · "),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        weatherAge?.let {
+            if (weatherStale) StatusLabel(StatusLevel.WARNING, stringResource(R.string.live_weather_stale, it), style = MaterialTheme.typography.bodySmall, fontWeight = null)
+            else Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         if (pv.measuredPowerKw == null) {
             Text(
                 stringResource(R.string.live_no_inverter),
@@ -266,6 +285,31 @@ private fun PowerCard(pv: LivePvUi, isDay: Boolean) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+/** The same model one step ahead: +5…+60 min, today's maximum and the day's energy. Refreshed once a minute. */
+@Composable
+private fun OutlookCard(o: LiveOutlookUi) {
+    SectionCard(Modifier.testTag("live_outlook")) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.live_outlook_title), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            EstimateBadge(text = stringResource(R.string.live_forecast_badge))
+        }
+        Row(Modifier.fillMaxWidth()) {
+            o.ahead.forEach { (label, kw) ->
+                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(Format.kw(kw), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+        HorizontalDivider()
+        LiveRow(stringResource(R.string.live_today_max), Format.kw(o.todayMaxKw) + " · " + o.todayMaxText)
+        LiveRow(stringResource(R.string.live_energy_so_far), Format.kwh(o.soFarKwh))
+        LiveRow(stringResource(R.string.live_energy_remaining), Format.kwh(o.remainingKwh))
+        LiveRow(stringResource(R.string.live_energy_day), Format.kwh(o.dayKwh))
+        Text(stringResource(R.string.live_outlook_note), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

@@ -3,6 +3,7 @@ package com.solartracker.pro.core.pv
 import com.solartracker.pro.core.solar.GeoLocation
 import com.solartracker.pro.core.solar.SolarCalculator
 import com.solartracker.pro.core.solar.SolarDetails
+import com.solartracker.pro.core.solar.SolarPosition
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
@@ -28,6 +29,8 @@ data class PvPointEstimate(
     val angleOfIncidenceDeg: Double,
     val cellTemperatureC: Double?,
     val powerKw: Double,
+    /** True when the inverter limit cut the power. */
+    val clipped: Boolean = false,
 ) {
     /** Share of direct sunlight the panel geometry captures: cos(AOI), 0 when the sun is down. */
     val geometricUtilization: Double
@@ -266,7 +269,7 @@ class PvEstimator(
                     val hours = slice / 3_600_000.0
                     trackers.forEachIndexed { i, tracker ->
                         val (tilt, az) = trackerSurfaceOrientation(tracker, s.tiltDeg, s.azimuthDeg, maxRotationDeg, position)
-                        e[i] += powerFromPoa(s, planeOfArrayIrradiance(irradiance, position, tilt, az), irradiance.ambientTemperatureC) * hours
+                        e[i] += planePower(s, location, irradiance, position, mid, tilt, az).powerKw * hours
                     }
                 }
                 t += slice
@@ -305,10 +308,7 @@ class PvEstimator(
         val position = SolarCalculator.position(location, instant)
         if (!position.isAboveHorizon) return DoubleArray(systems.size)
         val irradiance = irradianceModel.irradiance(position, instant)
-        return DoubleArray(systems.size) { i ->
-            val s = systems[i]
-            powerFromPoa(s, planeOfArrayIrradiance(irradiance, position, s.tiltDeg, s.azimuthDeg), irradiance.ambientTemperatureC)
-        }
+        return DoubleArray(systems.size) { i -> planePower(systems[i], location, irradiance, position, instant).powerKw }
     }
 
     /**
@@ -325,21 +325,77 @@ class PvEstimator(
             return PvPointEstimate(sun, Irradiance(0.0, 0.0, night.ambientTemperatureC), 0.0, 0.0, aoi, night.ambientTemperatureC, 0.0)
         }
         val irradiance = irradianceModel.irradiance(position, instant)
-        val poa = planeOfArrayIrradiance(irradiance, position, s.tiltDeg, s.azimuthDeg)
+        val p = planePower(s, location, irradiance, position, instant)
         return PvPointEstimate(
             sun = sun,
             irradiance = irradiance,
             ghi = irradiance.ghi(position),
-            poa = poa,
+            poa = p.poa,
             angleOfIncidenceDeg = aoi,
-            cellTemperatureC = irradiance.ambientTemperatureC?.let { cellTemperatureC(poa, it) },
-            powerKw = powerFromPoa(s, poa, irradiance.ambientTemperatureC),
+            cellTemperatureC = p.cellTemperatureC,
+            powerKw = p.powerKw,
+            clipped = p.clipped,
         )
     }
 
-    private fun powerFromPoa(s: PvSystem, poa: Double, ambientC: Double?): Double =
-        (s.peakPowerKw * poa / STC_IRRADIANCE * s.performanceRatio * temperatureFactor(poa, ambientC))
-            .coerceIn(0.0, s.peakPowerKw)
+    private class PlanePower(val poa: Double, val cellTemperatureC: Double?, val powerKw: Double, val clipped: Boolean)
+
+    /**
+     * AC power of one plane:
+     * POA (beam + Hay–Davies sky diffuse + ground) → beam reflection loss (ASHRAE IAM) → cell temperature (Faiman with
+     * wind, NOCT without) and the module's γ → [PvSystem.performanceRatio] → inverter limit. The PR is an annual
+     * figure that already contains typical temperature and angle losses, so both are divided out
+     * ([TYPICAL_TEMPERATURE_FACTOR], [typicalAngleFactor]) – they shape the day and the year without changing the
+     * annual total twice.
+     */
+    private fun planePower(
+        s: PvSystem,
+        location: GeoLocation,
+        irradiance: Irradiance,
+        position: SolarPosition,
+        instant: Instant,
+        tiltDeg: Double = s.tiltDeg,
+        azimuthDeg: Double = s.azimuthDeg,
+    ): PlanePower {
+        if (!position.isAboveHorizon) return PlanePower(0.0, irradiance.ambientTemperatureC, 0.0, false)
+        val c = poaComponents(irradiance, position, tiltDeg, azimuthDeg, extraterrestrialDni = ClearSkyModel.extraterrestrialIrradiance(instant))
+        val poa = c.total
+        val iam = ashraeIam(cosIncidence(position, tiltDeg, azimuthDeg), IAM_B0)
+        val optical = if (poa > 0) (c.beam * iam + c.skyDiffuse + c.groundReflected) / typicalAngleFactor(location, tiltDeg, azimuthDeg) else 0.0
+        val cell = irradiance.ambientTemperatureC?.let { cellTemperatureC(poa, it, irradiance.windMs) }
+        val raw = s.peakPowerKw * optical / STC_IRRADIANCE * s.performanceRatio * cellTemperatureFactor(cell, s.temperatureCoefficient)
+        val limit = minOf(s.peakPowerKw, s.inverterLimitKw ?: Double.MAX_VALUE)
+        return PlanePower(poa, cell, raw.coerceIn(0.0, limit), raw > limit + 1e-9)
+    }
+
+    private val angleFactors = java.util.concurrent.ConcurrentHashMap<Long, Double>()
+
+    /**
+     * Clear-sky weighted mean of (POA after reflection loss) / POA over a year for this orientation and latitude:
+     * the part of the angle loss the annual PR already contains. 12 representative days, 30-minute steps.
+     */
+    fun typicalAngleFactor(location: GeoLocation, tiltDeg: Double, azimuthDeg: Double): Double {
+        val key = (Math.round(location.latitude * 2) * 1_000_000L) + (Math.round(tiltDeg) * 1_000L) + Math.round(azimuthDeg)
+        return angleFactors.getOrPut(key) {
+            val ref = GeoLocation(Math.round(location.latitude * 2) / 2.0, location.longitude)
+            val clear = ClearSkyModel()
+            var withIam = 0.0
+            var plain = 0.0
+            for (month in 1..12) {
+                val day = LocalDate.of(2025, month, 15).atStartOfDay(java.time.ZoneOffset.UTC).toInstant()
+                for (k in 0 until 48) {
+                    val t = day.plusSeconds(k * 1800L + 900L)
+                    val pos = SolarCalculator.position(ref, t)
+                    if (!pos.isAboveHorizon) continue
+                    val c = poaComponents(clear.irradiance(pos, t), pos, tiltDeg, azimuthDeg, extraterrestrialDni = ClearSkyModel.extraterrestrialIrradiance(t))
+                    val iam = ashraeIam(cosIncidence(pos, tiltDeg, azimuthDeg), IAM_B0)
+                    withIam += c.beam * iam + c.skyDiffuse + c.groundReflected
+                    plain += c.total
+                }
+            }
+            if (plain > 0) (withIam / plain).coerceIn(0.5, 1.0) else 1.0
+        }
+    }
 
     companion object {
         /** Panel power temperature coefficient [1/°C] (typical crystalline silicon). */
@@ -357,12 +413,25 @@ class PvEstimator(
         /** Cell temperature (NOCT model) [°C]. */
         fun cellTemperatureC(poa: Double, ambientC: Double): Double = ambientC + poa / 800.0 * (NOCT - 20.0)
 
+        /**
+         * Cell temperature [°C]: Faiman (2008) T = Ta + POA / (U0 + U1·wind) with the PVsyst/pvlib free-standing
+         * defaults U0 = 25 W/m²K, U1 = 6.84 W·s/m³K when the wind is known, otherwise the NOCT model.
+         */
+        fun cellTemperatureC(poa: Double, ambientC: Double, windMs: Double?): Double =
+            PvSimulationEngine.cellTemperature(poa, ambientC, windMs)
+
         /** Multiplier for the performance ratio; 1.0 when the air temperature is unknown. */
-        fun temperatureFactor(poa: Double, ambientC: Double?): Double {
-            if (ambientC == null) return 1.0
-            val cell = cellTemperatureC(poa, ambientC)
-            return ((1.0 + TEMPERATURE_COEFFICIENT * (cell - 25.0)) / TYPICAL_TEMPERATURE_FACTOR).coerceIn(0.5, 1.2)
+        fun temperatureFactor(poa: Double, ambientC: Double?): Double =
+            cellTemperatureFactor(ambientC?.let { cellTemperatureC(poa, it) }, TEMPERATURE_COEFFICIENT)
+
+        /** (1 + γ·(Tcell − 25 °C)) relative to the typical loss inside the PR; 1.0 when the cell temperature is unknown. */
+        fun cellTemperatureFactor(cellC: Double?, gamma: Double): Double {
+            if (cellC == null) return 1.0
+            return ((1.0 + gamma * (cellC - 25.0)) / TYPICAL_TEMPERATURE_FACTOR).coerceIn(0.5, 1.2)
         }
+
+        /** ASHRAE incidence-angle coefficient of glass-covered modules (same default as the loss-chain engine). */
+        const val IAM_B0 = PvArrayConfig.DEFAULT_IAM_B0
 
         /** Standard test conditions irradiance [W/m²] at which kWp is rated. */
         const val STC_IRRADIANCE = 1000.0

@@ -40,6 +40,10 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             prefs[Keys.PEAK_POWER] = updated.peakPowerKw
             prefs[Keys.TILT] = updated.tiltDeg
             prefs[Keys.AZIMUTH] = updated.azimuthDeg
+            prefs[Keys.TEMP_COEFF] = updated.temperatureCoefficient
+            // Absent key = no inverter limit.
+            val limit = updated.inverterLimitKw
+            if (limit != null) prefs[Keys.INVERTER_LIMIT] = limit else prefs.remove(Keys.INVERTER_LIMIT)
         }
     }
 
@@ -184,6 +188,8 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             peakPowerKw = this[Keys.PEAK_POWER] ?: defaults.system.peakPowerKw,
             tiltDeg = this[Keys.TILT] ?: defaults.system.tiltDeg,
             azimuthDeg = this[Keys.AZIMUTH] ?: defaults.system.azimuthDeg,
+            temperatureCoefficient = this[Keys.TEMP_COEFF] ?: defaults.system.temperatureCoefficient,
+            inverterLimitKw = this[Keys.INVERTER_LIMIT],
         ).sanitized()
         val lat = this[Keys.LATITUDE]?.takeIf { it.isFinite() && it in -90.0..90.0 }
         val lon = this[Keys.LONGITUDE]?.takeIf { it.isFinite() && it in -180.0..180.0 }
@@ -217,6 +223,8 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         val PEAK_POWER = doublePreferencesKey("peak_power_kw")
         val TILT = doublePreferencesKey("tilt_deg")
         val AZIMUTH = doublePreferencesKey("azimuth_deg")
+        val TEMP_COEFF = doublePreferencesKey("module_temperature_coefficient")
+        val INVERTER_LIMIT = doublePreferencesKey("inverter_limit_kw")
         val LATITUDE = doublePreferencesKey("latitude")
         val LONGITUDE = doublePreferencesKey("longitude")
         val ELEVATION = doublePreferencesKey("elevation_m")

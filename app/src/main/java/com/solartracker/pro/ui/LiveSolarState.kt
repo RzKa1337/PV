@@ -3,6 +3,7 @@ package com.solartracker.pro.ui
 import com.solartracker.pro.i18n.tr
 import androidx.compose.runtime.Immutable
 import com.solartracker.pro.core.live.LiveSolarSnapshot
+import com.solartracker.pro.core.live.LiveOutlook
 import com.solartracker.pro.core.live.SunPath
 import com.solartracker.pro.core.solar.DayType
 import com.solartracker.pro.core.weather.WeatherSource
@@ -72,6 +73,18 @@ data class LiveEnergyUi(
     val netKw: Double get() = pvKw - loadKw
 }
 
+/** What the model expects next (refreshed once a minute, not every second). ESTIMATE / FORECAST, never a measurement. */
+@Immutable
+data class LiveOutlookUi(
+    /** (label, power kW) for +5 / +15 / +30 / +60 min. */
+    val ahead: List<Pair<String, Double>>,
+    val todayMaxKw: Double,
+    val todayMaxText: String,
+    val soFarKwh: Double,
+    val remainingKwh: Double,
+    val dayKwh: Double,
+)
+
 @Immutable
 data class LiveUiState(
     val epochMillis: Long,
@@ -81,6 +94,22 @@ data class LiveUiState(
     val sun: LiveSunUi,
     val pv: LivePvUi,
     val energy: LiveEnergyUi,
+    val outlook: LiveOutlookUi? = null,
+    /** "forecast fetched 14:05 (23 min ago)"; null without downloaded weather. */
+    val weatherAgeText: String? = null,
+    /** Weather older than [WEATHER_STALE_HOURS] – shown as stale, the estimate is less reliable. */
+    val weatherStale: Boolean = false,
+)
+
+const val WEATHER_STALE_HOURS = 3L
+
+fun LiveOutlook.toUi(zone: ZoneId): LiveOutlookUi = LiveOutlookUi(
+    ahead = ahead.map { (m, kw) -> "+$m min" to kw },
+    todayMaxKw = todayMaxKw,
+    todayMaxText = todayMaxAt?.let { Format.time(it, zone) } ?: "—",
+    soFarKwh = soFarKwh,
+    remainingKwh = remainingKwh,
+    dayKwh = dayKwh,
 )
 
 /** Today's sun path, rebuilt only when the date or location changes (not every second). */
@@ -114,7 +143,8 @@ fun formatCountdown(d: Duration): String {
 }
 
 fun irradianceSourceLabel(source: WeatherSource, weatherEnabled: Boolean): String = when (source) {
-    WeatherSource.FORECAST -> tr("dane z prognozy (średnia godzinowa, Open-Meteo)", "forecast data (hourly average, Open-Meteo)")
+    WeatherSource.FORECAST -> tr("prognoza Open-Meteo (średnie godzinowe, w obrębie godziny dopasowane do ruchu słońca)",
+        "Open-Meteo forecast (hourly means, shaped by the sun's motion within the hour)")
     WeatherSource.CLIMATE -> tr("średnie klimatyczne (brak prognozy na tę godzinę)", "climate averages (no forecast for this hour)")
     WeatherSource.CLEAR_SKY ->
         if (weatherEnabled) tr("model bezchmurnego nieba (brak danych pogodowych)", "clear-sky model (no weather data)")

@@ -966,4 +966,20 @@
     <string name="w_snow_label">Snow</string>
     <string name="w_visibility_label">Visibility</string>
     <string name="dash_share_of_peak">%1$s of the %2$s kWp peak</string>
+    <string name="live_cell_temp">cells ≈ %1$s °C</string>
+    <string name="live_air_temp">air %1$s °C</string>
+    <string name="live_ghi_dni_dhi">GHI %1$s · DNI %2$s · DHI %3$s W/m²</string>
+    <string name="live_weather_stale">Weather data out of date: %1$s – estimate less reliable</string>
+    <string name="live_outlook_title">NEXT HOUR AND TODAY</string>
+    <string name="live_forecast_badge">FORECAST</string>
+    <string name="live_today_max">Today\'s maximum</string>
+    <string name="live_energy_so_far">Energy since midnight</string>
+    <string name="live_energy_remaining">Energy until end of day</string>
+    <string name="live_energy_day">Whole day</string>
+    <string name="live_outlook_note">Same model as the live power (sun position, forecast irradiance, cell temperature, losses). A forecast, not a measurement; updated every minute. Energy = power integrated over time (5-min step).</string>
+    <string name="settings_module_title">Modules and inverter</string>
+    <string name="settings_module_hint">Optional, from the datasheets. The power temperature coefficient (e.g. −0.35 %/°C) changes the losses in the heat; the inverter limit cuts the AC power (clipping). Without a limit power is capped at the peak power.</string>
+    <string name="settings_gamma_label">Power γ [%/°C]</string>
+    <string name="settings_inverter_limit_label">Inverter limit [kW]</string>
+    <string name="settings_inverter_limit_hint">empty = none</string>
 </resources>

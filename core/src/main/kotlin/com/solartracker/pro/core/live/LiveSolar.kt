@@ -117,3 +117,41 @@ data class SunPath(
         }
     }
 }
+
+/**
+ * What the same model expects next: power in [AHEAD_MINUTES], today's maximum and the energy of the day split at
+ * [computedAt]. Energy is integrated over time (midpoint rule, [STEP_MINUTES]) – never a sum of power samples.
+ * ESTIMATE / FORECAST of the model, not a measurement.
+ */
+data class LiveOutlook(
+    val computedAt: Instant,
+    /** (minutes ahead, power [kW]). */
+    val ahead: List<Pair<Long, Double>>,
+    val todayMaxKw: Double,
+    val todayMaxAt: Instant?,
+    val soFarKwh: Double,
+    val remainingKwh: Double,
+) {
+    val dayKwh: Double get() = soFarKwh + remainingKwh
+
+    companion object {
+        val AHEAD_MINUTES = listOf(5L, 15L, 30L, 60L)
+        const val STEP_MINUTES = 5L
+
+        fun compute(estimator: PvEstimator, system: PvSystem, location: GeoLocation, now: Instant, zone: ZoneId): LiveOutlook {
+            val date = now.atZone(zone).toLocalDate()
+            val start = date.atStartOfDay(zone).toInstant()
+            val end = date.plusDays(1).atStartOfDay(zone).toInstant()
+            val profile = estimator.dailyProfile(system, location, date, zone, STEP_MINUTES)
+            val max = profile.maxByOrNull { it.powerKw }
+            return LiveOutlook(
+                computedAt = now,
+                ahead = AHEAD_MINUTES.map { m -> m to estimator.powerKw(system, location, now.plusSeconds(m * 60)) },
+                todayMaxKw = max?.powerKw ?: 0.0,
+                todayMaxAt = max?.takeIf { it.powerKw > 0.0 }?.time,
+                soFarKwh = estimator.energyKwh(system, location, start, now, STEP_MINUTES),
+                remainingKwh = estimator.energyKwh(system, location, now, end, STEP_MINUTES),
+            )
+        }
+    }
+}

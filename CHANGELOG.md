@@ -4,6 +4,13 @@ Wszystkie istotne zmiany w projekcie Solar Tracker PRO.
 Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie [SemVer](https://semver.org/).
 
 ## [Unreleased]
+### Changed – dokładniejszy model produkcji PV (`docs/PV_MODEL.md`)
+- Rozproszona z nieba: Hay–Davies (składowa okołosłoneczna) zamiast izotropowej – wyższa, realistyczna POA paneli zwróconych do słońca w pogodne dni; ta sama funkcja w estymatorze i w silniku strat.
+- Prognoza godzinowa w obrębie godziny: interpolacja indeksu czystego nieba i udziału rozproszonej między środkami godzin, zastosowana do irradiancji czystego nieba danej chwili – bez skoków co pełną godzinę i bez wiązki „na złym kącie” o wschodzie/zachodzie; energia godziny zachowana; temperatura i wiatr interpolowane; indeks ograniczony do 1,2.
+- Temperatura ogniw: Faiman z wiatrem z prognozy (NOCT bez wiatru); współczynnik γ z karty katalogowej; straty kąta padania (ASHRAE IAM) dla wiązki. Typowe straty temperaturowe i kątowe są wyjęte z rocznego PR, więc suma roczna (i kalibracja) się nie zmienia. Wiatr liczony raz (usunięty drugi mnożnik w prognozie krótkoterminowej).
+- Limit falownika (clipping) w ustawieniach: Ustawienia → Moduły i falownik (γ, limit AC).
+- Na żywo: karta „Najbliższa godzina i dziś” – moc +5/+15/+30/+60 min, maksimum dziś z godziną, energia od północy i do końca dnia (całka mocy, krok 5 min; odświeżane co minutę w tle), temperatura ogniw i powietrza, GHI/DNI/DHI, czas pobrania prognozy i ostrzeżenie o nieaktualnych danych (> 3 h).
+- Testy: `PvPhysicsTest` (wartość referencyjna Hay–Davies liczona ręcznie, noc / wschód / południe / zachód, orientacje, temperatura, wiatr, γ, clipping, IAM, jednostki W→kWh, DST 23/25 h, ciągłość na granicy godzin), `LiveOutlookTest`, zapis γ i limitu.
 ### Added – wyszukiwanie miast z podpowiedziami
 - Ustawienia → Lokalizacja: podpowiedzi podczas pisania (po ~300 ms przerwy, od 2 znaków), nazwa z regionem i krajem, pogrubiony dopasowany fragment (bez względu na polskie znaki), stany ładowania / brak wyników / brak internetu / limit z „Spróbuj ponownie”, anulowanie nieaktualnych zapytań i pamięć wyników (10 min). Współrzędne zawsze od dostawcy.
 - Dostawcy: Google Places API (New) – Autocomplete + Place Details (`location,formattedAddress`, sesje) gdy skonfigurowano klucz (zaszyfrowany w Android Keystore albo `MAPS_API_KEY` przy budowaniu; nagłówki ograniczenia do aplikacji Android); bez klucza i zapasowo Open-Meteo Geocoding; Nominatim tylko po „Szukaj” (adresy, kody). Dokumentacja: `docs/GOOGLE_PLACES_SETUP.md`.

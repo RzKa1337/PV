@@ -275,7 +275,8 @@ class LiveSolarTest {
         val calc = LiveSolarCalculator(PvEstimator(model), sourceAt = model::sourceAt)
         val s = calc.snapshot(t, zone, warsaw, PvSystem(), load, null, null)
         assertEquals(WeatherSource.FORECAST, s.irradianceSource)
-        assertEquals(400.0, s.estimate.irradiance.dni, 0.0)
+        // Hour mean 400 W/m² DNI; at the hour centre the interpolated value is within a few % of it.
+        assertEquals(400.0, s.estimate.irradiance.dni, 400.0 * 0.03)
         assertEquals(31.4, s.estimate.irradiance.ambientTemperatureC!!, 0.0)
         assertTrue(s.estimate.cellTemperatureC!! > 31.4)
         // Outside the forecast hour: falls back to clear sky, no network involved.
@@ -288,7 +289,10 @@ class LiveSolarTest {
         val forecast = WeatherForecast(listOf(HourlyWeather(t.plusSeconds(600), 9_999.0, 50_000.0, 9_999.0, 20.0, 0.0)), t)
         val calc = LiveSolarCalculator(PvEstimator(WeatherAwareIrradianceModel(warsaw, forecast)))
         val s = calc.snapshot(t, zone, warsaw, PvSystem(), load, null, null)
-        assertEquals(PvSystem().peakPowerKw, s.estimate.powerKw, 1e-9)
+        // Absurd provider values are bounded twice: the clear-sky index is capped at 1.2 and power at the peak.
+        assertTrue(s.estimate.powerKw <= PvSystem().peakPowerKw)
+        assertTrue(s.estimate.irradiance.dni <= com.solartracker.pro.core.pv.ClearSkyModel.extraterrestrialIrradiance(t))
+        assertTrue(s.estimate.powerKw > 0.5 * PvSystem().peakPowerKw)
     }
 
     // --- 11: battery integration ---
