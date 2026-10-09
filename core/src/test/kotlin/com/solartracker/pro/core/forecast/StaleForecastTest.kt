@@ -50,3 +50,28 @@ class StaleForecastTest {
         assertNull(WeatherAwareIrradianceModel(loc).forecastFetchedAt)
     }
 }
+
+/** One clip, applied last: calibration / shading / nowcast must not be applied to an already clipped power. */
+class SingleClipTest {
+    private val loc = GeoLocation(52.23, 21.01)
+    private val noon = SolarCalculator.sunTimes(loc, LocalDate.of(2026, 6, 21)).solarNoon
+    private val weather = WeatherAwareIrradianceModel(loc)
+
+    @Test
+    fun calibrationActsBeforeTheInverterLimit() {
+        val free = PvSystem(peakPowerKw = 6.0, tiltDeg = 35.0, azimuthDeg = 180.0)
+        val unclipped = PredictivePvEngine(loc, free, weather, null).at(noon, noon).expectedKw
+        assertTrue("need a high-power noon: $unclipped", unclipped > 4.0)
+        val limit = 4.0
+        val cal = PredictivePvEngine(loc, free.copy(inverterLimitKw = limit), weather, null, calibrationFactor = 0.9, calibrationConfidence = 1.0).at(noon, noon)
+        // Array could deliver 0.9 · unclipped (> 4 kW) → the inverter delivers its limit. Clipping first would give 0.9 · 4.0 = 3.6 kW.
+        assertEquals(limit, cal.expectedKw, 1e-9)
+        assertTrue(cal.clipped)
+        // Below the limit nothing changes: same as the free system.
+        val lowLimit = PredictivePvEngine(loc, free.copy(inverterLimitKw = 50.0), weather, null, calibrationFactor = 0.9, calibrationConfidence = 1.0).at(noon, noon)
+        assertEquals(unclipped * 0.9, lowLimit.expectedKw, 1e-9)
+        // PvSystem limit and the inverter's own rating: the lower one wins (they are not multiplied).
+        val both = PredictivePvEngine(loc, free.copy(inverterLimitKw = 4.0), weather, null, inverterLimitKw = 3.0).at(noon, noon)
+        assertEquals(3.0, both.expectedKw, 1e-9)
+    }
+}

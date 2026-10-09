@@ -55,7 +55,10 @@ class PredictivePvEngine(
      *   fades with horizon (half after ~40 min) because clouds move.
      */
     fun at(time: Instant, now: Instant, nowcastRatio: Double? = null): PvForecastPoint {
-        val estimate = estimator.pointEstimate(system, location, time)
+        // The estimator's own inverter clip is switched off here: calibration, shading and nowcast act on the power the
+        // array could deliver, and ONE clip (PvSystem limit, inverter, MPPT) is applied at the end. Clipping first would
+        // let a 20 % shading loss lower a power that still exceeds the limit.
+        val estimate = estimator.pointEstimate(system.copy(inverterLimitKw = null), location, time)
         val hour = weather.hourAt(time)
         val snow = WeatherEffects.snowCovered(hour, system.tiltDeg)
         // Wind cooling is part of the estimator's cell temperature (Faiman) – not applied a second time here.
@@ -72,7 +75,7 @@ class PredictivePvEngine(
         val forecastAgeH = fetchedAt?.let { Duration.between(it, now).toHours() }?.coerceAtLeast(0)
         val nowcastWeight = if (nowcastRatio == null) 0.0 else exp(-horizonMin / 60.0)
         val ratio = 1.0 + ((nowcastRatio ?: 1.0).coerceIn(0.0, 1.5) - 1.0) * nowcastWeight
-        val limit = listOfNotNull(inverterLimitKw, mpptLimitKw).minOrNull() ?: Double.MAX_VALUE
+        val limit = listOfNotNull(system.sanitized().inverterLimitKw, inverterLimitKw, mpptLimitKw).minOrNull() ?: Double.MAX_VALUE
         val raw = calibrated * shadeFactor * ratio
         val expected = min(raw, limit)
 
