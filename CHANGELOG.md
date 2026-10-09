@@ -4,6 +4,8 @@ Wszystkie istotne zmiany w projekcie Solar Tracker PRO.
 Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie [SemVer](https://semver.org/).
 
 ## [Unreleased]
+
+## [v0.20.0] - 2026-10-09
 ### Fixed – półkula południowa
 - Gdy panele są skierowane od równika (np. domyślne 180° = południe w Chile czy Australii), zakładka Miesiące wyjaśnia, dlaczego najlepszy kąt wychodzi 0° (słońce świeci z drugiej strony), pokazuje wynik dla paneli zwróconych do równika (najlepszy stały kąt, kWh, zysk %) i ma przycisk ustawienia azymutu; Ustawienia pokazują ostrzeżenie i przyciski N/NE/NW. Porównanie z trackerem było poprawne – tracker nie zależy od kierunku paneli stałych.
 

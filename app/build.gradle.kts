@@ -14,8 +14,8 @@ android {
         applicationId = "com.solartracker.pro"
         minSdk = 26
         targetSdk = 35
-        versionCode = 23
-        versionName = "0.19.0"
+        versionCode = 24
+        versionName = "0.20.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Optional Google Places key (city autocomplete). Read from the environment (GitHub Secret MAPS_API_KEY in
         // CI) or from the untracked local.properties – never committed. Empty = keyless search (Open-Meteo).
