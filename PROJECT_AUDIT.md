@@ -12,8 +12,8 @@ Legenda: ✅ REAL (działa na prawdziwych danych / obliczeniach) · 🟡 częśc
 
 | Moduł docelowy | Istniejący kod | Stan |
 |---|---|---|
-| AstronomyEngine | `core/solar/SolarCalculator` (NOAA/Meeus, refrakcja, wschód/zachód, noc/dzień polarny) | ✅ testy NREL/NOAA |
-| PVSimulationEngine | `core/pv/PvEstimator` (POA izotropowy + albedo 0,2, NOCT, wsp. temp. −0,4%/°C, PR 0,80) | 🟡 brak jawnego łańcucha strat (zabrudzenie, mismatch, DC/AC, sprawność falownika, clipping, degradacja, bifacial, śnieg) |
+| AstronomyEngine | `core/solar/SolarCalculator` (NOAA/Meeus, refrakcja, wschód/zachód, noc/dzień polarny) | ✅ zweryfikowany z przykładem NREL SPA (≈ 0,003°), USNO, tożsamością wysokości południowej (2026-10-09) |
+| PVSimulationEngine | `core/pv/PvEstimator` (stan z 2026-10-09: Hay–Davies, IAM, Faiman/NOCT, γ z ustawień, PR roczny z wyjętymi typowymi stratami, limit falownika) + `PvSimulationEngine` (jawny łańcuch strat) | ✅ patrz sekcja „Audyt silnika produkcji PV” |
 | PredictivePVEngine | `core/forecast/PredictivePvEngine` | ✅ (pogoda → klimat → bezchmurnie, cień, kalibracja, nowcast, limit falownika) |
 | EnergyForecastEngine | `core/forecast/EnergyForecastEngine` | 🟡 +5 min…+6 h, dziś/jutro; brak wieczór/noc/7 dni, nadwyżka/deficyt |
 | BatteryEngine | `core/energy/BatteryStorage`, `EnergyFlowSimulator`, `forecast/BatteryPredictor` | 🟡 SOC, sprawności, limity; brak chemii (krzywe napięcia AGM/GEL/kwas), degradacji, cykli, czasu do pełna |
@@ -150,3 +150,34 @@ Audyt: istniały Open-Meteo z pamięcią podręczną (`WeatherRepository`), `Sol
 
 ## Bezpieczeństwo
 Pełny audyt bezpieczeństwa: [docs/SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md).
+
+## Audyt silnika produkcji PV (2026-10-09)
+Zakres: źródło → walidacja → pogoda → irradiancja → temperatura → DC → limity → AC → estymacja na żywo → prognoza → UI.
+Dowody wyłącznie z kodu i testów JVM `:core` (brak Android SDK i sieci – `:app` nie był kompilowany; zmiany w `:app` są minimalne).
+Brak prawdziwych pomiarów PV – **nie podajemy żadnego procentu poprawy dokładności**.
+
+| # | Znaleziony problem | Dowód | Stan |
+|---|---|---|---|
+| 1 | Energia „pozostała do końca dnia” liczona jako suma mocy z początków kroków 15/30 min (`EnergyForecastEngine.day`, `EnergySecurity.outlook`) | zawyżenie +4,6 % o 14:07:30 i +18,6 % o 18:07:30 względem całkowania co 1 min | naprawione (całkowanie po środkach przedziałów), `ForecastEnergyTest` |
+| 2 | Nowcast = pomiar / model **bez** kalibracji, a `PredictivePvEngine` mnożył jeszcze raz przez kalibrację (podwójna korekta) | przy kalibracji 0,9 i modelu zgodnym z pomiarem prognoza w chwili pomiaru była o 10 % za niska (3,93 vs 4,37 kW) | naprawione: `nowcastRatio()`, użyte w `EnergyCenterViewModel` (2 miejsca; `:app` niekompilowane lokalnie) |
+| 3 | Limit falownika z ustawień przycinał moc **przed** kalibracją/cieniem/nowcastem | test `SingleClipTest` (4,0 kW limit, kalibracja 0,9: 3,6 kW zamiast 4,0 kW) | naprawione: jeden clipping na końcu |
+| 4 | Pewność prognozy zależała tylko od odległości od „teraz”, nie od wieku pobranej prognozy (stary cache wyglądał jak świeży) | ta sama pewność dla prognozy sprzed 10 min i sprzed 48 h | naprawione (`StaleForecastTest`) |
+| 5 | `AutoCalibrationEngine.evaluate()` nie stosowało wykluczeń (awaria, brak łącza, błędna telemetria, niskie słońce) | współczynnik 0,40 zamiast 0,90 przy zanieczyszczonych próbkach | naprawione; dodane wykluczenie POA < 100 W/m² |
+| 6 | `ForecastAccuracy.pairHourly` grupowało wiersze po godzinie UTC – w strefach z offsetem 30/45 min brak par | 0 par dla klucza 10:30Z | naprawione |
+| 7 | Silnik łańcucha strat w aplikacji dostawał domyślne γ −0,35 %/°C zamiast γ z ustawień | `PvArrayConfig` bez `temperatureCoefficient` (2 miejsca w `EnergyCenterViewModel`) | naprawione (`:app`) |
+| 8 | `WeatherEffects.windFactor` – nieużywany drugi współczynnik wiatru (ryzyko podwójnego liczenia) | brak użyć poza testem | usunięty |
+| 9 | `PvPointEstimate.clipped = true` przy samym ograniczeniu do kWp bez ustawionego limitu falownika | test `EstimatorLimitsTest` | naprawione |
+| – | Pozycja Słońca | zgodność z SPA: elewacja 0,00003°, azymut 0,002° | brak błędu |
+| – | Hay–Davies, grunt, IAM, NOCT/Faiman, znak γ, jednostki W→kWh | testy z ręcznych obliczeń (`PvHandCalcTest`, `PvPhysicsTest`) | brak błędu |
+| – | Podwójne straty między `PvEstimator` a `PvSimulationEngine` | tożsamość `P_est·0,95·Fkąt = P_łańcuch` (`EngineConsistencyTest`) | brak błędu |
+| – | Czas godzinowy Open-Meteo (średnia z poprzedniej godziny, wartości chwilowe na koniec) | `WeatherForecast.at` (start, koniec], interpolacja | brak błędu |
+| – | Sekundowe liczenie lokalne bez sieci | `LiveSolarCalculator` bez zależności sieciowych; pogoda co 60 min (cache 1 h) – test aplikacji `withoutInternet_…` | brak błędu |
+
+Pozostałe, świadomie nienaprawione (od największego wpływu na dokładność):
+1. Rozdzielczość pogody godzinowa; chmury w skali minut nieznane bez pomiaru (największe źródło błędu mocy chwilowej).
+2. Zbiór parametrów PR/γ/albedo/b0 to założenia, nie kalibracja na tej instalacji; model nie był porównany z prawdziwymi pomiarami.
+3. Brak modelu Perez, brak strat spektralnych, IAM tylko dla wiązki, jedna płaszczyzna paneli, jedno MPPT.
+4. `BatteryPredictor` – krok jawny Eulera 15 min (nie całka); `ShadingAnalysisEngine.day` – próbka na początku kroku 5 min (≈ 0,1 %).
+5. Normalizacja kątowa PR w porównaniu z trackerem liczona dla chwilowej orientacji (≤ ok. 1 % zysku).
+6. Dwa „oczekiwane” (estymator PR 0,80 oraz łańcuch strat z domyślnym profilem) różnią się o ok. 5 % – dwa modele temperatury/strat pozostają świadomie (wspólny kod irradiancji i Tc).
+7. Nowcast w aplikacji liczony z `live.telemetry.timestamp`; nie sprawdzono na prawdziwym falowniku.

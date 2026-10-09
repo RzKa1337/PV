@@ -3,9 +3,12 @@
 Aplikacja Android (Kotlin + Jetpack Compose + Material 3) do śledzenia pozycji słońca
 i **szacowania** produkcji energii z instalacji fotowoltaicznej.
 
-> Wszystkie wartości produkcji to **SZACUNEK**, a nie pomiar. Przy włączonej pogodzie
+> Wszystkie wartości produkcji z modelu to **SZACUNEK** lub **PROGNOZA**, a nie pomiar. Przy włączonej pogodzie
 > model korzysta z prognozy Open-Meteo i średnich klimatycznych; bez niej – z modelu
-> bezchmurnego nieba (górna granica). Zacienienie i śnieg na panelach nie są uwzględniane.
+> bezchmurnego nieba (górna granica). Ekran Na żywo i wykresy kątów liczą moc bez zacienienia i śniegu; prognoza w Centrum
+> uwzględnia zacienienie (po potwierdzeniu lokalizacji i danych o przeszkodach), śnieg z prognozy, kalibrację
+> i limit falownika. Pomiar z falownika jest pokazywany osobno (POMIAR) i nigdy nie jest zastępowany modelem.
+> Dokładność modelu nie została sprawdzona na prawdziwych pomiarach instalacji – patrz [docs/PV_MODEL.md](docs/PV_MODEL.md).
 
 ## Funkcje
 - Aktualna wysokość i azymut słońca, wschód, zachód, długość dnia
@@ -32,8 +35,11 @@ Warstwa danych          app/src/main/java/.../data (DataStore, lokalizacja)
 
 Moduł `:core` zawiera:
 - `solar/SolarCalculator` – algorytm NOAA (Meeus) pozycji słońca i wschodu/zachodu,
-- `pv/IrradianceModel` – model nasłonecznienia (wymienny, domyślnie bezchmurne niebo),
+- `pv/IrradianceModel` – model nasłonecznienia (wymienny, domyślnie bezchmurne niebo) i transpozycja na płaszczyznę paneli,
 - `pv/PvEstimator` – moc, energia dzienna, porównanie kątów, produkcja miesięczna,
+- `pv/PvSimulationEngine` – jawny łańcuch strat (projektant, diagnostyka),
+- `weather/WeatherAwareIrradianceModel` – prognoza godzinowa → irradiancja w danej chwili,
+- `forecast/PredictivePvEngine` – prognoza: estymator + kalibracja + zacienienie + nowcast + limity,
 - `energy/BatteryStorage` – parametry i walidacja magazynu energii,
 - `energy/EnergyFlowSimulator` – symulacja przepływu energii (krok 15 min, SOC przenoszony między dniami);
   produkcję PV bierze z `PvEstimator`, więc to jeden wspólny model,
@@ -54,23 +60,29 @@ Moduł `:core` zawiera:
 - Cykl życia: `StateFlow` + `SharingStarted.WhileSubscribed(0)` + `collectAsStateWithLifecycle` –
   ticker zatrzymuje się po opuszczeniu ekranu lub przejściu aplikacji w tło. Bez usług w tle,
   wake locków i zapytań sieciowych co sekundę (pogoda z cache, odświeżana co godzinę).
-- Moc to wartość **modelowana** – aplikacja nie ma danych z falownika.
+- Moc na ekranie Na żywo to wartość **modelowana** (SZACUNEK/PROGNOZA wg źródła irradiancji) – ekran nie podstawia pomiaru
+  z falownika; bez internetu liczy dalej z ostatniej zapisanej prognozy lub z modelu czystego nieba (z podpisem źródła
+  i wieku prognozy, po 3 h oznaczonej jako nieaktualna).
 
 ## Pogoda
-- Prognoza godzinowa Open-Meteo na 16 dni (promieniowanie bezpośrednie i rozproszone, temperatura,
-  zachmurzenie) – bez klucza API, dane CC BY 4.0.
+- Prognoza godzinowa Open-Meteo na 16 dni (promieniowanie bezpośrednie i rozproszone – **średnie z poprzedniej godziny**,
+  temperatura i wiatr 2 m / 10 m – wartości chwilowe, zachmurzenie, opady, śnieg…) – bez klucza API, dane CC BY 4.0.
+  Pobierana co 60 min; limit zapytań dostawcy nie jest przekraczany (jedno zapytanie na godzinę, cache na dysku).
 - Dla dni bez prognozy: średnie miesięczne z archiwum Open-Meteo (ostatnie 3 lata) dla lokalizacji.
   Miesiąc modelowany jako mieszanka dni bezchmurnych i pochmurnych (światło rozproszone ≈ 25%
   bezchmurnego), dobrana tak, by średnie nasłonecznienie zgadzało się z klimatem.
-- Offline: ostatnio pobrane dane, a w Polsce – wbudowane przybliżone średnie.
-- Temperatura paneli: model NOCT (45 °C), współczynnik −0,4%/°C.
-- Dla Warszawy model klimatyczny daje ok. 890 kWh/kWp (płasko) i ok. 1060 kWh/kWp (30–45°, południe).
+- Offline: ostatnio pobrane dane (do 3 dni), a w Polsce – wbudowane przybliżone średnie.
+- Temperatura ogniw: Faiman (z wiatrem z prognozy) albo NOCT 45 °C bez wiatru; γ z karty katalogowej (Ustawienia, domyślnie −0,40 %/°C).
+- Dla Warszawy model klimatyczny daje ok. 900 kWh/kWp (płasko) i ok. 1090–1100 kWh/kWp (30–45°, południe); dla porównania
+  PVGIS podaje dla środkowej Polski zbliżone rzędy wielkości (test sprawdza tylko widełki 750–1000 / 900–1200).
 
 ## Model szacowania
 - Masa powietrza: Kasten–Young (1989)
-- Promieniowanie bezpośrednie: Meinel (`1361 W/m² · 0.7^(AM^0.678)`), rozproszone ≈ 10%
-- Irradiancja na płaszczyźnie paneli: składowa bezpośrednia + izotropowe rozproszenie + odbicie od gruntu (albedo 0,2)
-- Moc: `kWp · POA / 1000 W/m² · PR`, PR = 0,80
+- Czyste niebo: Meinel (`E0 · 0,7^(AM^0,678)`, E0 = 1361 W/m² z poprawką na odległość Ziemia–Słońce), rozproszone ≈ 10 % wiązki
+- Irradiancja na płaszczyźnie paneli: wiązka + rozproszone z nieba **Hay–Davies** + odbicie od gruntu (albedo 0,2)
+- Moc: `kWp · POA_efektywna / 1000 · PR · (1 + γ(Tc − 25)) / 0,95`, PR = 0,80 (roczny, zawiera typowe straty temperaturowe
+  i kątowe, które są z niego wyjęte i liczone dla chwili), przycięta do limitu falownika – równania, jednostki
+  i założenia: [docs/PV_MODEL.md](docs/PV_MODEL.md), [CALCULATIONS.md](CALCULATIONS.md)
 
 ## Centrum energii (Anenji 6.2 kW)
 
