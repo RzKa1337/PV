@@ -5,6 +5,8 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
+import androidx.test.uiautomator.UiObject2
+import androidx.test.uiautomator.BySelector
 import androidx.test.uiautomator.Direction
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
@@ -51,6 +53,17 @@ class EnergyCenterInstrumentedTest {
         EnergySettingsStore(context).setInverter(InverterConfig(enabled = false))
     }
 
+    /** Waits for [selector], scrolling the tallest (vertical) container down between tries. */
+    private fun scrollFor(selector: BySelector): UiObject2? {
+        var found = device.wait(Until.findObject(selector), 5_000)
+        repeat(12) {
+            if (found != null) return found
+            device.findObjects(By.scrollable(true)).maxByOrNull { it.visibleBounds.height() }?.scroll(Direction.DOWN, 0.5f)
+            found = device.wait(Until.findObject(selector), 1_500)
+        }
+        return found
+    }
+
     private fun screenshot(name: String) {
         val dir = File(context.filesDir, "live-test").apply { mkdirs() }
         runCatching { device.takeScreenshot(File(dir, "$name.png")) }
@@ -65,8 +78,9 @@ class EnergyCenterInstrumentedTest {
             tab!!.click()
             assertNotNull("simulator label", device.wait(Until.findObject(By.textContains("SYMULATOR – dane testowe")), 30_000))
             assertNotNull("status ONLINE", device.wait(Until.findObject(By.textContains(": ONLINE")), 30_000))
-            assertNotNull("LIVE section", device.wait(Until.findObject(By.text("LIVE")), 15_000))
-            assertNotNull("PV metric", device.findObject(By.text("PV")))
+            // The scenery bar takes room at the top: the LIVE card may start below the fold on a small emulator screen.
+            assertNotNull("LIVE section", scrollFor(By.text("LIVE")))
+            assertNotNull("PV metric", scrollFor(By.text("PV")))
             screenshot("energy-center-live")
 
             // Advisor answers from the (simulated) telemetry and says it is a simulator.

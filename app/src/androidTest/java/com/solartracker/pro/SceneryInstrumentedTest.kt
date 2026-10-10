@@ -48,10 +48,17 @@ class SceneryInstrumentedTest {
         return found
     }
 
+    /** Navigation item: unselected items carry the label as icon description, the selected one shows it as text. */
+    private fun tabSelector(label: String): BySelector = By.desc(label)
+
+    private fun tab(label: String): UiObject2? = device.findObject(tabSelector(label)) ?: device.findObject(By.text(label))
+
     @Test
     fun sceneryBarShuffleTurnOffAndTabSwitching() {
         ActivityScenario.launch(MainActivity::class.java).use {
-            val dashboard = UiTestSupport.findDismissingAnr(device, By.desc("Pulpit"), tag)
+            // Any tab other than the start one has its label as a description – wait for the app via that one.
+            assertNotNull("navigation", UiTestSupport.findDismissingAnr(device, tabSelector("Ustawienia"), tag))
+            val dashboard = tab("Pulpit")
             assertNotNull("Pulpit tab", dashboard)
             dashboard!!.click()
             assertNotNull("hero card", device.wait(Until.findObject(By.res("dash_production")), 15_000))
@@ -67,13 +74,15 @@ class SceneryInstrumentedTest {
 
             // Fast tab switching must not break the screens (the backdrop loads in the background).
             repeat(3) {
-                device.findObject(By.desc("Radar"))?.click()
-                device.findObject(By.desc("Pulpit"))?.click()
+                tab("Radar")?.click()
+                tab("Pulpit")?.click()
             }
             assertNotNull("dashboard after fast switching", device.wait(Until.findObject(By.res("dash_production")), 15_000))
 
             // Photos off: the built-in illustration is named in the bar (works offline, nothing downloaded).
-            device.findObject(By.desc("Ustawienia"))!!.click()
+            val settingsTab = device.wait(Until.findObject(tabSelector("Ustawienia")), 5_000) ?: tab("Ustawienia")
+            assertNotNull("Ustawienia tab", settingsTab)
+            settingsTab!!.click()
             val switch = scrollTo(By.res("scenery_photos_switch"))
             assertNotNull("photos switch", switch)
             if (switch!!.isChecked) switch.click()
