@@ -13,7 +13,6 @@ import androidx.test.uiautomator.Until
 import com.solartracker.pro.data.SceneryRepository
 import org.junit.After
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.Timeout
@@ -68,8 +67,9 @@ class SceneryInstrumentedTest {
 
             val shuffle = device.findObject(By.res("scenery_shuffle"))
             assertNotNull("change scenery button", shuffle)
-            assertTrue("button is labelled", shuffle!!.contentDescription?.isNotBlank() == true)
-            shuffle.click()
+            // The label is on the icon inside the button (what TalkBack reads), not on the tagged button node.
+            assertNotNull("button is labelled for screen readers", device.findObject(By.desc("Zmień scenerię")))
+            shuffle!!.click()
             assertNotNull("dashboard still shown after a new set", device.wait(Until.findObject(By.res("dash_production")), 10_000))
 
             // Fast tab switching must not break the screens (the backdrop loads in the background).
