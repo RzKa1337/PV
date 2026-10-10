@@ -537,6 +537,9 @@
     <string name="month">Month</string>
     <string name="monthly_chart_desc">"Monthly production chart for angles "</string>
     <string name="monthly_chart_title">Energy [kWh] by month</string>
+    <string name="monthly_temp_header">Temp.</string>
+    <string name="monthly_temp_note_archive">Temp. – mean air temperature of the month over %1$d years of archive data for this location (Open-Meteo, ERA5). Not a forecast for this year.</string>
+    <string name="monthly_temp_note_default">Temp. – approximate mean air temperature for central Poland (no archive data for this location).</string>
     <string name="monthly_footer">Estimate. Source: %1$s. Climate averages describe a typical year – a given month can be clearly better or worse.</string>
     <string name="monthly_subtitle">%1$s kWp · azimuth %2$s %3$s</string>
     <string name="monthly_title">Monthly production %1$s</string>

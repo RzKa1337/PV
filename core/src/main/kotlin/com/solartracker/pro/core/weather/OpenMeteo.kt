@@ -132,7 +132,8 @@ object OpenMeteo {
         require(Month.entries.all { (ghiByMonth[it]?.size ?: 0) >= 5 }) { "Not enough data for every month" }
         return MonthlyClimate(
             dailyGhiKwhPerM2 = Month.entries.associateWith { ghiByMonth.getValue(it).average() },
-            meanTemperatureC = Month.entries.associateWith { m -> tempByMonth[m]?.average() ?: 10.0 },
+            // Only months with archive temperatures – a missing month stays missing, not a made-up value.
+            meanTemperatureC = tempByMonth.mapValues { (_, v) -> v.average() },
             source = ClimateSource.ARCHIVE,
             years = years.size,
         )

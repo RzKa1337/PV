@@ -4,6 +4,11 @@ Wszystkie istotne zmiany w projekcie Solar Tracker PRO.
 Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie [SemVer](https://semver.org/).
 
 ## [Unreleased]
+### Added
+- Zakładka Miesiące: kolumna **Temp.** w tabeli – średnia temperatura powietrza w każdym miesiącu (i średnia roczna) dla wybranej lokalizacji, z wieloletnich danych archiwalnych Open-Meteo (ERA5); bez danych dla lokalizacji – przybliżone średnie dla Polski centralnej, wyraźnie opisane. To średnie z lat ubiegłych, nie prognoza.
+
+### Fixed
+- Miesiąc bez temperatury w danych archiwalnych nie dostaje już zmyślonej wartości 10 °C – zostaje pusty („–”), a model używa wtedy temperatury z prognozy, a bez niej przyjmuje typową stratę temperaturową zawartą w PR.
 
 ## [v0.20.0] - 2026-10-09
 ### Fixed – półkula południowa

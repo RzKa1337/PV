@@ -83,7 +83,7 @@ class WeatherTest {
         OpenMeteo.parseForecast("<html>", Instant.EPOCH)
     }
 
-    private fun climateJson(years: IntRange, mjPerDay: (Month) -> Double, temp: (Month) -> Double): String {
+    private fun climateJson(years: IntRange, mjPerDay: (Month) -> Double, temp: (Month) -> Double?): String {
         val days = years.flatMap { y ->
             generateSequence(LocalDate.of(y, 1, 1)) { it.plusDays(1) }.takeWhile { it.year == y }.toList()
         }
@@ -103,6 +103,14 @@ class WeatherTest {
         assertEquals(12.0, c.meanTemperatureC.getValue(Month.DECEMBER), 1e-9)
         assertEquals(ClimateSource.ARCHIVE, c.source)
         assertEquals(3, c.years)
+    }
+
+    @Test
+    fun parseClimate_monthWithoutTemperatureStaysMissing() {
+        val c = OpenMeteo.parseClimate(climateJson(2021..2023, { 3.6 }, { if (it == Month.MARCH) null else -1.5 }))
+        assertEquals(null, c.meanTemperatureC[Month.MARCH])
+        assertEquals(-1.5, c.meanTemperatureC.getValue(Month.OCTOBER), 1e-9)
+        assertEquals(11, c.meanTemperatureC.size)
     }
 
     @Test(expected = IllegalArgumentException::class)

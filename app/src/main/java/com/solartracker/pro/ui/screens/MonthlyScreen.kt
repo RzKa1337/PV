@@ -55,6 +55,7 @@ import com.solartracker.pro.ui.components.SunnyScene
 import com.solartracker.pro.ui.components.SectionCard
 import com.solartracker.pro.ui.theme.ChartColors
 import java.time.Month
+import com.solartracker.pro.core.weather.ClimateSource
 
 @Composable
 fun MonthlyScreen(state: MonthlyState?, onFaceEquator: ((Double) -> Unit)? = null, modifier: Modifier = Modifier) {
@@ -132,7 +133,15 @@ fun MonthlyScreen(state: MonthlyState?, onFaceEquator: ((Double) -> Unit)? = nul
             }
 
             SectionCard {
-                MonthlyTable(visible, colorOf)
+                MonthlyTable(visible, colorOf, state.climate?.meanTemperatureC?.takeIf { it.isNotEmpty() })
+                state.climate?.takeIf { it.meanTemperatureC.isNotEmpty() }?.let { c ->
+                    Text(
+                        if (c.source == ClimateSource.ARCHIVE) stringResource(R.string.monthly_temp_note_archive, c.years)
+                        else stringResource(R.string.monthly_temp_note_default),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
 
             Text(
@@ -145,7 +154,7 @@ fun MonthlyScreen(state: MonthlyState?, onFaceEquator: ((Double) -> Unit)? = nul
 }
 
 @Composable
-private fun MonthlyTable(estimates: List<MonthlyEstimate>, colorOf: (Double) -> Color) {
+private fun MonthlyTable(estimates: List<MonthlyEstimate>, colorOf: (Double) -> Color, temperatures: Map<Month, Double>?) {
     Row(Modifier.fillMaxWidth()) {
         Text(stringResource(R.string.month), style = MaterialTheme.typography.labelMedium, modifier = Modifier.width(104.dp))
         estimates.forEach {
@@ -156,6 +165,16 @@ private fun MonthlyTable(estimates: List<MonthlyEstimate>, colorOf: (Double) -> 
                 color = colorOf(it.tiltDeg),
                 textAlign = TextAlign.End,
                 modifier = Modifier.weight(1f),
+            )
+        }
+        if (temperatures != null) {
+            Text(
+                stringResource(R.string.monthly_temp_header),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.End,
+                modifier = Modifier.width(TEMP_COLUMN),
             )
         }
     }
@@ -171,6 +190,7 @@ private fun MonthlyTable(estimates: List<MonthlyEstimate>, colorOf: (Double) -> 
                     modifier = Modifier.weight(1f),
                 )
             }
+            if (temperatures != null) TemperatureCell(temperatures[month], bold = false)
         }
     }
     HorizontalDivider()
@@ -185,8 +205,28 @@ private fun MonthlyTable(estimates: List<MonthlyEstimate>, colorOf: (Double) -> 
                 modifier = Modifier.weight(1f),
             )
         }
+        if (temperatures != null) TemperatureCell(yearlyMeanTemperature(temperatures), bold = true)
     }
 }
+
+private val TEMP_COLUMN = 64.dp
+
+/** Mean air temperature of a month, "–" when the archive has no value for it. */
+@Composable
+private fun TemperatureCell(celsius: Double?, bold: Boolean) {
+    Text(
+        celsius?.let { "${Format.decimal(it, 1)}°C" } ?: "–",
+        style = MaterialTheme.typography.bodyMedium,
+        fontWeight = if (bold) FontWeight.Bold else null,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.End,
+        modifier = Modifier.width(TEMP_COLUMN),
+    )
+}
+
+/** Day-weighted mean of the twelve monthly means; null unless every month is known. */
+private fun yearlyMeanTemperature(t: Map<Month, Double>): Double? =
+    if (Month.entries.all { it in t }) Month.entries.sumOf { t.getValue(it) * it.length(false) } / 365.0 else null
 
 /** "Change the angle every month": best angle per month, energy and the gain over a fixed angle. */
 @Composable

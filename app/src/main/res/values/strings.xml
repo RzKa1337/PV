@@ -538,6 +538,9 @@
     <string name="month">Miesiąc</string>
     <string name="monthly_chart_desc">"Wykres miesięcznej produkcji dla kątów "</string>
     <string name="monthly_chart_title">Energia [kWh] wg miesięcy</string>
+    <string name="monthly_temp_header">Temp.</string>
+    <string name="monthly_temp_note_archive">Temp. – średnia temperatura powietrza w danym miesiącu z %1$d lat danych archiwalnych dla tej lokalizacji (Open-Meteo, ERA5). Nie jest to prognoza na ten rok.</string>
+    <string name="monthly_temp_note_default">Temp. – przybliżona średnia temperatura powietrza dla Polski centralnej (brak danych archiwalnych dla tej lokalizacji).</string>
     <string name="monthly_footer">Szacunek. Źródło: %1$s. Średnie klimatyczne opisują typowy rok – konkretny miesiąc może być wyraźnie lepszy lub gorszy.</string>
     <string name="monthly_subtitle">%1$s kWp · azymut %2$s %3$s</string>
     <string name="monthly_title">Produkcja miesięczna %1$s</string>

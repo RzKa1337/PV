@@ -89,7 +89,7 @@ enum class ClimateSource { ARCHIVE, DEFAULT_POLAND }
 
 /**
  * Typical monthly climate: mean daily global horizontal irradiation [kWh/m²/day]
- * and mean air temperature [°C].
+ * and mean air temperature [°C] (a month without temperature data is absent from [meanTemperatureC]).
  */
 data class MonthlyClimate(
     val dailyGhiKwhPerM2: Map<Month, Double>,

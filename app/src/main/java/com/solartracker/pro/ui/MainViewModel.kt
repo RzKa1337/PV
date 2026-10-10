@@ -198,6 +198,8 @@ data class MonthlyState(
     val latitude: Double = 0.0,
     /** Panels point away from the equator: the same plan with the panels turned to face it (null otherwise). */
     val equatorPlan: MonthlyTiltPlan? = null,
+    /** Mean air temperature per month (Open-Meteo archive, or approximate averages for Poland); null when unknown. */
+    val climate: MonthlyClimate? = null,
 )
 
 sealed interface GpsStatus {
@@ -452,6 +454,7 @@ class MainViewModel(
             equatorPlan = if (PvSystem.facesAwayFromEquator(s.system.azimuthDeg, s.location.latitude)) runCatching {
                 e.estimator.monthlyTiltPlan(s.system.copy(azimuthDeg = PvSystem.equatorAzimuth(s.location.latitude)), s.location, year, zoneProvider())
             }.getOrNull() else null,
+            climate = e.weather.climate,
         )
     }
         .flowOn(Dispatchers.Default)
