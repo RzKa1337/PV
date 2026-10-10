@@ -37,7 +37,6 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -123,9 +122,10 @@ fun rememberScenery(slot: SceneSlot, location: GeoLocation?): SceneryUi {
     val repo = remember { SceneryRepository.get(context) }
     val seed by repo.seed.collectAsState()
     val enabled by repo.enabled.collectAsState()
-    val phase by produceState(phaseNow(location), location) {
+    var phase by remember(location) { mutableStateOf(phaseNow(location)) }
+    LaunchedEffect(location) {
         while (true) {
-            value = phaseNow(location)
+            phase = phaseNow(location)
             delay(PHASE_CHECK_MS)
         }
     }
