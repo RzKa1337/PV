@@ -1,6 +1,6 @@
 # AUTOPILOT STATUS — Solar Tracker PRO
 
-Ostatnia aktualizacja: 2026-10-09 · gałąź `ccr-81f74041-r3omte` · ostatnie wydanie: v0.20.0 · w toku: Anenji Forensic Analyzer v2 (IMPLEMENTED — REAL VALIDATION REQUIRED)
+Ostatnia aktualizacja: 2026-10-10 · gałąź `ccr-81f74041-r3omte` · ostatnie wydanie: v0.21.0 · w toku: Anenji Forensic Analyzer v2 (IMPLEMENTED — REAL VALIDATION REQUIRED)
 
 ## Audyt repozytorium (faza 0)
 

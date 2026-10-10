@@ -4,6 +4,8 @@ Wszystkie istotne zmiany w projekcie Solar Tracker PRO.
 Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie [SemVer](https://semver.org/).
 
 ## [Unreleased]
+
+## [v0.21.0] - 2026-10-10
 ### Added – wygląd premium i tła ze zdjęciami
 - **Zdjęcia słonecznych miejsc w tle każdej zakładki:**
   - źródło: Wikimedia Commons, bez klucza API, tylko kategoria „Quality images”;
