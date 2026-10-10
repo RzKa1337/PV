@@ -44,6 +44,7 @@ fun GroupedBarChart(
         modifier = modifier
             .fillMaxWidth()
             .height(220.dp)
+            .revealOnAppear()
             .semantics { this.contentDescription = contentDescription },
     ) {
         val leftPad = 40.dp.toPx()

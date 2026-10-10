@@ -993,4 +993,16 @@
     <string name="equator_gain">Facing %1$s: best fixed tilt %2$s, %3$s kWh per year (%4$s vs the current direction).</string>
     <string name="equator_button">Set azimuth %1$s (%2$s)</string>
     <string name="equator_settings_hint">The panels face away from the equator – here the sun shines from the %1$s.</string>
+    <string name="scenery_credit">Photo %1$s · %2$s · Wikimedia Commons</string>
+    <string name="scenery_credit_desc">Background photo by %1$s, license %2$s, Wikimedia Commons. Tap to open the photo page.</string>
+    <string name="scenery_photo_of">Photo: %1$s</string>
+    <string name="scenery_change">Change scenery</string>
+    <string name="scenery_updating">Updating…</string>
+    <string name="scenery_weather_at">Weather %1$s</string>
+    <string name="scenery_settings_title">App background</string>
+    <string name="scenery_photos_switch">Photos of sunny places</string>
+    <string name="scenery_photos_hint">Photos from Wikimedia Commons (free licenses CC0, CC BY, CC BY-SA; author and license shown at the top of the screen – tap to open the photo page). Downloaded in the background and stored on the phone (up to 40 MB), so they also work offline; smaller on mobile data. The photo follows the time of day at the selected location – decoration only, not weather information. When off – built-in illustrations, no downloads.</string>
+    <string name="scenery_change_button">Draw new scenery</string>
+    <string name="dash_next_hours">Next hours (estimate)</string>
+    <string name="dash_in_hours">in %1$d h</string>
 </resources>

@@ -23,6 +23,9 @@ object Format {
 
     fun kw(value: Double): String = "${decimal(value)} kW"
 
+    /** Power in watts with thousands grouping ("1 430 W"); input in kW. */
+    fun watts(kw: Double): String = String.format(locale, "%,.0f W", kw * 1000.0)
+
     fun percent(value: Double, digits: Int = 0): String = "${decimal(value, digits)}%"
 
     fun money(value: Double): String = "${decimal(value, 2)} zł"

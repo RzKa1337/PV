@@ -15,9 +15,10 @@ i **szacowania** produkcji energii z instalacji fotowoltaicznej.
 - Szacowana moc PV teraz, energia od rana i prognoza na cały dzień
 - Wykres godzina → moc PV
 - Porównanie kątów nachylenia paneli (0–90°)
-- Produkcja miesięczna dla kątów 0°, 30°, 45°, 60°, 90° oraz najlepszy kąt na każdy miesiąc (zysk ze zmiany kąta co miesiąc vs stały kąt) oraz porównanie z trackerem 1- i 2-osiowym
+- Produkcja miesięczna dla kątów 0°, 30°, 45°, 60°, 90° ze średnią temperaturą miesiąca (archiwum Open-Meteo) oraz najlepszy kąt na każdy miesiąc (zysk ze zmiany kąta co miesiąc vs stały kąt) oraz porównanie z trackerem 1- i 2-osiowym
 - Ustawienia: moc [kWp], kąt, azymut, lokalizacja – wyszukiwanie miast z podpowiedziami podczas pisania (Open-Meteo bez klucza, opcjonalnie Google Places – [konfiguracja](docs/GOOGLE_PLACES_SETUP.md)), ostatnio wybrane, GPS lub ręczne współrzędne
 - Tryb ciemny
+- Zdjęcia słonecznych miejsc w tle każdej zakładki (Wikimedia Commons, wolne licencje, autor widoczny, bez klucza API; działa offline z pamięci, „Zmień scenerię”, dobór do pory dnia), półprzezroczyste karty i płynne animacje z obsługą systemowego „Usuń animacje” – [docs/SCENERY.md](docs/SCENERY.md)
 - Magazyn energii: symulacja przepływu PV → zużycie → bateria → sieć/agregat,
   bilans, wykresy przepływów i SOC, statystyki, autonomia, koszty i okres zwrotu
 

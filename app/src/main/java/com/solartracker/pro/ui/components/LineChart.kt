@@ -63,6 +63,7 @@ fun LineChart(
         modifier = modifier
             .fillMaxWidth()
             .height(height)
+            .revealOnAppear()
             .semantics { this.contentDescription = contentDescription },
     ) {
         val leftPad = 40.dp.toPx()

@@ -53,6 +53,7 @@ fun PowerChart(
         modifier = modifier
             .fillMaxWidth()
             .height(200.dp)
+            .revealOnAppear()
             .semantics { contentDescription = description },
     ) {
         val leftPad = 44.dp.toPx()

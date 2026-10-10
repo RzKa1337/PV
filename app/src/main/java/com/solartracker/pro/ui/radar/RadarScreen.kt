@@ -1,5 +1,6 @@
 package com.solartracker.pro.ui.radar
 
+import com.solartracker.pro.ui.components.glassColor
 import com.solartracker.pro.ui.components.WeatherGlyph
 import com.solartracker.pro.ui.components.WeatherIcon
 import android.content.Intent
@@ -333,7 +334,7 @@ private fun AlertsColumn(alerts: List<ForecastAlert>) {
 
 @Composable
 private fun Tile(label: String, value: String, foot: String?, modifier: Modifier = Modifier, accent: Color? = null) {
-    Card(modifier, shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+    Card(modifier, shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = glassColor())) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
             Text(value, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = accent ?: MaterialTheme.colorScheme.onSurface, maxLines = 1)
@@ -711,7 +712,7 @@ private fun DaysRow(r: HourlyPvReport, dayFmt: DateTimeFormatter) {
 
 @Composable
 private fun DayCard(d: DayForecast, i: Int, zone: ZoneId, dayFmt: DateTimeFormatter, max: Double) {
-    Card(Modifier.widthIn(min = 108.dp), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+    Card(Modifier.widthIn(min = 108.dp), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = glassColor())) {
         Column(Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(when (i) { 0 -> tr("Dziś", "Today"); 1 -> tr("Jutro", "Tomorrow"); else -> dayFmt.format(d.date.atStartOfDay(zone).toInstant()) },
                 style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)

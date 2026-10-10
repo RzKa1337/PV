@@ -12,6 +12,26 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.graphics.Color
+import com.solartracker.pro.data.SceneryRepository
+import com.solartracker.pro.ui.components.LocalReducedMotion
+import com.solartracker.pro.ui.components.LocalScenery
+import com.solartracker.pro.ui.components.SceneSlot
+import com.solartracker.pro.ui.components.SceneryBar
+import com.solartracker.pro.ui.components.ScenicBackdrop
+import com.solartracker.pro.ui.components.rememberReducedMotion
+import com.solartracker.pro.ui.components.rememberScenery
+import java.time.ZoneId
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Cloud
@@ -154,74 +174,108 @@ fun SolarTrackerApp(viewModel: MainViewModel, openSettingsRequest: Int = 0) {
     val subscription = SubscriptionState.DEFAULT
     val featureAccess = remember { FeatureAccessManager { subscription } }
 
-    Scaffold(
-        // Expose test tags as resource ids so UI tests (UiAutomator) can read the live values.
-        modifier = Modifier.semantics { testTagsAsResourceId = true },
-        bottomBar = {
-            NavigationBar {
-                Tab.entries.forEach { t ->
-                    val label = stringResource(t.label)
-                    NavigationBarItem(
-                        selected = tab == t.ordinal,
-                        onClick = { select(t.ordinal) },
-                        icon = { Icon(t.icon, contentDescription = label) },
-                        label = { Text(label, maxLines = 1) },
-                        alwaysShowLabel = false,
+    val reducedMotion = rememberReducedMotion()
+    val appSettings by viewModel.settings.collectAsStateWithLifecycle()
+    val weatherState by viewModel.weather.collectAsStateWithLifecycle()
+    // One backdrop for the whole app: the photo set is drawn once (seed) and each tab keeps its own picture.
+    val scenery = rememberScenery(SceneSlot.valueOf(Tab.entries[tab].name), appSettings?.location)
+    val sceneryRepository = remember { SceneryRepository.get(context) }
+
+    CompositionLocalProvider(LocalScenery provides scenery, LocalReducedMotion provides reducedMotion) {
+        Box(Modifier.fillMaxSize()) {
+            ScenicBackdrop(scenery)
+            Scaffold(
+                // Expose test tags as resource ids so UI tests (UiAutomator) can read the live values.
+                modifier = Modifier.semantics { testTagsAsResourceId = true },
+                containerColor = Color.Transparent,
+                topBar = {
+                    SceneryBar(
+                        scenery = scenery,
+                        updating = weatherState.enabled && weatherState.loading,
+                        updateText = weatherState.updatedAt?.takeIf { weatherState.enabled }
+                            ?.let { stringResource(R.string.scenery_weather_at, Format.time(it, ZoneId.systemDefault())) },
+                        onShuffle = sceneryRepository::reshuffle,
                     )
+                },
+                bottomBar = {
+                    NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.93f)) {
+                        Tab.entries.forEach { t ->
+                            val label = stringResource(t.label)
+                            NavigationBarItem(
+                                selected = tab == t.ordinal,
+                                onClick = { select(t.ordinal) },
+                                icon = { Icon(t.icon, contentDescription = label) },
+                                label = { Text(label, maxLines = 1) },
+                                alwaysShowLabel = false,
+                                colors = NavigationBarItemDefaults.colors(indicatorColor = MaterialTheme.colorScheme.primaryContainer),
+                            )
+                        }
+                    }
+                },
+            ) { padding ->
+                val contentModifier = Modifier.padding(padding)
+                val tabContent: @Composable (Int) -> Unit = { shown ->
+                    when (Tab.entries[shown]) {
+                        Tab.DASHBOARD -> {
+                            val state by viewModel.dashboard.collectAsStateWithLifecycle()
+                            val weather by viewModel.weather.collectAsStateWithLifecycle()
+                            val energyVm: EnergyCenterViewModel = viewModel()
+                            DashboardScreen(state, viewModel::refreshWeather, contentModifier) { EnergyOverview(energyVm, weather) }
+                        }
+                        Tab.LIVE -> {
+                            // Collecting with lifecycle: the 1-second ticker runs only while this tab is shown
+                            // and the app is in the foreground.
+                            val state by viewModel.live.collectAsStateWithLifecycle()
+                            val path by viewModel.liveSunPath.collectAsStateWithLifecycle()
+                            val active by viewModel.liveActive.collectAsStateWithLifecycle()
+                            val paused by viewModel.livePaused.collectAsStateWithLifecycle()
+                            LiveSolarScreen(state, path, active, paused, viewModel::setLivePaused, contentModifier)
+                        }
+                        Tab.ANGLES -> {
+                            val state by viewModel.tiltComparison.collectAsStateWithLifecycle()
+                            AngleComparisonScreen(state, contentModifier)
+                        }
+                        Tab.MONTHLY -> {
+                            val state by viewModel.monthly.collectAsStateWithLifecycle()
+                            MonthlyScreen(state, onFaceEquator = { az -> viewModel.setPanelAzimuth(az) }, modifier = contentModifier)
+                        }
+                        Tab.ENERGY -> {
+                            val state by viewModel.energy.collectAsStateWithLifecycle()
+                            val costs by viewModel.costs.collectAsStateWithLifecycle()
+                            val period by viewModel.energyPeriod.collectAsStateWithLifecycle()
+                            EnergyScreen(state, costs, period, viewModel::setEnergyPeriod, contentModifier)
+                        }
+                        Tab.CENTER -> {
+                            val weather by viewModel.weather.collectAsStateWithLifecycle()
+                            EnergyCenterScreen(weather, contentModifier)
+                        }
+                        Tab.RADAR -> {
+                            val weather by viewModel.weather.collectAsStateWithLifecycle()
+                            val settings by viewModel.settings.collectAsStateWithLifecycle()
+                            val energyVm: EnergyCenterViewModel = viewModel()
+                            RadarScreen(energyVm, weather, settings?.locationName.orEmpty(), viewModel::refreshWeather, contentModifier)
+                        }
+                        Tab.TOOLS -> {
+                            val settings by viewModel.settings.collectAsStateWithLifecycle()
+                            settings?.let { ToolsScreen(it, featureAccess, subscription, contentModifier) }
+                        }
+                        Tab.SETTINGS -> {
+                            val settings by viewModel.settings.collectAsStateWithLifecycle()
+                            val gpsStatus by viewModel.gpsStatus.collectAsStateWithLifecycle()
+                            val weather by viewModel.weather.collectAsStateWithLifecycle()
+                            SettingsScreen(settings, gpsStatus, weather, settingsActions, energyActions, contentModifier) { UpdateSection() }
+                        }
+                    }
                 }
-            }
-        },
-    ) { padding ->
-        val contentModifier = Modifier.padding(padding)
-        when (Tab.entries[tab]) {
-            Tab.DASHBOARD -> {
-                val state by viewModel.dashboard.collectAsStateWithLifecycle()
-                val weather by viewModel.weather.collectAsStateWithLifecycle()
-                val energyVm: EnergyCenterViewModel = viewModel()
-                DashboardScreen(state, viewModel::refreshWeather, contentModifier) { EnergyOverview(energyVm, weather) }
-            }
-            Tab.LIVE -> {
-                // Collecting with lifecycle: the 1-second ticker runs only while this tab is shown
-                // and the app is in the foreground.
-                val state by viewModel.live.collectAsStateWithLifecycle()
-                val path by viewModel.liveSunPath.collectAsStateWithLifecycle()
-                val active by viewModel.liveActive.collectAsStateWithLifecycle()
-                val paused by viewModel.livePaused.collectAsStateWithLifecycle()
-                LiveSolarScreen(state, path, active, paused, viewModel::setLivePaused, contentModifier)
-            }
-            Tab.ANGLES -> {
-                val state by viewModel.tiltComparison.collectAsStateWithLifecycle()
-                AngleComparisonScreen(state, contentModifier)
-            }
-            Tab.MONTHLY -> {
-                val state by viewModel.monthly.collectAsStateWithLifecycle()
-                MonthlyScreen(state, onFaceEquator = { az -> viewModel.setPanelAzimuth(az) }, modifier = contentModifier)
-            }
-            Tab.ENERGY -> {
-                val state by viewModel.energy.collectAsStateWithLifecycle()
-                val costs by viewModel.costs.collectAsStateWithLifecycle()
-                val period by viewModel.energyPeriod.collectAsStateWithLifecycle()
-                EnergyScreen(state, costs, period, viewModel::setEnergyPeriod, contentModifier)
-            }
-            Tab.CENTER -> {
-                val weather by viewModel.weather.collectAsStateWithLifecycle()
-                EnergyCenterScreen(weather, contentModifier)
-            }
-            Tab.RADAR -> {
-                val weather by viewModel.weather.collectAsStateWithLifecycle()
-                val settings by viewModel.settings.collectAsStateWithLifecycle()
-                val energyVm: EnergyCenterViewModel = viewModel()
-                RadarScreen(energyVm, weather, settings?.locationName.orEmpty(), viewModel::refreshWeather, contentModifier)
-            }
-            Tab.TOOLS -> {
-                val settings by viewModel.settings.collectAsStateWithLifecycle()
-                settings?.let { ToolsScreen(it, featureAccess, subscription, contentModifier) }
-            }
-            Tab.SETTINGS -> {
-                val settings by viewModel.settings.collectAsStateWithLifecycle()
-                val gpsStatus by viewModel.gpsStatus.collectAsStateWithLifecycle()
-                val weather by viewModel.weather.collectAsStateWithLifecycle()
-                SettingsScreen(settings, gpsStatus, weather, settingsActions, energyActions, contentModifier) { UpdateSection() }
+                if (reducedMotion) {
+                    tabContent(tab)
+                } else {
+                    AnimatedContent(
+                        targetState = tab,
+                        transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(140)) },
+                        label = "tab",
+                    ) { shown -> tabContent(shown) }
+                }
             }
         }
     }

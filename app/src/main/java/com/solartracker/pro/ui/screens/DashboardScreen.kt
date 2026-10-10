@@ -1,5 +1,24 @@
 package com.solartracker.pro.ui.screens
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
+import com.solartracker.pro.ui.components.LocalReducedMotion
+import com.solartracker.pro.ui.components.SceneryWindow
+import com.solartracker.pro.ui.components.gentleEnter
 import androidx.compose.material.icons.outlined.BatteryChargingFull
 import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material3.HorizontalDivider
@@ -18,7 +37,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -31,7 +49,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.background
 import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -114,34 +131,112 @@ fun DashboardScreen(
     }
 }
 
-/** Current production as the hero value, its share of the installed peak power, today so far and the day forecast. */
+/**
+ * Hero: current production (model estimate, marked as such) on the scenery photo – value in W, a gauge of the share
+ * of the installed peak power with a glow that grows with the power (none at night), today so far, the day forecast
+ * and the next hours.
+ */
 @Composable
 private fun ProductionCard(state: DashboardState) {
     val s = state.settings
-    val share = if (s.system.peakPowerKw > 0) (state.currentPowerKw / s.system.peakPowerKw).coerceIn(0.0, 1.0) else 0.0
-    SectionCard(Modifier.testTag("dash_production")) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            SectionHeader(stringResource(R.string.dash_current_power), Icons.Outlined.WbSunny, ChartColors.pv, Modifier.weight(1f))
-            EstimateBadge()
-        }
-        Text(Format.kw(state.currentPowerKw), style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
-        LinearProgressIndicator(
-            progress = { share.toFloat() },
-            modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
-            color = ChartColors.pv,
-            trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-        )
-        Text(
-            stringResource(R.string.dash_share_of_peak, Format.percent(share * 100), Format.decimal(s.system.peakPowerKw)) + " · " +
+    val peak = s.system.peakPowerKw
+    val share = if (peak > 0) (state.currentPowerKw / peak).coerceIn(0.0, 1.0) else 0.0
+    val reduced = LocalReducedMotion.current
+    val shownKw by animateFloatAsState(state.currentPowerKw.toFloat(), if (reduced) snap() else tween(700), label = "power")
+    val shownShare by animateFloatAsState(share.toFloat(), if (reduced) snap() else tween(900), label = "share")
+    val onImage = Color.White
+    val dim = Color.White.copy(alpha = 0.82f)
+    SceneryWindow(Modifier.fillMaxWidth().gentleEnter().testTag("dash_production"), veil = 0.5f) {
+        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                SectionHeaderOnImage(stringResource(R.string.dash_current_power), Modifier.weight(1f))
+                EstimateBadge(onImage = true)
+            }
+            Box(Modifier.fillMaxWidth().height(196.dp), contentAlignment = Alignment.Center) {
+                PowerGauge(shownShare, Modifier.size(196.dp))
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        Format.watts(shownKw.toDouble()),
+                        style = MaterialTheme.typography.displaySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = onImage,
+                        modifier = Modifier.semantics { contentDescription = Format.watts(state.currentPowerKw) },
+                    )
+                    Text(
+                        stringResource(R.string.dash_share_of_peak, Format.percent(share * 100), Format.decimal(peak)),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = dim,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.widthIn(max = 150.dp),
+                    )
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                HeroMetric(stringResource(R.string.dash_today), Format.kwh(state.energySoFarKwh), stringResource(R.string.dash_since_midnight), Modifier.weight(1f))
+                HeroMetric(stringResource(R.string.dash_day_forecast), Format.kwh(state.energyTodayKwh), stringResource(R.string.dash_whole_day), Modifier.weight(1f))
+            }
+            HorizontalDivider(color = Color.White.copy(alpha = 0.25f))
+            Text(stringResource(R.string.dash_next_hours), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = dim)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                nextHours(state).forEach { (hours, kw) ->
+                    Column(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha = 0.12f)).padding(horizontal = 10.dp, vertical = 6.dp)) {
+                        Text(stringResource(R.string.dash_in_hours, hours), style = MaterialTheme.typography.labelSmall, color = dim)
+                        Text(kw?.let { Format.watts(it) } ?: "—", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = onImage)
+                    }
+                }
+            }
+            Text(
                 stringResource(R.string.dash_pv_footnote, Format.degrees(s.system.tiltDeg), Format.degrees(s.system.azimuthDeg), Format.compass(s.system.azimuthDeg)),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        HorizontalDivider(Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant)
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            MetricColumn(stringResource(R.string.dash_today), Format.kwh(state.energySoFarKwh), stringResource(R.string.dash_since_midnight), Modifier.weight(1f))
-            MetricColumn(stringResource(R.string.dash_day_forecast), Format.kwh(state.energyTodayKwh), stringResource(R.string.dash_whole_day), Modifier.weight(1f))
+                style = MaterialTheme.typography.bodySmall,
+                color = dim,
+            )
         }
+    }
+}
+
+/** Model power 1, 2 and 3 hours from now (from today's profile; "—" past the end of the day). */
+private fun nextHours(state: DashboardState): List<Pair<Int, Double?>> = (1..3).map { h ->
+    val at = state.now.plusSeconds(h * 3600L)
+    val point = state.profile.minByOrNull { kotlin.math.abs(java.time.Duration.between(it.time, at).seconds) }
+    h to point?.takeIf { kotlin.math.abs(java.time.Duration.between(it.time, at).toMinutes()) <= 30 }?.powerKw
+}
+
+/** Arc gauge (240°) of the share of peak power with a warm glow proportional to it; nothing lit at zero power. */
+@Composable
+private fun PowerGauge(share: Float, modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val stroke = 12.dp.toPx()
+        val r = size.minDimension / 2 - stroke
+        val center = Offset(size.width / 2, size.height / 2)
+        if (share > 0.001f) {
+            drawCircle(Brush.radialGradient(listOf(Color(0xFFFFC857).copy(alpha = 0.55f * share), Color.Transparent), center, r * 1.1f), r * 1.1f, center)
+        }
+        val topLeft = Offset(center.x - r, center.y - r)
+        val arcSize = Size(r * 2, r * 2)
+        drawArc(Color.White.copy(alpha = 0.22f), 150f, 240f, false, topLeft, arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
+        if (share > 0.001f) {
+            drawArc(
+                Brush.sweepGradient(listOf(Color(0xFFFFE08A), Color(0xFFFFB300), Color(0xFFFF8A00), Color(0xFFFFE08A)), center),
+                150f, 240f * share, false, topLeft, arcSize, style = Stroke(stroke, cap = StrokeCap.Round),
+            )
+        }
+    }
+}
+
+@Composable
+private fun SectionHeaderOnImage(text: String, modifier: Modifier = Modifier) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Icon(Icons.Outlined.WbSunny, contentDescription = null, tint = Color(0xFFFFC857), modifier = Modifier.size(20.dp))
+        Text(text, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = Color.White)
+    }
+}
+
+@Composable
+private fun HeroMetric(label: String, value: String, footnote: String, modifier: Modifier) {
+    Column(modifier) {
+        Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.82f))
+        Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = Color.White)
+        Text(footnote, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.82f))
     }
 }
 

@@ -4,6 +4,33 @@ Wszystkie istotne zmiany w projekcie Solar Tracker PRO.
 Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie [SemVer](https://semver.org/).
 
 ## [Unreleased]
+### Added – wygląd premium i tła ze zdjęciami
+- **Zdjęcia słonecznych miejsc w tle każdej zakładki:**
+  - źródło: Wikimedia Commons, bez klucza API, tylko kategoria „Quality images”;
+  - licencje CC0, domena publiczna, CC BY lub CC BY-SA; autor i licencja w pasku u góry, dotknięcie otwiera stronę zdjęcia;
+  - miejsca: Santorini, Amalfi, Didim/Altınkum, Wyspy Kanaryjskie, Andaluzja, Palermo, Atakama, farmy PV i inne;
+  - jeden zestaw na wszystkie zakładki: przełączanie zakładek nie losuje ponownie, a **„Zmień scenerię”** losuje nowy zestaw;
+  - zdjęcie dobierane do pory dnia w wybranej lokalizacji (świt, dzień, popołudnie, zachód, noc). To tylko dekoracja, nie informacja o pogodzie;
+  - pamięć podręczna na telefonie (do 40 MB), działa też offline; na sieci komórkowej mniejsze zdjęcia;
+  - bez sieci i przy pierwszym uruchomieniu – wbudowane ilustracje;
+  - zdjęcia można wyłączyć w Ustawieniach → Tło aplikacji.
+- **Nowy wygląd:**
+  - paleta granat, petrol, turkus i złoto;
+  - półprzezroczyste karty z delikatną ramką;
+  - półprzezroczysty pasek nawigacji ze złotym podświetleniem aktywnej zakładki;
+  - nagłówki ekranów na bieżącym zdjęciu;
+  - status aktualizacji pogody w pasku u góry.
+- **Pulpit:** aktualna moc w W na zdjęciu, łuk z procentem mocy nominalnej i poświata proporcjonalna do mocy (w nocy brak); do tego energia dziś, prognoza dnia i moc za 1, 2 i 3 h. Wszystko oznaczone jako szacunek.
+- **Animacje:**
+  - jednorazowe, powolne przybliżenie zdjęcia;
+  - płynne przejścia zdjęć i zakładek;
+  - pojawianie się kart;
+  - rysowanie wykresów;
+  - płynna zmiana wartości mocy.
+
+  Wszystkie są wyłączone przy systemowym „Usuń animacje”.
+- Szczegóły: [docs/SCENERY.md](docs/SCENERY.md).
+
 ### Added
 - Zakładka Miesiące: kolumna **Temp.** w tabeli – średnia temperatura powietrza w każdym miesiącu (i średnia roczna) dla wybranej lokalizacji, z wieloletnich danych archiwalnych Open-Meteo (ERA5); bez danych dla lokalizacji – przybliżone średnie dla Polski centralnej, wyraźnie opisane. To średnie z lat ubiegłych, nie prognoza.
 

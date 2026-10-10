@@ -2,6 +2,7 @@ package com.solartracker.pro.ui.components
 
 import androidx.compose.ui.res.stringResource
 import com.solartracker.pro.R
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -36,12 +37,12 @@ fun SectionHeader(text: String, icon: ImageVector? = null, tint: Color = Materia
 
 /** Small label marking a value as a model estimate, never a measurement. */
 @Composable
-fun EstimateBadge(modifier: Modifier = Modifier, text: String = stringResource(R.string.estimate_badge)) {
+fun EstimateBadge(modifier: Modifier = Modifier, text: String = stringResource(R.string.estimate_badge), onImage: Boolean = false) {
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(6.dp),
-        color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.18f),
-        contentColor = MaterialTheme.colorScheme.tertiary,
+        color = if (onImage) Color.Black.copy(alpha = 0.35f) else MaterialTheme.colorScheme.tertiary.copy(alpha = 0.18f),
+        contentColor = if (onImage) Color(0xFFFFD98A) else MaterialTheme.colorScheme.tertiary,
     ) {
         Text(
             text = text,
@@ -52,16 +53,21 @@ fun EstimateBadge(modifier: Modifier = Modifier, text: String = stringResource(R
     }
 }
 
+/**
+ * Content card over the scenic backdrop: translucent ("glass") surface with a hairline border; it fades in once when
+ * the screen opens. Status cards pass their own (opaque) container colour.
+ */
 @Composable
 fun SectionCard(
     modifier: Modifier = Modifier,
-    containerColor: Color = MaterialTheme.colorScheme.surfaceContainer,
+    containerColor: Color = glassColor(),
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Card(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().gentleEnter(),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = containerColor),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)),
     ) {
         Column(
             modifier = Modifier.padding(16.dp),

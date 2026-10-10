@@ -994,4 +994,16 @@
     <string name="equator_gain">Skierowane na %1$s: najlepszy stały kąt %2$s, %3$s kWh rocznie (%4$s względem obecnego kierunku).</string>
     <string name="equator_button">Ustaw azymut %1$s (%2$s)</string>
     <string name="equator_settings_hint">Panele są skierowane od równika – tutaj słońce świeci od strony %1$s.</string>
+    <string name="scenery_credit">Fot. %1$s · %2$s · Wikimedia Commons</string>
+    <string name="scenery_credit_desc">Autor zdjęcia w tle: %1$s, licencja %2$s, Wikimedia Commons. Dotknij, aby otworzyć stronę zdjęcia.</string>
+    <string name="scenery_photo_of">Zdjęcie: %1$s</string>
+    <string name="scenery_change">Zmień scenerię</string>
+    <string name="scenery_updating">Aktualizacja…</string>
+    <string name="scenery_weather_at">Pogoda %1$s</string>
+    <string name="scenery_settings_title">Tło aplikacji</string>
+    <string name="scenery_photos_switch">Zdjęcia słonecznych miejsc</string>
+    <string name="scenery_photos_hint">Zdjęcia z Wikimedia Commons (wolne licencje CC0, CC BY, CC BY-SA; autor i licencja widoczne u góry ekranu – dotknij, aby otworzyć stronę zdjęcia). Pobierane w tle i zapisywane na telefonie (do 40 MB), więc działają też bez internetu; na sieci komórkowej w mniejszym rozmiarze. Zdjęcie dobierane jest do pory dnia w wybranej lokalizacji – to tylko dekoracja, nie informacja o pogodzie. Po wyłączeniu – wbudowane ilustracje bez pobierania.</string>
+    <string name="scenery_change_button">Wylosuj nową scenerię</string>
+    <string name="dash_next_hours">Najbliższe godziny (szacunek)</string>
+    <string name="dash_in_hours">za %1$d h</string>
 </resources>

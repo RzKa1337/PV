@@ -37,8 +37,8 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 /**
- * Sunny places drawn as vector illustrations (no photos: nothing to download, license or cache; sharp on every screen
- * and tiny in the APK). Purely decorative – they carry no data.
+ * Sunny places drawn as vector illustrations: shown while a photo loads, offline before any photo was stored and with
+ * photos turned off (nothing to download or license; tiny in the APK). Purely decorative – they carry no data.
  */
 enum class SunnyScene(@StringRes val caption: Int) {
     DOLOMITES(R.string.scene_dolomites),
@@ -49,37 +49,33 @@ enum class SunnyScene(@StringRes val caption: Int) {
     ALGARVE(R.string.scene_algarve),
 }
 
-/** Screen header on an illustration of a sunny place; the title stays real text (readable, findable by tests). */
+/**
+ * Screen header: a window onto the current scenery (photo, or this illustration offline) with the title as real text
+ * (readable, findable by tests) on a dark veil.
+ */
 @Composable
 fun SunnyBanner(scene: SunnyScene, title: String, subtitle: String?, modifier: Modifier = Modifier) {
-    val caption = stringResource(scene.caption)
+    val scenery = LocalScenery.current
+    val caption = scenery.photo?.let { stringResource(R.string.scenery_photo_of, it.title.removePrefix("File:").substringBeforeLast('.')) }
+        ?: stringResource(scenery.fallback.caption)
     val shadow = Shadow(Color.Black.copy(alpha = 0.55f), Offset(0f, 2f), 6f)
-    Box(modifier.fillMaxWidth().heightIn(min = 136.dp).clip(RoundedCornerShape(22.dp))) {
-        Canvas(Modifier.matchParentSize().semantics { contentDescription = caption }) {
-            drawScene(scene)
-            // Scrim at the bottom so white text is readable on any scene.
-            drawRect(Brush.verticalGradient(0.35f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.55f)))
-        }
-        Text(
-            caption,
-            style = MaterialTheme.typography.labelSmall,
-            color = Color.White,
-            modifier = Modifier.align(Alignment.TopEnd).padding(10.dp)
-                .clip(RoundedCornerShape(8.dp)).background(Color.Black.copy(alpha = 0.28f)).padding(horizontal = 8.dp, vertical = 3.dp),
-        )
-        Column(
-            Modifier.align(Alignment.BottomStart).padding(start = 16.dp, end = 16.dp, top = 52.dp, bottom = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
-            Text(title, style = MaterialTheme.typography.headlineSmall.merge(TextStyle(shadow = shadow)), fontWeight = FontWeight.Bold, color = Color.White)
-            if (subtitle != null) {
-                Text(subtitle, style = MaterialTheme.typography.bodyMedium.merge(TextStyle(shadow = shadow)), color = Color.White.copy(alpha = 0.92f), lineHeight = 18.sp)
+    SceneryWindow(modifier.fillMaxWidth().heightIn(min = 148.dp).gentleEnter().semantics { contentDescription = caption }) {
+        Box(Modifier.fillMaxWidth().heightIn(min = 148.dp)) {
+            Column(
+                Modifier.align(Alignment.BottomStart).padding(start = 16.dp, end = 16.dp, top = 52.dp, bottom = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Text(title, style = MaterialTheme.typography.headlineSmall.merge(TextStyle(shadow = shadow)), fontWeight = FontWeight.Bold, color = Color.White)
+                if (subtitle != null) {
+                    Text(subtitle, style = MaterialTheme.typography.bodyMedium.merge(TextStyle(shadow = shadow)), color = Color.White.copy(alpha = 0.92f), lineHeight = 18.sp)
+                }
             }
         }
     }
 }
 
-private fun DrawScope.drawScene(scene: SunnyScene) {
+/** Draws [scene] filling the current draw area. */
+internal fun DrawScope.drawSunnyScene(scene: SunnyScene) {
     when (scene) {
         SunnyScene.DOLOMITES -> dolomites()
         SunnyScene.PROVENCE -> provence()
