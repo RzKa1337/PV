@@ -31,9 +31,18 @@ object OpenMeteo {
             "cloud_cover_low,cloud_cover_mid,cloud_cover_high,uv_index,uv_index_clear_sky,wind_gusts_10m," +
             "dew_point_2m,apparent_temperature,precipitation_probability,wind_direction_10m,rain,snowfall,weather_code"
 
+    /** 15-minute irradiance (means of the preceding 15 minutes), same variables as the hourly irradiance. */
+    private const val MINUTELY_15_VARIABLES = "shortwave_radiation,direct_normal_irradiance,diffuse_radiation"
+
+    /** 15-minute steps requested: the last 24 h (today's expected vs actual) and the next 48 h. */
+    const val PAST_QUARTER_HOURS = 96
+    const val FORECAST_QUARTER_HOURS = 192
+
     fun forecastUrl(location: GeoLocation, forecastDays: Int = 16, pastDays: Int = 2): String =
         "https://api.open-meteo.com/v1/forecast?latitude=${coord(location.latitude)}" +
             "&longitude=${coord(location.longitude)}&hourly=$HOURLY_VARIABLES" +
+            "&minutely_15=$MINUTELY_15_VARIABLES" +
+            "&past_minutely_15=$PAST_QUARTER_HOURS&forecast_minutely_15=$FORECAST_QUARTER_HOURS" +
             "&forecast_days=$forecastDays&past_days=$pastDays&wind_speed_unit=ms&timezone=auto&timeformat=unixtime"
 
     /** Daily irradiation and temperature for whole calendar years [firstYear]..[lastYear]. */
@@ -107,8 +116,26 @@ object OpenMeteo {
             )
         }
         require(hours.isNotEmpty()) { "Empty forecast" }
-        return WeatherForecast(hours, fetchedAt, zone, lat, lon)
+        return WeatherForecast(hours, fetchedAt, zone, lat, lon, parseQuarterHours(root))
     }
+
+    /**
+     * Optional `minutely_15` block. It never fails the forecast: an absent or malformed block (old cache, provider
+     * change) leaves the hourly data in charge. Steps without both beam and diffuse irradiance are dropped.
+     */
+    private fun parseQuarterHours(root: JsonObject): List<QuarterHourIrradiance> = runCatching {
+        val block = root["minutely_15"]?.jsonObject ?: return emptyList()
+        val time = block.longs("time")
+        val dni = block.doubles("direct_normal_irradiance", time.size)
+        val dhi = block.doubles("diffuse_radiation", time.size)
+        time.mapIndexedNotNull { i, t ->
+            QuarterHourIrradiance(
+                endTime = Instant.ofEpochSecond(t ?: return@mapIndexedNotNull null),
+                dni = dni[i]?.coerceAtLeast(0.0) ?: return@mapIndexedNotNull null,
+                dhi = dhi[i]?.coerceAtLeast(0.0) ?: return@mapIndexedNotNull null,
+            )
+        }
+    }.getOrDefault(emptyList())
 
     /**
      * Averages daily archive values per calendar month.

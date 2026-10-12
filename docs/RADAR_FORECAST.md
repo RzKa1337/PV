@@ -9,6 +9,7 @@ od kalibracji na prawdziwych danych z falownika (patrz „Trafność prognozy”
 | Dane | Źródło | Klucz API | Internet | Offline |
 |---|---|---|---|---|
 | Prognoza godzinowa (temperatura, odczuwalna, wilgotność, punkt rosy, chmury całkowite/niskie/średnie/wysokie, opad, prawdopodobieństwo opadu, deszcz, śnieg, wiatr, porywy, kierunek, UV, kod pogody, GHI/DNI/DHI) | Open-Meteo `/v1/forecast` (CC BY 4.0), `timezone=auto` | nie | tak | ostatnia prognoza z pamięci (do 3 dni), oznaczona „Z PAMIĘCI” |
+| Nasłonecznienie 15-minutowe (DNI, DHI; ostatnie 24 h i najbliższe 48 h) | Open-Meteo `/v1/forecast`, blok `minutely_15` w tym samym zapytaniu | nie | tak | z tej samej zapisanej odpowiedzi; stara kopia bez bloku → dane godzinowe |
 | Strefa czasowa lokalizacji | Open-Meteo (`timezone` w odpowiedzi) | – | – | stara kopia bez strefy → strefa telefonu, oznaczona |
 | Radar opadów | RainViewer public Weather Maps API (`api.rainviewer.com/public/weather-maps.json` + kafelki `tilecache.rainviewer.com`) | nie | tak | ostatni indeks klatek z pamięci; wiek decyduje o statusie |
 | Mapa | OpenStreetMap (osmdroid, kafelki w pamięci podręcznej) | nie | tak | kafelki z pamięci |

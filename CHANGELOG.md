@@ -4,6 +4,8 @@ Wszystkie istotne zmiany w projekcie Solar Tracker PRO.
 Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie [SemVer](https://semver.org/).
 
 ## [Unreleased]
+### Added
+- Prognoza nasłonecznienia co 15 minut (Open-Meteo `minutely_15`) dla ostatnich 24 h i najbliższych 48 h, w tym samym zapytaniu co prognoza godzinowa (bez dodatkowych zapytań). Model PV używa jej wszędzie tam, gdzie jest dostępna, a dalej – danych godzinowych. PV Radar w Diagnostyce podaje wtedy rozdzielczość 15 min (czas zdarzenia ±7 min) zamiast 60 min; gdy choć część okna zdarzeń ma tylko dane godzinowe – nadal 60 min. Poza Europą Środkową i Ameryką Północną dostawca interpoluje dane godzinowe. Stan: testy JVM rdzenia 479/479 (w tym na prawdziwej odpowiedzi API), aplikacja buduje się, testy jednostkowe i lint przechodzą; nie sprawdzono na telefonie ani na pomiarach z falownika.
 
 ## [v0.21.1] - 2026-10-12
 ### Fixed

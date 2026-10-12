@@ -52,9 +52,19 @@ data class HourlyWeather(
 }
 
 /**
+ * Irradiance [W/m²] for the 15 minutes ending at [endTime] (Open-Meteo `minutely_15`: mean of the preceding
+ * 15 minutes). Native 15-minute model data exists only for some regions (Central Europe, North America); elsewhere
+ * the provider interpolates its hourly data, so the values are then no sharper than the hourly ones.
+ */
+data class QuarterHourIrradiance(val endTime: Instant, val dni: Double, val dhi: Double) {
+    val startTime: Instant get() = endTime.minus(Duration.ofMinutes(15))
+}
+
+/**
  * Hourly forecast, sorted by time.
  * @property zone time zone of the forecast location (from the provider); null when unknown (old cache)
  * @property latitude/longitude grid point the provider used, when reported
+ * @property quarterHours 15-minute irradiance for the hours around now (empty when the provider sent none)
  */
 class WeatherForecast(
     hours: List<HourlyWeather>,
@@ -62,8 +72,26 @@ class WeatherForecast(
     val zone: java.time.ZoneId? = null,
     val latitude: Double? = null,
     val longitude: Double? = null,
+    quarterHours: List<QuarterHourIrradiance> = emptyList(),
 ) {
     val hours: List<HourlyWeather> = hours.sortedBy { it.endTime }
+    val quarterHours: List<QuarterHourIrradiance> = quarterHours.sortedBy { it.endTime }
+
+    /** The 15-minute step whose interval (start, end] contains [instant], or null. */
+    fun quarterAt(instant: Instant): QuarterHourIrradiance? {
+        var lo = 0
+        var hi = quarterHours.size - 1
+        while (lo <= hi) {
+            val mid = (lo + hi) ushr 1
+            val q = quarterHours[mid]
+            when {
+                !instant.isAfter(q.startTime) -> hi = mid - 1
+                instant.isAfter(q.endTime) -> lo = mid + 1
+                else -> return q
+            }
+        }
+        return null
+    }
 
     val coversFrom: Instant? get() = hours.firstOrNull { it.hasIrradiance }?.startTime
     val coversUntil: Instant? get() = hours.lastOrNull { it.hasIrradiance }?.endTime

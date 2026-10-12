@@ -18,7 +18,7 @@ Evidence-first „Co się stało?”, baseline, korelacja, graf dowodów, przycz
 ## Next
 1. Real-device validation of the Anenji register map with a user's inverter – record the log in Centrum → Diagnostyka PV and export CSV/JSON.
 2. Screens in Narzędzia for the layout optimizer, tilt schedule, wind safety and what-if (core is ready and tested).
-3. 15-minute Open-Meteo irradiance (`minutely_15`) for a sharper PV radar (now hourly, ±30 min).
+3. ~~15-minute Open-Meteo irradiance (`minutely_15`) for a sharper PV radar~~ – done in core (last 24 h + next 48 h; hourly beyond that).
 4. Per-MPPT configuration (Wp, modules, orientation) instead of the even split.
 2. Map view for the location comparison.
 3. Real-device validation of each SMG register (mark VERIFIED in `SmgRegisters`).

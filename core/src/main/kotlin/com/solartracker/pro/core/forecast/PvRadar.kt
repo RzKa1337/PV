@@ -42,6 +42,7 @@ class PvRadarBuilder(
     private val pv: PredictivePvEngine,
     private val clearSky: PredictivePvEngine,
     private val peakKw: Double,
+    /** Step of the weather data behind the radar [min]: [WeatherAwareIrradianceModel.resolutionMinutes] over the event window. */
     private val resolutionMinutes: Int = 60,
 ) {
     fun build(now: Instant, nowcastRatio: Double?, currentKw: Double?, step: Duration = Duration.ofMinutes(5)): PvRadar {

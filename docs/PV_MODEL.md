@@ -103,8 +103,14 @@ Współczynnik jest uczony na modelu estymatora (PR) i stosowany tylko w prognoz
   znane modelowi; bez pomiaru z falownika estymacja minutowa jest tak dobra jak prognoza godzinowa.
 - Dostawca nie podaje typu chmur – są tylko procenty pokrycia warstw (nie „rozpoznajemy” chmur).
 - Radar opadów nie jest pomiarem irradiancji i nie jest używany do liczenia mocy.
-- Open-Meteo oferuje też dane 15-minutowe (`minutely_15`, natywnie dla części Europy); nie zostały włączone, bo nie
-  mogły być sprawdzone na żywo w tym środowisku – kandydat na kolejny krok.
+- Dane 15-minutowe Open-Meteo (`minutely_15`: wiązka i rozproszone, średnie z poprzednich 15 minut) są używane dla
+  ostatnich 24 h i najbliższych 48 h; poza tym zakresem (i gdy dostawca ich nie przyśle) – dane godzinowe. Ten sam
+  schemat co dla godzin: indeks czystego nieba i udział rozproszonej interpolowane między środkami przedziałów.
+  Natywne dane 15-minutowe istnieją tylko dla części świata (Europa Środkowa, Ameryka Północna); gdzie indziej dostawca
+  interpoluje dane godzinowe, więc „15 min” nie oznacza tam lepszej wiedzy o chmurach. Dane 15-minutowe i godzinowe
+  mogą pochodzić z różnych przebiegów modelu – sumy energii dla tych samych godzin nie muszą być identyczne
+  (w przechwyconej odpowiedzi dla Warszawy różniły się w pojedynczych godzinach nawet o kilkadziesiąt procent).
+  Nie sprawdzono na pomiarach z falownika, czy prognoza 15-minutowa jest trafniejsza od godzinowej.
 - Jedna płaszczyzna paneli w ustawieniach; wiele orientacji (wschód/zachód) – liczone osobno w projektancie
   i zacienieniu, nie w głównym estymatorze. Jedno MPPT / jeden limit falownika.
 - Odbicie od gruntu – izotropowe, stałe albedo 0,2 (śnieg zwiększa albedo – nieuwzględnione). Brak modelu Perez (brak możliwości

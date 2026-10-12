@@ -147,7 +147,7 @@ Zaimplementowane, kompiluje się i przechodzi lint w CI — **czeka na ręczny t
 - [x] Rdzeń + testy: optymalizator rozmieszczenia paneli, harmonogram kąta, bezpieczeństwo wiatrowe, symulator „co jeśli”
 - [ ] Ekrany w Narzędziach dla: rozmieszczenia paneli, harmonogramu kąta, wiatru, „co jeśli”
 - [ ] Konfiguracja MPPT (Wp, liczba modułów, orientacja) zamiast równego podziału
-- [ ] Prognoza 15-minutowa Open-Meteo (`minutely_15`) dla radaru
+- [x] Prognoza 15-minutowa Open-Meteo (`minutely_15`) dla radaru – rdzeń + testy JVM (w tym prawdziwa odpowiedź API); build, testy jednostkowe `:app` i lint przechodzą; czeka na test na telefonie
 - [ ] Historia opadów (archiwum) dla potwierdzania zabrudzenia starszych dni
 - [ ] **REAL DEVICE VALIDATION** – nagrać log rejestrów z prawdziwego Anenji i oznaczyć zweryfikowane rejestry jako VERIFIED
 

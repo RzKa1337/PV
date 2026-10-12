@@ -720,7 +720,9 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
             // Radar: the same engine on a clear sky (same calibration/shading/limits) isolates the cloud impact.
             val clear = pvEngine(s, WeatherAwareIrradianceModel(s.location), model)
             val currentKw = live.telemetry?.pv?.powerW?.takeIf { fresh }?.div(1000.0)
-            val radar = withContext(Dispatchers.Default) { PvRadarBuilder(pv, clear, s.system.peakPowerKw).build(now, nowcast, currentKw) }
+            // Event timing is as sharp as the coarsest weather step in the event window (15 min where the provider has it).
+            val resolution = weather.resolutionMinutes(now, now.plus(Duration.ofMinutes(PvRadarBuilder.EVENT_WINDOW_MIN)))
+            val radar = withContext(Dispatchers.Default) { PvRadarBuilder(pv, clear, s.system.peakPowerKw, resolution).build(now, nowcast, currentKw) }
             val goal = _diagnostics.value.missionGoal
             val mission = withContext(Dispatchers.Default) {
                 EnergyMissionPlanner(security, zone).evaluate(
