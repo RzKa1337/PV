@@ -13,6 +13,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
@@ -205,7 +207,7 @@ fun SolarTrackerApp(viewModel: MainViewModel, openSettingsRequest: Int = 0) {
                                 selected = tab == t.ordinal,
                                 onClick = { select(t.ordinal) },
                                 icon = { Icon(t.icon, contentDescription = label) },
-                                label = { Text(label, maxLines = 1) },
+                                label = { FitLabel(label) },
                                 alwaysShowLabel = false,
                                 colors = NavigationBarItemDefaults.colors(indicatorColor = MaterialTheme.colorScheme.primaryContainer),
                             )
@@ -282,3 +284,25 @@ fun SolarTrackerApp(viewModel: MainViewModel, openSettingsRequest: Int = 0) {
 }
 
 private const val EXIT_CONFIRM_MS = 2_000L
+
+/**
+ * Navigation label that always fits its item: with nine tabs an item is only ~45 dp wide, so a long word
+ * ("Pulpit", "Ustawienia") is drawn smaller instead of being cut off ("Pulpi").
+ */
+@Composable
+private fun FitLabel(text: String) {
+    val style = MaterialTheme.typography.labelMedium
+    val measurer = rememberTextMeasurer()
+    BoxWithConstraints {
+        val needed = remember(text, style) { measurer.measure(text, style, softWrap = false, maxLines = 1).size.width }
+        val scale = if (constraints.hasBoundedWidth && needed > constraints.maxWidth && needed > 0) {
+            (constraints.maxWidth.toFloat() / needed).coerceAtLeast(MIN_LABEL_SCALE)
+        } else {
+            1f
+        }
+        Text(text, style = style.copy(fontSize = style.fontSize * scale), maxLines = 1, softWrap = false)
+    }
+}
+
+/** Below this the label gets too small to read; it may then be clipped slightly instead. */
+private const val MIN_LABEL_SCALE = 0.7f

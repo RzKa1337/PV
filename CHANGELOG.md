@@ -5,6 +5,10 @@ Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie 
 
 ## [Unreleased]
 
+## [v0.21.1] - 2026-10-12
+### Fixed
+- Pasek nawigacji: nazwa wybranej zakładki nie jest już ucinana („Pulpi” → „Pulpit”). Przy 9 zakładkach długie nazwy rysowane są mniejszą czcionką, aby się zmieściły (najwyżej o 30% mniejszą).
+
 ## [v0.21.0] - 2026-10-10
 ### Added – wygląd premium i tła ze zdjęciami
 - **Zdjęcia słonecznych miejsc w tle każdej zakładki:**
