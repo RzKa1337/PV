@@ -113,6 +113,9 @@ private fun w(x: Double?): String = x?.let { if (it >= 1000) String.format(Local
 private fun c(x: Double?, d: Int = 1): String = x?.let { String.format(Locale.ROOT, "%.${d}f°", it) } ?: "N/A"
 private fun pct(x: Double?): String = x?.let { "${it.roundToInt()}%" } ?: "N/A"
 private fun kwh(x: Double?): String = x?.let { String.format(Locale.ROOT, "%.2f kWh", it) } ?: "N/A"
+/** 80 % range of an energy [kWh], with decimals the spread justifies. */
+private fun kwhRange(lo: Double, hi: Double): String =
+    if (hi - lo >= 1.0) String.format(Locale.ROOT, "%.1f–%.1f kWh", lo, hi) else String.format(Locale.ROOT, "%.2f–%.2f kWh", lo, hi)
 private fun kmh(ms: Double?): String = ms?.let { "${(it * 3.6).roundToInt()} km/h" } ?: "N/A"
 private fun mm(x: Double?): String = x?.let { String.format(Locale.ROOT, "%.1f mm", it) } ?: "N/A"
 
@@ -349,7 +352,10 @@ private fun TodayTiles(r: HourlyPvReport, hm: DateTimeFormatter) {
     Column(Modifier.testTag("radar_today"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(tr("Dziś", "Today") + " · ${d.icon} ${d.condition}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Tile(tr("Prognoza PV", "Expected PV"), kwh(d.expectedKwh), d.clearSkyKwh?.takeIf { it > 0 }?.let { tr("czyste niebo ", "clear sky ") + kwh(it) }, Modifier.weight(1f), ChartColors.pv)
+            Tile(tr("Prognoza PV", "Expected PV"), kwh(d.expectedKwh), listOfNotNull(
+                d.ensemble?.let { "80%: " + kwhRange(it.p10, it.p90) },
+                d.clearSkyKwh?.takeIf { it > 0 }?.let { tr("czyste niebo ", "clear sky ") + kwh(it) },
+            ).joinToString("\n").ifEmpty { null }, Modifier.weight(1f), ChartColors.pv)
             Tile(tr("Szczyt", "Peak"), w(d.peakW), d.peakAt?.let { tr("ok. ", "at ") + hm.format(it) }, Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -574,6 +580,9 @@ private fun ChartCard(vm: EnergyCenterViewModel, r: HourlyPvReport, range: Int, 
             LegendDot(nowColor, tr("teraz", "now"))
             LegendDot(night.copy(alpha = 0.25f), tr("noc", "night"))
         }
+        if (r.ensembleModel != null) Text(tr("Jasne pasmo: zakres 80% z ${r.ensembleMembers ?: 0} scenariuszy pogody (${r.ensembleModel})",
+            "Light band: 80% range of ${r.ensembleMembers ?: 0} weather scenarios (${r.ensembleModel})"), style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
         HourDetails(hours[selected.coerceIn(0, hours.lastIndex)], hm, dayFmt)
     }
 }
@@ -613,7 +622,8 @@ private fun HourDetails(h: HourForecast, hm: DateTimeFormatter, dayFmt: DateTime
                 else -> "N/A"
             }, bold = true)
             h.differenceW?.let { DetailLine(tr("Różnica", "Difference"), String.format(Locale.ROOT, "%+.0f W", it) + (h.deviationPercent?.let { d -> String.format(Locale.ROOT, " (%+.1f%%)", d) } ?: "")) }
-            DetailLine(tr("Zakres prognozy", "Forecast range"), w(h.expectedMinW) + " – " + w(h.expectedMaxW) + (h.clearSkyW?.let { " · " + tr("czyste niebo ", "clear sky ") + w(it) } ?: ""))
+            DetailLine(h.ensemble?.let { tr("Zakres 80% (${it.members} scen. pogody)", "80% range (${it.members} weather scen.)") } ?: tr("Zakres prognozy", "Forecast range"),
+                w(h.expectedMinW) + " – " + w(h.expectedMaxW) + (h.clearSkyW?.let { " · " + tr("czyste niebo ", "clear sky ") + w(it) } ?: ""))
             HorizontalDivider(Modifier.padding(vertical = 4.dp))
             DetailLine(tr("Temperatura", "Temperature"), c(wx?.temperatureC) + "C" + (wx?.apparentTemperatureC?.let { " (" + tr("odcz. ", "feels ") + c(it) + ")" } ?: ""))
             DetailLine(tr("Wilgotność · punkt rosy", "Humidity · dew point"), pct(wx?.relativeHumidityPercent) + " · " + c(h.dewPointC) + if (h.dewPointCalculated) tr(" (oblicz.)", " (calc.)") else "")
@@ -705,8 +715,10 @@ private fun DaysRow(r: HourlyPvReport, dayFmt: DateTimeFormatter) {
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             r.days.forEachIndexed { i, d -> DayCard(d, i, r.zone, dayFmt, max) }
         }
-        Text(tr("Pokazane tylko dni w zasięgu prognozy pogody.", "Only days within the weather forecast are shown."), style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(tr("Pokazane tylko dni w zasięgu prognozy pogody.", "Only days within the weather forecast are shown.") +
+            (r.ensembleModel?.let { m -> tr(" Zakres pod kWh: 80% z ${r.ensembleMembers ?: 0} scenariuszy pogody ($m) – w 8 na 10 scenariuszy produkcja mieści się w tym przedziale.",
+                " Range under kWh: 80% of ${r.ensembleMembers ?: 0} weather scenarios ($m) – 8 in 10 scenarios fall inside it.") } ?: ""),
+            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -718,6 +730,7 @@ private fun DayCard(d: DayForecast, i: Int, zone: ZoneId, dayFmt: DateTimeFormat
                 style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
             Text(d.icon, fontSize = 28.sp)
             Text(String.format(Locale.ROOT, "%.1f kWh", d.expectedKwh), fontWeight = FontWeight.Bold)
+            d.ensemble?.let { Text(kwhRange(it.p10, it.p90), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             Box(Modifier.width(80.dp).height(6.dp).clip(RoundedCornerShape(3.dp)).background(MaterialTheme.colorScheme.surfaceContainerHighest)) {
                 Box(Modifier.fillMaxWidth((d.expectedKwh / max).toFloat().coerceIn(0f, 1f)).height(6.dp).background(ChartColors.pv))
             }
@@ -754,6 +767,10 @@ private fun AccuracyCard(r: HourlyPvReport) {
                     DetailLine("RMSE", String.format(Locale.ROOT, "%.3f kWh/h", a.rmse))
                     DetailLine("Bias", a.biasPercent?.let { String.format(Locale.ROOT, "%+.1f%%", it) } ?: "N/A")
                     DetailLine("MAPE", a.mapePercent?.let { String.format(Locale.ROOT, "%.1f%%", it) } ?: tr("N/A (mała produkcja)", "N/A (low production)"))
+                }
+                r.rangeCoverage?.let { cov ->
+                    DetailLine(tr("Pomiar w zakresie 80%", "Measured inside 80% range"), pct(cov.percent) + " (n=${cov.count}; " + tr("cel ~80%", "target ~80%") + ")")
+                    Text(cov.describe(), style = MaterialTheme.typography.labelSmall)
                 }
                 Text(tr("Prognoza „dzień naprzód” vs pomiar; bez automatycznej korekty.", "Day-ahead forecast vs measurement; no automatic correction."), style = MaterialTheme.typography.labelSmall)
             }

@@ -264,6 +264,7 @@
     <string name="ec_loss_year">Strata roczna</string>
     <string name="ec_measured_ago">Pomiar: %1$s · %2$s s temu</string>
     <string name="ec_min_max">Minimum / maksimum</string>
+    <string name="ec_range_ensemble">Zakres 80%% (%1$d scenariuszy, %2$s)</string>
     <string name="ec_min_soc_at">Minimalny SOC osiągnięty ok. %1$s</string>
     <string name="ec_model_now">MODEL teraz (z zacienieniem)</string>
     <string name="ec_mppt_strings">MPPT / stringi</string>

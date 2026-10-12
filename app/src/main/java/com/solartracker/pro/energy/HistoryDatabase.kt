@@ -34,6 +34,7 @@ class HistoryDatabase(context: Context) : SQLiteOpenHelper(context.applicationCo
         db.execSQL("CREATE TABLE $T_CALIB (time INTEGER PRIMARY KEY, real_kw REAL NOT NULL, model_kw REAL NOT NULL)")
         addCalibrationContext(db)
         createForecastTable(db)
+        addForecastRange(db)
         createPerformanceTable(db)
     }
 
@@ -43,6 +44,13 @@ class HistoryDatabase(context: Context) : SQLiteOpenHelper(context.applicationCo
         if (oldVersion < 4) createPerformanceTable(db)
         // v5: rows recorded from the simulator are flagged (existing rows: unknown origin → treated as device data).
         if (oldVersion < 5) for (t in listOf(T_HISTORY, T_SUMMARY)) db.execSQL("ALTER TABLE $t ADD COLUMN sim INTEGER NOT NULL DEFAULT 0")
+        // v6: 80 % range (ensemble P10/P90) of each stored forecast; older rows have none (NULL).
+        if (oldVersion < 6) addForecastRange(db)
+    }
+
+    private fun addForecastRange(db: SQLiteDatabase) {
+        db.execSQL("ALTER TABLE $T_FORECAST ADD COLUMN p10 REAL")
+        db.execSQL("ALTER TABLE $T_FORECAST ADD COLUMN p90 REAL")
     }
 
     /** v4: monthly clear-sky performance index – kept for years (degradation needs ≥ 2 years). */
@@ -77,12 +85,21 @@ class HistoryDatabase(context: Context) : SQLiteOpenHelper(context.applicationCo
     }
 
     /** Stores a PV forecast for the hour starting at [hour]; a later issue (still before the hour) replaces it. */
-    fun putForecast(hour: Instant, horizon: ForecastHorizon, kwh: Double, issued: Instant) {
+    fun putForecast(hour: Instant, horizon: ForecastHorizon, kwh: Double, issued: Instant, range: Pair<Double, Double>? = null) {
         if (!issued.isBefore(hour) || !kwh.isFinite()) return
         writableDatabase.insertWithOnConflict(T_FORECAST, null, ContentValues().apply {
             put("hour", hour.toEpochMilli()); put("horizon", horizon.name); put("kwh", kwh); put("issued", issued.toEpochMilli())
+            val r = range?.takeIf { it.first.isFinite() && it.second.isFinite() }
+            if (r != null) { put("p10", r.first); put("p90", r.second) } else { putNull("p10"); putNull("p90") }
         }, SQLiteDatabase.CONFLICT_REPLACE)
     }
+
+    /** Stored 80 % ranges (P10, P90) [same unit as the forecast] for [horizon] in [from, to); hours without one are absent. */
+    fun forecastRanges(horizon: ForecastHorizon, from: Instant, to: Instant): Map<Instant, Pair<Double, Double>> =
+        readableDatabase.query(T_FORECAST, arrayOf("hour", "p10", "p90"), "horizon = ? AND hour >= ? AND hour < ? AND p10 IS NOT NULL AND p90 IS NOT NULL",
+            arrayOf(horizon.name, from.toEpochMilli().toString(), to.toEpochMilli().toString()), null, null, "hour").use { c ->
+            buildMap { while (c.moveToNext()) put(Instant.ofEpochMilli(c.getLong(0)), c.getDouble(1) to c.getDouble(2)) }
+        }
 
     fun forecasts(horizon: ForecastHorizon, from: Instant, to: Instant): Map<Instant, Double> =
         readableDatabase.query(T_FORECAST, arrayOf("hour", "kwh"), "horizon = ? AND hour >= ? AND hour < ?",
@@ -183,7 +200,7 @@ class HistoryDatabase(context: Context) : SQLiteOpenHelper(context.applicationCo
 
     companion object {
         const val NAME = "telemetry.db"
-        const val VERSION = 5
+        const val VERSION = 6
         const val HISTORY_DAYS = 30L
         const val SUMMARY_DAYS = 730L
         private const val T_HISTORY = "history"

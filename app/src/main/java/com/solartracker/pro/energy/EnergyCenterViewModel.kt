@@ -349,6 +349,9 @@ data class AnalyzerState(
 /** The hourly radar-tab report is rebuilt at most this often (weather changes and user actions force it). */
 private val RADAR_REFRESH: Duration = Duration.ofMinutes(5)
 
+/** The per-member ensemble PV (costly) is recomputed at most this often unless its inputs change. */
+private val ENSEMBLE_REFRESH: Duration = Duration.ofMinutes(30)
+
 /** About 3 h of 5-second polls. */
 private const val MAX_REGISTER_RECORDS = 2000
 
@@ -372,6 +375,11 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
     val mapData: StateFlow<MapDataCache?> = _mapData.asStateFlow()
 
     private val _weather = MutableStateFlow<Pair<WeatherForecast?, MonthlyClimate?>>(null to null)
+    @Volatile private var ensembleWeather: com.solartracker.pro.core.weather.EnsembleForecast? = null
+    /** Per-member PV of the current ensemble and the inputs it was computed for (rebuilt at most every 30 min). */
+    @Volatile private var ensemblePv: Pair<List<Any?>, com.solartracker.pro.core.forecast.EnsemblePvResult>? = null
+    @Volatile private var ensemblePvAt: Instant? = null
+    private val ensembleLock = Mutex()
 
     private val _live = MutableStateFlow(LiveState())
     val live: StateFlow<LiveState> = _live.asStateFlow()
@@ -388,7 +396,7 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
     private var radarComputedDays = 0
     private var radarJob: kotlinx.coroutines.Job? = null
     /** Forecast accuracy changes slowly (30 days of hourly pairs) – re-read from the database at most hourly. */
-    private var radarAccuracy: Pair<Instant, com.solartracker.pro.core.analytics.AccuracyReport?>? = null
+    private var radarAccuracy: Pair<Instant, Pair<com.solartracker.pro.core.analytics.AccuracyReport?, com.solartracker.pro.core.analytics.IntervalCoverage?>>? = null
     private val _shading = MutableStateFlow(ShadingState())
     val shading: StateFlow<ShadingState> = _shading.asStateFlow()
     private val _alerts = MutableStateFlow<List<Alert>>(emptyList())
@@ -467,8 +475,9 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun setWeather(forecast: WeatherForecast?, climate: MonthlyClimate?) {
-        if (_weather.value != (forecast to climate)) {
+    fun setWeather(forecast: WeatherForecast?, climate: MonthlyClimate?, ensemble: com.solartracker.pro.core.weather.EnsembleForecast? = null) {
+        if (_weather.value != (forecast to climate) || ensembleWeather !== ensemble) {
+            ensembleWeather = ensemble
             _weather.value = forecast to climate
             radarComputedAt = null // new weather → the radar tab's hourly forecast is rebuilt with it
             viewModelScope.launch(Dispatchers.Default) { recomputeForecast() }
@@ -704,12 +713,19 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
         } else {
             _forecast.value.outlook
         }
+        val ens = ensembleResult(s, pv, now)
+        fun withRange(d: com.solartracker.pro.core.forecast.DayProductionForecast): com.solartracker.pro.core.forecast.DayProductionForecast {
+            val e = ens ?: return d
+            val dayStart = d.date.atStartOfDay(zone).toInstant()
+            val from = if (d.producedKwh != null) maxOf(now, dayStart) else dayStart
+            return d.withEnsembleRange(e.energy(from, d.date.plusDays(1).atStartOfDay(zone).toInstant()), e.modelLabel)
+        }
         _forecast.value = ForecastState(
             nowForecastKw = pvAt(now).expectedKw,
             security = securityNow,
             outlook = outlook,
-            today = engine.day(today, now, producedToday, nowcast),
-            tomorrow = engine.day(today.plusDays(1), now, null),
+            today = withRange(engine.day(today, now, producedToday, nowcast)),
+            tomorrow = withRange(engine.day(today.plusDays(1), now, null)),
             shortTerm = engine.shortTerm(now, nowcast),
             battery = soc?.let { engine.battery(now, it, socKind, nowcast) },
             timeline = engine.timeline(now, 24, nowcast),
@@ -731,9 +747,33 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
             }
             _diagnostics.value = _diagnostics.value.copy(radar = radar, mission = mission)
         }
-        storeForecasts(pv, now, nowcast)
+        storeForecasts(pv, now, nowcast, ens)
         if (radarVisible && radarJob?.isActive != true && radarComputedAt?.let { Duration.between(it, now) >= RADAR_REFRESH } != false) computeRadarForecast(s, weather, pv, model, now, nowcast)
         recomputeInsights(s, pv, load, nowcast, soc, now)
+    }
+
+    /**
+     * PV of every ensemble member (same engine: calibration, shading, limits) for today … +7 days. Rebuilt when the
+     * ensemble, the weather, the calibration model or the settings change, otherwise at most every 30 minutes
+     * (it costs members × daylight hours × 6 engine evaluations). Null without an ensemble or when it fails.
+     */
+    private suspend fun ensembleResult(s: AppSettings, pv: PredictivePvEngine, now: Instant): com.solartracker.pro.core.forecast.EnsemblePvResult? {
+        val ensemble = ensembleWeather ?: return null
+        val key = listOf(ensemble, _weather.value.first, calibrationModel, s.system, s.location, _shading.value.engine, inverterConfig.value?.ratedPowerW)
+        ensemblePv?.let { (k, r) ->
+            val fresh = ensemblePvAt?.let { Duration.between(it, now) < ENSEMBLE_REFRESH } == true
+            if (fresh && k == key) return r
+        }
+        return ensembleLock.withLock {
+            ensemblePv?.takeIf { (k, _) -> ensemblePvAt?.let { Duration.between(it, now) < ENSEMBLE_REFRESH } == true && k == key }?.second
+                ?: runCatching {
+                    val from = now.atZone(zone).toLocalDate().atStartOfDay(zone).toInstant()
+                    withContext(Dispatchers.Default) {
+                        com.solartracker.pro.core.forecast.EnsemblePvEngine(s.location, pv, ensemble, _weather.value.first)
+                            .compute(from, from.plus(Duration.ofDays(8)), now)
+                    }
+                }.getOrNull()?.also { ensemblePv = key to it; ensemblePvAt = now }
+        }
     }
 
     /** The one PV prediction engine (weather irradiance, temperature, shading, calibration, inverter limit). */
@@ -804,24 +844,28 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
             val clear = pvEngine(s, WeatherAwareIrradianceModel(s.location), model)
             val estimator = com.solartracker.pro.core.pv.PvEstimator(weather)
             val forecast = _weather.value.first
+            val ens = ensembleResult(s, pv, now)
             val engine = HourlyPvForecastEngine(s.location, forecast, weather::sourceAt, { t -> pv.at(t, now, if (t.isAfter(now)) nowcast else null) },
-                { t -> clear.at(t, now).expectedKw }, { t -> estimator.pointEstimate(s.system, s.location, t) }, zone)
-            val (rows, accuracy) = withContext(Dispatchers.IO) {
+                { t -> clear.at(t, now).expectedKw }, { t -> estimator.pointEstimate(s.system, s.location, t) }, zone, ensemble = ens)
+            val (rows, scores) = withContext(Dispatchers.IO) {
                 val recent = runCatching { db.history(now.minus(Duration.ofDays(2)), now) }.getOrDefault(emptyList())
                 val cachedAcc = radarAccuracy?.takeIf { Duration.between(it.first, now) < Duration.ofHours(1) }
                 val acc = if (cachedAcc != null) cachedAcc.second else runCatching {
                     val monthAgo = now.minus(Duration.ofDays(30))
-                    val stored = db.forecasts(com.solartracker.pro.core.analytics.ForecastHorizon.DAY_AHEAD, monthAgo, now)
+                    val horizon = com.solartracker.pro.core.analytics.ForecastHorizon.DAY_AHEAD
+                    val stored = db.forecasts(horizon, monthAgo, now)
                     val real = db.history(monthAgo, now, summary = true).filter { !it.simulated }
-                    com.solartracker.pro.core.analytics.ForecastAccuracy.evaluate(com.solartracker.pro.core.analytics.ForecastAccuracy.pairHourly(stored, real))
-                        .takeIf { it.count > 0 }
-                }.getOrNull().also { radarAccuracy = now to it }
+                    val pairs = com.solartracker.pro.core.analytics.ForecastAccuracy.pairHourly(stored, real)
+                    val coverage = com.solartracker.pro.core.analytics.IntervalAccuracy.coverage(pairs, db.forecastRanges(horizon, monthAgo, now))
+                    com.solartracker.pro.core.analytics.ForecastAccuracy.evaluate(pairs).takeIf { it.count > 0 } to coverage.takeIf { it.count > 0 }
+                }.getOrDefault(null to null).also { radarAccuracy = now to it }
                 recent to acc
             }
+            val (accuracy, coverage) = scores
             val stale = forecast?.fetchedAt?.let { Duration.between(it, now) > Duration.ofHours(3) } ?: false
             val live = _live.value
             val liveW = live.telemetry?.pv?.powerW?.takeIf { live.freshness == Freshness.LIVE }
-            withContext(Dispatchers.Default) { engine.build(now, days, rows, accuracy, stale, liveW, live.info?.simulated == true) }
+            withContext(Dispatchers.Default) { engine.build(now, days, rows, accuracy, stale, liveW, live.info?.simulated == true, coverage) }
         }
         _radar.value = result.fold(
             { _radar.value.copy(computing = false, report = it, reportError = null) },
@@ -843,7 +887,8 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Hour-ahead (next hour) and day-ahead (all of tomorrow) PV energy, kept for accuracy tracking. */
-    private suspend fun storeForecasts(pv: PredictivePvEngine, now: Instant, nowcast: Double?) = withContext(Dispatchers.IO) {
+    private suspend fun storeForecasts(pv: PredictivePvEngine, now: Instant, nowcast: Double?,
+                                       ensemble: com.solartracker.pro.core.forecast.EnsemblePvResult? = null) = withContext(Dispatchers.IO) {
         fun hourKwh(start: Instant, ratio: Double?) = (0 until 6).sumOf { pv.at(start.plusSeconds(300L + it * 600L), now, ratio).expectedKw } / 6.0
         runCatching {
             // Point forecasts on a 5-minute grid, 5 and 15 minutes ahead (the last issue before the target is kept).
@@ -857,7 +902,9 @@ class EnergyCenterViewModel(app: Application) : AndroidViewModel(app) {
             val tomorrow = now.atZone(zone).toLocalDate().plusDays(1).atStartOfDay(zone).toInstant()
             for (h in 0 until 24) {
                 val start = tomorrow.plus(Duration.ofHours(h.toLong()))
-                db.putForecast(start, ForecastHorizon.DAY_AHEAD, hourKwh(start, null), now)
+                // With the ensemble's 80 % range for that hour [kWh], so the range can be checked against reality later.
+                val range = ensemble?.hour(start)?.let { it.p10 / 1000 to it.p90 / 1000 }
+                db.putForecast(start, ForecastHorizon.DAY_AHEAD, hourKwh(start, null), now, range)
             }
         }
     }

@@ -263,6 +263,7 @@
     <string name="ec_loss_year">Annual loss</string>
     <string name="ec_measured_ago">Reading: %1$s · %2$s s ago</string>
     <string name="ec_min_max">Minimum / maximum</string>
+    <string name="ec_range_ensemble">80%% range (%1$d scenarios, %2$s)</string>
     <string name="ec_min_soc_at">Minimum SOC reached around %1$s</string>
     <string name="ec_model_now">MODEL now (with shading)</string>
     <string name="ec_mppt_strings">MPPT / strings</string>

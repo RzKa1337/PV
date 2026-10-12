@@ -103,6 +103,8 @@ data class WeatherState(
     val climate: MonthlyClimate? = null,
     val error: String? = null,
     val updatedAt: Instant? = null,
+    /** Ensemble weather scenarios for the PV forecast range (optional). */
+    val ensemble: com.solartracker.pro.core.weather.EnsembleForecast? = null,
 )
 
 /** Weather shown on the dashboard for the current moment. */
@@ -287,6 +289,7 @@ class MainViewModel(
             climate = result.climate,
             error = result.error,
             updatedAt = result.forecast?.fetchedAt ?: _weather.value.updatedAt,
+            ensemble = result.ensemble,
         )
     }
 

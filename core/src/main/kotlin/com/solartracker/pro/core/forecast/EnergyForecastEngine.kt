@@ -17,7 +17,20 @@ data class DayProductionForecast(
     val minKwh: Double,
     val maxKwh: Double,
     val confidence: Double,
-)
+    /** Where [minKwh]/[maxKwh] come from: the ensemble model (80 % range of its scenarios) or null = confidence band. */
+    val rangeModel: String? = null,
+    val rangeMembers: Int? = null,
+) {
+    /**
+     * The same day with the remaining production's range taken from the ensemble ([remaining]: kWh from the forecast
+     * start to the end of the day, quantiles over the members). The measured part stays as it is.
+     */
+    fun withEnsembleRange(remaining: PvQuantiles?, model: String?): DayProductionForecast {
+        val q = remaining ?: return this
+        val produced = producedKwh ?: 0.0
+        return copy(minKwh = produced + q.p10, maxKwh = produced + q.p90, rangeModel = model, rangeMembers = q.members)
+    }
+}
 
 data class ShortTermForecast(val horizon: ShortHorizon, val point: PvForecastPoint) {
     /** Decimals justified by the uncertainty (no false precision). */

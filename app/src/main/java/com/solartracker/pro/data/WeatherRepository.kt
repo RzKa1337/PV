@@ -3,8 +3,10 @@ package com.solartracker.pro.data
 import com.solartracker.pro.i18n.tr
 import android.content.Context
 import com.solartracker.pro.core.solar.GeoLocation
+import com.solartracker.pro.core.weather.EnsembleForecast
 import com.solartracker.pro.core.weather.MonthlyClimate
 import com.solartracker.pro.core.weather.OpenMeteo
+import com.solartracker.pro.core.weather.OpenMeteoEnsemble
 import com.solartracker.pro.core.weather.WeatherForecast
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -23,6 +25,8 @@ data class WeatherResult(
     val climate: MonthlyClimate?,
     /** Human-readable (Polish) problem, e.g. no internet; data may still come from the cache. */
     val error: String? = null,
+    /** Ensemble (many weather scenarios) for the PV range; optional – null leaves the heuristic range. */
+    val ensemble: EnsembleForecast? = null,
 )
 
 /** Source of weather data; abstracted so the ViewModel can be unit tested. */
@@ -45,7 +49,9 @@ class WeatherRepository(
         val errors = mutableListOf<String>()
         val forecast = loadForecast(location, forceRefresh, errors)
         val climate = loadClimate(location, errors)
-        WeatherResult(forecast, climate, errors.firstOrNull())
+        // The ensemble only refines the range of the PV forecast: its failure is not shown as a weather error.
+        val ensemble = runCatching { loadEnsemble(location, forceRefresh) }.getOrNull()
+        WeatherResult(forecast, climate, errors.firstOrNull(), ensemble)
     }
 
     /** Cached data only (no network) – for the home-screen widget. */
@@ -62,7 +68,12 @@ class WeatherRepository(
             parseForecastOrNull(cached)?.let { return it }
         }
         return try {
-            val json = download(OpenMeteo.forecastUrl(location))
+            val json = try {
+                download(OpenMeteo.forecastUrl(location))
+            } catch (e: IOException) {
+                // 15-minute data is an addition: if the provider rejects that part of the request, take the hourly forecast.
+                if (e.message?.startsWith("HTTP 4") == true) download(OpenMeteo.forecastUrl(location, quarterHours = false)) else throw e
+            }
             val forecast = OpenMeteo.parseForecast(json, clock())
             writeCache(FORECAST, location, json)
             forecast
@@ -94,6 +105,31 @@ class WeatherRepository(
             if (fallback == null) errors += tr("Nie udało się pobrać danych klimatycznych (${reason(e)}).", "Could not download climate data (${reason(e)}).")
             fallback
         }
+    }
+
+    /**
+     * Ensemble forecast (~40 weather scenarios, 7 days, ~0.2–0.4 MB), refreshed at most every [ENSEMBLE_MAX_AGE]
+     * (the ICON ensembles run every 6–12 h). Models are tried in [OpenMeteoEnsemble.MODELS] order; an old copy is
+     * used up to [ENSEMBLE_STALE_LIMIT].
+     */
+    private fun loadEnsemble(location: GeoLocation, force: Boolean): EnsembleForecast? {
+        val cached = readCache(ENSEMBLE, location, FORECAST_MATCH_DEG)
+        val cachedModel = runCatching { File(dir, "$ENSEMBLE.model").readText().trim() }.getOrNull()
+        fun parse(c: CacheEntry) = cachedModel?.let { m -> runCatching { OpenMeteoEnsemble.parse(c.json, c.fetchedAt, location, m) }.getOrNull() }
+        if (!force && cached != null && cached.age() < ENSEMBLE_MAX_AGE) parse(cached)?.let { return it }
+        for (model in OpenMeteoEnsemble.MODELS) {
+            val result = runCatching {
+                val json = download(OpenMeteoEnsemble.url(location, model), ENSEMBLE_TIMEOUT_MS)
+                val ensemble = OpenMeteoEnsemble.parse(json, clock(), location, model)
+                writeCache(ENSEMBLE, location, json)
+                runCatching { File(dir, "$ENSEMBLE.model").writeText(model) }
+                ensemble
+            }
+            result.getOrNull()?.let { return it }
+            // No network at all: trying the next model would fail the same way.
+            if (result.exceptionOrNull() is java.net.UnknownHostException) break
+        }
+        return cached?.takeIf { it.age() < ENSEMBLE_STALE_LIMIT }?.let(::parse)
     }
 
     private fun parseForecastOrNull(cache: CacheEntry): WeatherForecast? =
@@ -141,6 +177,10 @@ class WeatherRepository(
     companion object {
         private const val FORECAST = "forecast"
         private const val CLIMATE = "climate"
+        private const val ENSEMBLE = "ensemble"
+        private const val ENSEMBLE_TIMEOUT_MS = 30_000
+        val ENSEMBLE_MAX_AGE: Duration = Duration.ofHours(3)
+        val ENSEMBLE_STALE_LIMIT: Duration = Duration.ofHours(24)
         private const val FORECAST_MATCH_DEG = 0.05
         private const val CLIMATE_MATCH_DEG = 0.1
         private const val CLIMATE_YEARS = 3

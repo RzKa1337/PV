@@ -64,7 +64,7 @@ private val hms = DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneId.system
  */
 @Composable
 fun MonitorWhileVisible(vm: EnergyCenterViewModel, weather: WeatherState) {
-    LaunchedEffect(weather.forecast, weather.climate) { vm.setWeather(weather.forecast, weather.climate) }
+    LaunchedEffect(weather.forecast, weather.climate, weather.ensemble) { vm.setWeather(weather.forecast, weather.climate, weather.ensemble) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(lifecycle) {
         val observer = LifecycleEventObserver { _, e ->
@@ -215,7 +215,11 @@ private fun EnergyCenterMain(vm: EnergyCenterViewModel, onShading: () -> Unit, o
                     MetricRow(stringResource(R.string.ec_expected), Fmt.kwh(d.expectedKwh), DataKind.FORECAST)
                     d.producedKwh?.let { MetricRow(stringResource(R.string.ec_so_far), Fmt.kwh(it), DataKind.CALCULATED) }
                     if (d.producedKwh != null) MetricRow(stringResource(R.string.ec_remaining), Fmt.kwh(d.remainingKwh), DataKind.FORECAST)
-                    MetricRow(stringResource(R.string.ec_min_max), "${Fmt.kwh(d.minKwh)} / ${Fmt.kwh(d.maxKwh)}", DataKind.FORECAST)
+                    val model = d.rangeModel
+                    val members = d.rangeMembers
+                    val rangeLabel = if (model != null && members != null) stringResource(R.string.ec_range_ensemble, members, model)
+                        else stringResource(R.string.ec_min_max)
+                    MetricRow(rangeLabel, "${Fmt.kwh(d.minKwh)} / ${Fmt.kwh(d.maxKwh)}", DataKind.FORECAST)
                     MetricRow(stringResource(R.string.ec_shading_loss), Fmt.kwh(d.shadingLossKwh), DataKind.CALCULATED)
                     Text(stringResource(R.string.ec_confidence, Fmt.conf(d.confidence)), style = MaterialTheme.typography.bodySmall)
                 }
