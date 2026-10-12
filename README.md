@@ -14,6 +14,7 @@ i **szacowania** produkcji energii z instalacji fotowoltaicznej.
 - Aktualna wysokość i azymut słońca, wschód, zachód, długość dnia
 - Szacowana moc PV teraz, energia od rana i prognoza na cały dzień
 - Wykres godzina → moc PV
+- Prognoza probabilistyczna: zakres 80 % produkcji (P10–P90) z ~40 scenariuszy pogody (Open-Meteo Ensemble, DWD ICON-EPS) dla każdej godziny i dnia na 7 dni, ocena trafności zakresu na pomiarach; nasłonecznienie co 15 min na najbliższe 48 h – [docs/RADAR_FORECAST.md](docs/RADAR_FORECAST.md)
 - Porównanie kątów nachylenia paneli (0–90°)
 - Produkcja miesięczna dla kątów 0°, 30°, 45°, 60°, 90° ze średnią temperaturą miesiąca (archiwum Open-Meteo) oraz najlepszy kąt na każdy miesiąc (zysk ze zmiany kąta co miesiąc vs stały kąt) oraz porównanie z trackerem 1- i 2-osiowym
 - Ustawienia: moc [kWp], kąt, azymut, lokalizacja – wyszukiwanie miast z podpowiedziami podczas pisania (Open-Meteo bez klucza, opcjonalnie Google Places – [konfiguracja](docs/GOOGLE_PLACES_SETUP.md)), ostatnio wybrane, GPS lub ręczne współrzędne

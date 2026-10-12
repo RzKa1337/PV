@@ -37,6 +37,10 @@ Teraz (`WeatherAwareIrradianceModel`):
 3. GHI(t) = k(t)·GHIczyste(t), DHI = d·GHI, DNI = (GHI − DHI)/cos z (od ~3° wysokości, ≤ E0n);
 4. temperatura i wiatr (wartości chwilowe na koniec godziny) – interpolacja liniowa.
 Energia godziny zostaje zachowana (test: średnia w godzinie = wartość dostawcy ±2 %), krzywa podąża za słońcem.
+**Dane 15-minutowe:** na najbliższe 48 h aplikacja pobiera też `minutely_15` (średnie z poprzednich 15 min; w Europie
+Środkowej natywnie z ICON-D2 / AROME). Gdzie są, ten sam schemat (k i d interpolowane między środkami przedziałów) działa na
+przedziałach 15-minutowych – przelotna chmura trafia we właściwy kwadrans zamiast rozmyć się na całą godzinę. Temperatura i
+wiatr nadal godzinowe. Bez nich (inny region, odrzucone zapytanie, stara kopia) – godzinowe jak dotąd.
 Indeks k jest ograniczony do 1,2 (wzmocnienie przez chmury bywa, ale rzadko więcej) – absurdalne dane nie dają
 fikcyjnej mocy. Brak prognozy → średnie klimatyczne miesiąca (archiwum Open-Meteo) → czyste niebo; źródło jest
 zawsze podpisane.

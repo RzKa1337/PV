@@ -238,6 +238,13 @@ class EnergyCenterInstrumentedTest {
         db.putForecast(hour, ForecastHorizon.DAY_AHEAD, 9.9, hour.plusSeconds(1)) // issued after the hour started → ignored
         assertEquals(mapOf(hour to 1.5), db.forecasts(ForecastHorizon.HOUR_AHEAD, now, hour.plusSeconds(1)))
         assertTrue(db.forecasts(ForecastHorizon.DAY_AHEAD, now, hour.plusSeconds(1)).isEmpty())
+        // v6: the 80 % range is stored with the forecast; a later issue without a range clears it.
+        val later = hour.plusSeconds(3600)
+        db.putForecast(later, ForecastHorizon.DAY_AHEAD, 0.8, now, 0.3 to 1.1)
+        assertEquals(mapOf(later to (0.3 to 1.1)), db.forecastRanges(ForecastHorizon.DAY_AHEAD, now, later.plusSeconds(1)))
+        db.putForecast(later, ForecastHorizon.DAY_AHEAD, 0.9, now.plusSeconds(1))
+        assertTrue(db.forecastRanges(ForecastHorizon.DAY_AHEAD, now, later.plusSeconds(1)).isEmpty())
+        assertEquals(0.9, db.forecasts(ForecastHorizon.DAY_AHEAD, now, later.plusSeconds(1)).getValue(later), 1e-9)
         db.close()
         context.deleteDatabase(HistoryDatabase.NAME)
     }

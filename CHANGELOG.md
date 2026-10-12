@@ -5,6 +5,24 @@ Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie 
 
 ## [Unreleased]
 
+## [v0.22.0] - 2026-10-12
+### Added – prognoza probabilistyczna
+- **Zakres 80 % produkcji z ~40 scenariuszy pogody** (Open-Meteo Ensemble, DWD ICON-EPS; awaryjnie ECMWF ENS), 7 dni:
+  - każdy scenariusz przechodzi przez ten sam silnik PV co prognoza główna (kalibracja, zacienienie, limit falownika);
+  - godziny: P10–P90 na wykresie Radaru (jasne pasmo) i w szczegółach godziny;
+  - dni: zakres kWh pod każdym dniem; dziś/jutro w Centrum energii („Zakres 80%” zamiast min./maks. z reguł);
+  - energia dnia liczona osobno dla każdego scenariusza, dopiero potem zakres (bez sztucznego poszerzania);
+  - pewność dnia ze zgodności scenariuszy zamiast reguł „horyzont” i „zmienne zachmurzenie”.
+- **Sprawdzanie zakresu na pomiarach:** prognoza „dzień naprzód” zapisuje swój zakres; w „Trafności prognozy” widać,
+  w ilu godzinach pomiar z falownika mieścił się w zakresie (cel ok. 80 %).
+- **Nasłonecznienie co 15 minut na 48 h** (ICON-D2 / AROME w Europie Środkowej): przelotne chmury trafiają we właściwy
+  kwadrans zamiast rozmywać się na całą godzinę.
+
+### Notes
+- Ensemble pobierany najwyżej co 3 h (~0,2–0,4 MB), kopia do 24 h. Bez niego (offline, > 7 dni) – zakres jak dotąd.
+- Baza danych v6 (kolumny zakresu w tabeli prognoz); dotychczasowe dane zostają.
+- Szczegóły: [docs/RADAR_FORECAST.md](docs/RADAR_FORECAST.md), [docs/PV_MODEL.md](docs/PV_MODEL.md).
+
 ## [v0.21.1] - 2026-10-12
 ### Fixed
 - Pasek nawigacji: nazwa wybranej zakładki nie jest już ucinana („Pulpi” → „Pulpit”). Przy 9 zakładkach długie nazwy rysowane są mniejszą czcionką, aby się zmieściły (najwyżej o 30% mniejszą).
