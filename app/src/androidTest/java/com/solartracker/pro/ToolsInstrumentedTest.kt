@@ -64,6 +64,31 @@ class ToolsInstrumentedTest {
         }
     }
 
+    @Test
+    fun productionToolValidatesAnEmptyReading() {
+        ActivityScenario.launch(MainActivity::class.java).use {
+            val tab = UiTestSupport.findDismissingAnr(device, By.desc("Narzędzia"), tag)
+            assertNotNull("Narzędzia tab", tab)
+            tab!!.click()
+            assertNotNull("designer chip", device.wait(Until.findObject(By.text("Projektant PV")), 10_000))
+            // The chip is the last one in a horizontally scrolling row: bring it on screen first.
+            var chip = device.findObject(By.text("Produkcja"))
+            repeat(5) {
+                if (chip != null && chip!!.visibleBounds.width() > 40) return@repeat
+                device.findObjects(By.scrollable(true)).minByOrNull { it.visibleBounds.height() }?.scroll(Direction.RIGHT, 0.8f)
+                chip = device.wait(Until.findObject(By.text("Produkcja")), 1_000)
+            }
+            assertNotNull("production chip", chip)
+            chip!!.click()
+            assertNotNull("empty list note", scrollTo(By.textContains("Brak odczytów")))
+            val add = scrollTo(By.text("Dodaj odczyt"))
+            assertNotNull("add button", add)
+            add!!.click()
+            // Dates are prefilled with yesterday, the energy is empty.
+            assertNotNull("validation message", device.wait(Until.findObject(By.textContains("Podaj energię w kWh")), 10_000))
+        }
+    }
+
     private fun scrollUpAndClick(text: String) {
         repeat(10) {
             device.findObject(By.text(text))?.let { it.click(); return }

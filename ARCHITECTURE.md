@@ -18,7 +18,7 @@ The rule is simple: **`:core` decides, `:app` shows and stores.** Anything that 
 | `weather` | Open-Meteo forecast/climate parsing, weather-aware irradiance |
 | `energy` | Battery storage model, chemistry profiles, consumption profiles, flow simulation, costs |
 | `inverter` | Brand-independent inverter layer: telemetry model, Modbus RTU/TCP codec, Anenji SMG map, PI30, transports, connection manager, simulator |
-| `analytics` | Real energy flow, history aggregation, model comparison, calibration, anomalies/alerts, forecast accuracy, AutoCalibration, period totals |
+| `analytics` | Manual production readings vs the model on archive weather (`ManualProduction`), real energy flow, history aggregation, model comparison, calibration, anomalies/alerts, forecast accuracy, AutoCalibration, period totals |
 | `shading` | Obstacles, horizon, geometry, ray-traced shading per panel/bypass group, shading forecasts, map/terrain providers |
 | `forecast` | Predictive PV, load forecast, battery SOC prediction, energy forecast, rule-based advisor |
 | `health` | Daily statistics, PV Health Score, predictive fault warnings, PV performance (loss shares) |

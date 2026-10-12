@@ -4,6 +4,8 @@ Wszystkie istotne zmiany w projekcie Solar Tracker PRO.
 Format oparty na [Keep a Changelog](https://keepachangelog.com/), wersjonowanie [SemVer](https://semver.org/).
 
 ## [Unreleased]
+### Added
+- **Narzędzia → Produkcja: ręczne odczyty rzeczywistej produkcji.** Wpisujesz energię z falownika lub licznika za zakończony dzień albo okres (do 366 dni), a aplikacja porównuje ją z modelem dla tych samych dni. Model liczy na godzinowej pogodzie historycznej Open-Meteo (archiwum, bez klucza, z pamięcią podręczną); dni bez niej są porównywane z typowym miesiącem albo bezchmurnym niebem i wyraźnie tak opisane. Współczynnik instalacji (rzeczywista / model) pojawia się dopiero od 14 dni z pogodą historyczną i tylko gdy mieści się w 0,4–1,6; aplikacja nie stosuje go jeszcze w prognozach. Odrzucane są odczyty niemożliwe (np. Wh wpisane jako kWh), nakładające się okresy i dzień dzisiejszy. Stan: testy JVM (rdzeń i repozytorium, w tym prawdziwa odpowiedź archiwum), build i lint; ekran nie był jeszcze oglądany na telefonie.
 
 ## [v0.22.0] - 2026-10-12
 ### Added – prognoza probabilistyczna

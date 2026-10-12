@@ -105,6 +105,8 @@ agregat – aplikacja niczego nie przełącza), bilans reszty dnia i 7 dni, hist
 Zakładka **Narzędzia**: projektant PV (dobór stringów z danych z kart katalogowych), ekonomia (zwrot, NPV, ROI, LCOE,
 koszt magazynowania), porównanie lokalizacji i optymalny kąt, tryb pojazdu (energia, zasięg, najlepszy kierunek parkowania).
 Wartości z modelu czystego nieba są oznaczone jako górna granica.
+**Produkcja**: ręczne odczyty energii (dzień lub okres) porównane z modelem liczonym na pogodzie historycznej tych dni; współczynnik
+rzeczywista / model po 14 dniach – kalibracja bez falownika (na razie tylko jako informacja).
 
 Od v0.9.0: odbiorniki elastyczne i agregat w Konfiguracji (EMS podaje godziny uruchomienia), wiatr/śnieg/opady/wilgotność/
 widoczność w prognozie i na pulpicie, dokładność prognoz (godzina i dzień naprzód) w Analizach.
