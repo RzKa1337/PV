@@ -59,7 +59,7 @@ class WeatherAwareIrradianceModel(
             val temperature = interpolate(instant) { it.temperatureC }
             val wind = interpolate(instant) { it.windSpeedMs }
             if (!position.isAboveHorizon) return Irradiance(0.0, 0.0, temperature, wind)
-            return intraHour(hour, position, instant).copy(ambientTemperatureC = temperature, windMs = wind)
+            return irradianceIn(hour, position, instant).copy(ambientTemperatureC = temperature, windMs = wind)
         }
         val clear = clearSky.irradiance(position, instant)
         val c = climate ?: return clear
@@ -70,48 +70,55 @@ class WeatherAwareIrradianceModel(
         return mixClearAndOvercast(clear, position, factor).copy(ambientTemperatureC = temperature)
     }
 
-    /** Clear-sky index and diffuse fraction of one forecast hour (cached: computed once per hour). */
-    private class HourShape(val clearSkyIndex: Double, val diffuseFraction: Double)
+    /** Clear-sky index and diffuse fraction of one forecast interval (cached: computed once per interval). */
+    private class Shape(val clearSkyIndex: Double, val diffuseFraction: Double)
 
-    private val shapes = java.util.concurrent.ConcurrentHashMap<Long, HourShape>()
+    /** One provider interval (start, end] with its mean beam (DNI) and diffuse (DHI) irradiance. */
+    private class Interval(val start: Instant, val end: Instant, val dni: Double, val dhi: Double, val samples: Int)
 
-    private fun shape(h: HourlyWeather): HourShape? {
-        if (!h.hasIrradiance) return null
-        return shapes.getOrPut(h.endTime.epochSecond) {
-            // Provider values are means of the preceding hour: compare them with the clear-sky mean of the same hour.
-            var clearSum = 0.0
-            var cosSum = 0.0
-            for (k in 0 until SAMPLES_PER_HOUR) {
-                val t = h.startTime.plusSeconds((k * 3600L + 1800L) / SAMPLES_PER_HOUR)
-                val pos = SolarCalculator.position(location, t)
-                if (pos.isAboveHorizon) {
-                    clearSum += clearSky.irradiance(pos, t).ghi(pos)
-                    cosSum += kotlin.math.cos(Math.toRadians(pos.zenithDeg))
-                }
+    private val shapes = java.util.concurrent.ConcurrentHashMap<Long, Shape>()
+
+    private fun HourlyWeather.interval(): Interval? = if (hasIrradiance) Interval(startTime, endTime, dni!!, dhi!!, SAMPLES_PER_HOUR) else null
+
+    private fun IntervalIrradiance.interval(): Interval? = if (hasIrradiance) Interval(startTime, endTime, dni!!, dhi!!, SAMPLES_PER_QUARTER) else null
+
+    /** Hourly and 15-minute shapes share the cache: the key carries the interval length. */
+    private fun shape(i: Interval): Shape = shapes.getOrPut(i.end.epochSecond * 8 + i.samples) {
+        // Provider values are means of the preceding interval: compare them with the clear-sky mean of the same interval.
+        val seconds = java.time.Duration.between(i.start, i.end).seconds
+        var clearSum = 0.0
+        var cosSum = 0.0
+        for (k in 0 until i.samples) {
+            val t = i.start.plusSeconds((k * seconds + seconds / 2) / i.samples)
+            val pos = SolarCalculator.position(location, t)
+            if (pos.isAboveHorizon) {
+                clearSum += clearSky.irradiance(pos, t).ghi(pos)
+                cosSum += kotlin.math.cos(Math.toRadians(pos.zenithDeg))
             }
-            val clearMean = clearSum / SAMPLES_PER_HOUR
-            // Hour-mean GHI from the same components the model uses (DNI·cos z + DHI), so beam and diffuse stay consistent.
-            val ghi = h.dni!! * cosSum / SAMPLES_PER_HOUR + h.dhi!!
-            val k = if (clearMean > MIN_CLEAR_GHI) (ghi / clearMean).coerceIn(0.0, MAX_CLEAR_SKY_INDEX) else if (ghi > 0) 1.0 else 0.0
-            val d = if (ghi > 1.0) (h.dhi!! / ghi).coerceIn(0.0, 1.0) else 1.0
-            HourShape(k, d)
         }
+        val clearMean = clearSum / i.samples
+        // Interval-mean GHI from the same components the model uses (DNI·cos z + DHI), so beam and diffuse stay consistent.
+        val ghi = i.dni * cosSum / i.samples + i.dhi
+        val k = if (clearMean > MIN_CLEAR_GHI) (ghi / clearMean).coerceIn(0.0, MAX_CLEAR_SKY_INDEX) else if (ghi > 0) 1.0 else 0.0
+        val d = if (ghi > 1.0) (i.dhi / ghi).coerceIn(0.0, 1.0) else 1.0
+        Shape(k, d)
     }
 
     /**
-     * Irradiance at [instant] inside a forecast hour. Hourly means applied as a constant step put the hour's beam
-     * on the wrong sun angles (worst around sunrise and sunset) and make the curve jump at full hours. Instead the
-     * clear-sky index and the diffuse fraction are interpolated between hour centres and applied to the clear-sky
-     * irradiance of this very moment: the hour's energy is kept, the shape follows the sun.
+     * Irradiance at [instant] inside a provider interval (15-minute where the forecast has it, otherwise hourly).
+     * Interval means applied as a constant step put the interval's beam on the wrong sun angles (worst around sunrise
+     * and sunset) and make the curve jump at the boundaries. Instead the clear-sky index and the diffuse fraction are
+     * interpolated between interval centres and applied to the clear-sky irradiance of this very moment: the energy is
+     * kept, the shape follows the sun.
      */
-    private fun intraHour(hour: HourlyWeather, position: SolarPosition, instant: Instant): Irradiance {
-        val here = shape(hour) ?: return Irradiance(hour.dni!!, hour.dhi!!)
-        val center = hour.startTime.plusSeconds(1800)
-        val neighbour = forecast?.at(if (instant.isBefore(center)) hour.startTime else hour.endTime.plusSeconds(1))
-        val other = neighbour?.let(::shape)
-        val w = if (other == null) 0.0 else kotlin.math.abs(java.time.Duration.between(center, instant).seconds) / 3600.0
-        val k = here.clearSkyIndex * (1 - w) + (other?.clearSkyIndex ?: 0.0) * w
-        val d = here.diffuseFraction * (1 - w) + (other?.diffuseFraction ?: 0.0) * w
+    private fun intraInterval(here: Interval, neighbour: (Instant) -> Interval?, position: SolarPosition, instant: Instant): Irradiance {
+        val half = java.time.Duration.between(here.start, here.end).dividedBy(2)
+        val center = here.start.plus(half)
+        val other = neighbour(if (instant.isBefore(center)) here.start else here.end.plusSeconds(1))?.let(::shape)
+        val w = if (other == null) 0.0 else kotlin.math.abs(java.time.Duration.between(center, instant).seconds) / (2.0 * half.seconds)
+        val s = shape(here)
+        val k = s.clearSkyIndex * (1 - w) + (other?.clearSkyIndex ?: 0.0) * w
+        val d = s.diffuseFraction * (1 - w) + (other?.diffuseFraction ?: 0.0) * w
         val clear = clearSky.irradiance(position, instant)
         val ghi = k * clear.ghi(position)
         val dhi = d * ghi
@@ -119,6 +126,17 @@ class WeatherAwareIrradianceModel(
         val dni = if (cosZ > MIN_COS_ZENITH) ((ghi - dhi) / cosZ).coerceIn(0.0, ClearSkyModel.extraterrestrialIrradiance(instant)) else 0.0
         return Irradiance(dni, dhi)
     }
+
+    /** 15-minute interval when the forecast has one for [instant], otherwise the hourly one. */
+    private fun irradianceIn(hour: HourlyWeather, position: SolarPosition, instant: Instant): Irradiance {
+        val f = forecast!!
+        f.quarterAt(instant)?.interval()?.let { q -> return intraInterval(q, { t -> f.quarterAt(t)?.interval() }, position, instant) }
+        val h = hour.interval() ?: return Irradiance(hour.dni!!, hour.dhi!!)
+        return intraInterval(h, { t -> f.at(t)?.interval() }, position, instant)
+    }
+
+    /** True when 15-minute irradiance is used at [instant]. */
+    fun usesQuarterHour(instant: Instant): Boolean = forecast?.quarterAt(instant) != null
 
     /** Instantaneous provider variable (valid at the hour's end time), linear between neighbouring hours. */
     private fun interpolate(instant: Instant, value: (HourlyWeather) -> Double?): Double? {
@@ -132,6 +150,7 @@ class WeatherAwareIrradianceModel(
 
     companion object {
         private const val SAMPLES_PER_HOUR = 6
+        private const val SAMPLES_PER_QUARTER = 3
         /** Below this clear-sky mean [W/m²] (sun just rising/setting) the index is not reliable. */
         private const val MIN_CLEAR_GHI = 10.0
         /** Hourly means above clear sky happen (cloud enhancement), but rarely by more than ~20 %. */

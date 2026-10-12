@@ -72,6 +72,48 @@ object ForecastAccuracy {
 }
 
 /**
+ * How often the measured value fell inside the forecast's 80 % range (P10–P90 of the ensemble). A well-calibrated
+ * range holds the outcome in about 80 % of the intervals; much less means the range is too narrow (overconfident),
+ * much more that it is too wide. [below]/[above] tell on which side the misses fall.
+ */
+data class IntervalCoverage(val count: Int, val inside: Int, val below: Int, val above: Int) {
+    val percent: Double? get() = if (count > 0) inside * 100.0 / count else null
+
+    fun describe(): String = when (val p = percent) {
+        null -> "Za mało danych do oceny zakresu prognozy"
+        else -> "Pomiar w zakresie 80%: ${p.toInt()}% godzin (n=$count; oczekiwane ok. 80%)" +
+            when {
+                count < 24 -> " – wstępnie"
+                p < 65 -> if (below > above) " – zakres zbyt wąski, wyniki częściej poniżej" else " – zakres zbyt wąski, wyniki częściej powyżej"
+                p > 92 -> " – zakres szerszy niż trzeba"
+                else -> " – zakres dobrze dobrany"
+            }
+    }
+}
+
+object IntervalAccuracy {
+    /**
+     * @param pairs forecast/actual pairs (e.g. from [ForecastAccuracy.pairHourly])
+     * @param bounds (P10, P90) per pair time, in the same unit as the pairs
+     * @param minUpper intervals whose P90 is below this (night, dawn) are skipped – an empty range says nothing
+     */
+    fun coverage(pairs: List<ForecastPair>, bounds: Map<Instant, Pair<Double, Double>>, minUpper: Double = 0.01): IntervalCoverage {
+        var n = 0; var inside = 0; var below = 0; var above = 0
+        for (p in pairs) {
+            val (lo, hi) = bounds[p.time] ?: continue
+            if (!lo.isFinite() || !hi.isFinite() || hi < minUpper || !p.actual.isFinite()) continue
+            n++
+            when {
+                p.actual < lo - 1e-9 -> below++
+                p.actual > hi + 1e-9 -> above++
+                else -> inside++
+            }
+        }
+        return IntervalCoverage(n, inside, below, above)
+    }
+}
+
+/**
  * Which stored forecast is compared. MIN5/MIN15 store PV power [kW] at a 5-minute target time;
  * HOUR_AHEAD/DAY_AHEAD store energy [kWh] for the hour starting at the key.
  */

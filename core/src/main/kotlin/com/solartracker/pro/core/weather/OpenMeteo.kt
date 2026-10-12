@@ -31,9 +31,20 @@ object OpenMeteo {
             "cloud_cover_low,cloud_cover_mid,cloud_cover_high,uv_index,uv_index_clear_sky,wind_gusts_10m," +
             "dew_point_2m,apparent_temperature,precipitation_probability,wind_direction_10m,rain,snowfall,weather_code"
 
-    fun forecastUrl(location: GeoLocation, forecastDays: Int = 16, pastDays: Int = 2): String =
+    /** 15-minute irradiance (means of the preceding 15 minutes) for the next [QUARTER_STEPS] steps. */
+    private const val QUARTER_VARIABLES = "shortwave_radiation,direct_normal_irradiance,diffuse_radiation"
+
+    /** 192 × 15 min = 48 h: the range of the native 15-minute models in Central Europe (ICON-D2, AROME). */
+    const val QUARTER_STEPS = 192
+
+    /**
+     * @param quarterHours also request 15-minute irradiance for the next 48 h (falls back to hourly where the response
+     *   has none; the repository retries without it if the provider rejects the request)
+     */
+    fun forecastUrl(location: GeoLocation, forecastDays: Int = 16, pastDays: Int = 2, quarterHours: Boolean = true): String =
         "https://api.open-meteo.com/v1/forecast?latitude=${coord(location.latitude)}" +
             "&longitude=${coord(location.longitude)}&hourly=$HOURLY_VARIABLES" +
+            (if (quarterHours) "&minutely_15=$QUARTER_VARIABLES&forecast_minutely_15=$QUARTER_STEPS" else "") +
             "&forecast_days=$forecastDays&past_days=$pastDays&wind_speed_unit=ms&timezone=auto&timeformat=unixtime"
 
     /** Daily irradiation and temperature for whole calendar years [firstYear]..[lastYear]. */
@@ -107,7 +118,25 @@ object OpenMeteo {
             )
         }
         require(hours.isNotEmpty()) { "Empty forecast" }
-        return WeatherForecast(hours, fetchedAt, zone, lat, lon)
+        return WeatherForecast(hours, fetchedAt, zone, lat, lon, parseQuarters(root))
+    }
+
+    /** `minutely_15` block → 15-minute irradiance; missing, malformed or partial blocks give an empty list (hourly is used). */
+    internal fun parseQuarters(root: JsonObject): List<IntervalIrradiance> {
+        val block = root["minutely_15"] as? JsonObject ?: return emptyList()
+        return runCatching { quarters(block) }.getOrDefault(emptyList())
+    }
+
+    private fun quarters(block: JsonObject): List<IntervalIrradiance> {
+        val time = block.longs("time")
+        val ghi = block.doubles("shortwave_radiation", time.size)
+        val dni = block.doubles("direct_normal_irradiance", time.size)
+        val dhi = block.doubles("diffuse_radiation", time.size)
+        val length = java.time.Duration.ofMinutes(15)
+        return time.mapIndexedNotNull { i, t ->
+            t ?: return@mapIndexedNotNull null
+            IntervalIrradiance(Instant.ofEpochSecond(t), length, ghi[i]?.coerceAtLeast(0.0), dni[i]?.coerceAtLeast(0.0), dhi[i]?.coerceAtLeast(0.0))
+        }.filter { it.hasIrradiance }
     }
 
     /**

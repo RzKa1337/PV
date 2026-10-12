@@ -52,9 +52,27 @@ data class HourlyWeather(
 }
 
 /**
+ * Irradiance averaged over a short interval (start, [endTime]] – Open-Meteo `minutely_15`: the mean of the PRECEDING
+ * 15 minutes [W/m²]. Native 15-minute model data exists for Central Europe (DWD ICON-D2, Météo-France AROME) and North
+ * America (HRRR); elsewhere the provider interpolates its hourly values.
+ */
+data class IntervalIrradiance(
+    val endTime: Instant,
+    val length: Duration,
+    val ghi: Double?,
+    val dni: Double?,
+    val dhi: Double?,
+) {
+    val startTime: Instant get() = endTime.minus(length)
+    val hasIrradiance: Boolean get() = dni != null && dhi != null
+}
+
+/**
  * Hourly forecast, sorted by time.
  * @property zone time zone of the forecast location (from the provider); null when unknown (old cache)
  * @property latitude/longitude grid point the provider used, when reported
+ * @property quarters optional 15-minute irradiance for the first ~2 days (sorted); used instead of the hourly values
+ *   where present, so passing clouds are placed within the hour
  */
 class WeatherForecast(
     hours: List<HourlyWeather>,
@@ -62,8 +80,26 @@ class WeatherForecast(
     val zone: java.time.ZoneId? = null,
     val latitude: Double? = null,
     val longitude: Double? = null,
+    quarters: List<IntervalIrradiance> = emptyList(),
 ) {
     val hours: List<HourlyWeather> = hours.sortedBy { it.endTime }
+    val quarters: List<IntervalIrradiance> = quarters.sortedBy { it.endTime }
+
+    /** The 15-minute interval (start, end] containing [instant] with irradiance, or null. */
+    fun quarterAt(instant: Instant): IntervalIrradiance? {
+        var lo = 0
+        var hi = quarters.size - 1
+        while (lo <= hi) {
+            val mid = (lo + hi) ushr 1
+            val q = quarters[mid]
+            when {
+                !instant.isAfter(q.startTime) -> hi = mid - 1
+                instant.isAfter(q.endTime) -> lo = mid + 1
+                else -> return q.takeIf { it.hasIrradiance }
+            }
+        }
+        return null
+    }
 
     val coversFrom: Instant? get() = hours.firstOrNull { it.hasIrradiance }?.startTime
     val coversUntil: Instant? get() = hours.lastOrNull { it.hasIrradiance }?.endTime

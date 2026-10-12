@@ -47,8 +47,24 @@ class PredictivePvEngine(
     private val mpptLimitKw: Double? = null,
     /** Conditional calibration (AutoCalibration 3.0); when ready it replaces [calibrationFactor]. */
     private val calibrationModel: CalibrationModel? = null,
+    /** Shading power factor at an instant; null = computed here from [shading] for this engine's own irradiance. */
+    private val shadeAt: ((Instant) -> Double)? = null,
 ) {
     private val estimator = PvEstimator(weather)
+
+    /**
+     * The same engine (calibration, shading, limits) on another weather scenario – one ensemble member. The shading
+     * factor is computed once per instant from THIS engine's beam/diffuse split and shared through [shadeCache]: the
+     * geometry is identical for every member and a ray test per member would multiply the cost by the member count.
+     */
+    fun withWeather(other: WeatherAwareIrradianceModel, shadeCache: MutableMap<Instant, Double>): PredictivePvEngine =
+        PredictivePvEngine(
+            location, system, other, shading, calibrationFactor, calibrationConfidence, inverterLimitKw, mpptLimitKw, calibrationModel,
+            shadeAt = { t -> shadeCache.getOrPut(t) { computeShade(t, estimator.pointEstimate(system.copy(inverterLimitKw = null), location, t)) } },
+        )
+
+    private fun computeShade(time: Instant, estimate: com.solartracker.pro.core.pv.PvPointEstimate): Double =
+        shading?.snapshot(system, time, estimate)?.powerFactor ?: 1.0
 
     /**
      * @param nowcastRatio measured / expected PV right now (null without live data); its influence
@@ -66,7 +82,7 @@ class PredictivePvEngine(
             CalibrationContext(time, estimate.sun.position.elevationDeg, WeatherEffects.skyCondition(hour, estimate.sun.position, time)),
         ) ?: calibrationFactor
         val calibrated = if (snow) 0.0 else estimate.powerKw * factor
-        val shadeFactor = shading?.snapshot(system, time, estimate)?.powerFactor ?: 1.0
+        val shadeFactor = shadeAt?.invoke(time) ?: computeShade(time, estimate)
         val horizonMin = Duration.between(now, time).toMinutes().coerceAtLeast(0)
         // Forecast skill falls with the time since the forecast was DOWNLOADED, not only with the distance from now:
         // an hour predicted by a 2-day-old cached forecast is a 2-day-old prediction even when it is "now".

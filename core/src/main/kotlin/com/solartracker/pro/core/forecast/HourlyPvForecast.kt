@@ -55,6 +55,11 @@ data class HourForecast(
     val modelConfidence: Double,
     val pvBasis: String,
     val actual: ActualPv,
+    /**
+     * Expected mean power [W] over the hour in every ensemble weather scenario (P10/P50/P90); when present it is the
+     * source of [expectedMinW]/[expectedMaxW]. Null outside the ensemble (beyond ~7 days, offline, no ensemble).
+     */
+    val ensemble: PvQuantiles? = null,
 ) {
     val differenceW: Double? get() = actual.averageW?.takeIf { actual.quality == ValueQuality.REAL || actual.quality == ValueQuality.PARTIAL }?.let { it - expectedW }
     /** (actual − expected) / expected [%]; null below 50 W expected (ratio meaningless at dawn/dusk/night). */
@@ -84,6 +89,10 @@ data class DayForecast(
     val minTemperatureC: Double?,
     val maxTemperatureAt: Instant?,
     val hours: List<HourForecast>,
+    /** Whole-day energy [kWh] over the ensemble members (each member summed over the day first). */
+    val ensemble: PvQuantiles? = null,
+    /** Ensemble model shown with the range (e.g. "DWD ICON-EPS"). */
+    val ensembleModel: String? = null,
 )
 
 data class PvWindow(val from: Instant, val to: Instant, val expectedW: Double, val reason: String?)
@@ -130,6 +139,11 @@ data class HourlyPvReport(
     val alerts: List<ForecastAlert>,
     val accuracy: AccuracyReport?,
     val now: NowSummary,
+    /** How often past measurements fell inside the stored day-ahead 80 % ranges; null without stored ranges. */
+    val rangeCoverage: com.solartracker.pro.core.analytics.IntervalCoverage? = null,
+    /** Ensemble used for the ranges (model, members); null = heuristic ranges only. */
+    val ensembleModel: String? = null,
+    val ensembleMembers: Int? = null,
 )
 
 /** Thresholds for weather alerts. Defaults are documented public scales, not tuned values. */
@@ -162,11 +176,13 @@ class HourlyPvForecastEngine(
     private val estimate: (Instant) -> PvPointEstimate,
     private val fallbackZone: ZoneId,
     private val thresholds: AlertThresholds = AlertThresholds(),
+    /** Per-member PV from the ensemble forecast; replaces the heuristic range where it covers the hour. */
+    private val ensemble: EnsemblePvResult? = null,
 ) {
     val zone: ZoneId = forecast?.zone ?: fallbackZone
 
     fun build(now: Instant, days: Int, history: List<HistorySample>, accuracy: AccuracyReport?, forecastStale: Boolean, liveActualW: Double? = null,
-              liveSimulated: Boolean = false): HourlyPvReport {
+              liveSimulated: Boolean = false, rangeCoverage: com.solartracker.pro.core.analytics.IntervalCoverage? = null): HourlyPvReport {
         val today = now.atZone(zone).toLocalDate()
         val from = today.atStartOfDay(zone).toInstant()
         val to = today.plusDays(days.toLong()).atStartOfDay(zone).toInstant()
@@ -193,7 +209,8 @@ class HourlyPvForecastEngine(
             live.first?.let { it - expectedNow }, live.first?.takeIf { expectedNow >= 50 }?.let { it / expectedNow * 100 })
         val rain = rain(hours, now)
         return HourlyPvReport(location, zone, forecast?.zone != null, now, forecast?.fetchedAt, weatherQuality, hours, dayList,
-            best(todayHours, now), worst(todayHours), rain, alerts(hours, dayList.firstOrNull(), now, nowSummary, rain), accuracy, nowSummary)
+            best(todayHours, now), worst(todayHours), rain, alerts(hours, dayList.firstOrNull(), now, nowSummary, rain), accuracy, nowSummary,
+            rangeCoverage, ensemble?.modelLabel, ensemble?.memberCount)
     }
 
     /** Local hour boundaries between [from] and [to] (Instant arithmetic: 23/25-hour DST days come out right). */
@@ -223,8 +240,11 @@ class HourlyPvForecastEngine(
         // 10-minute samples (6 per hour) – the same grid the stored forecasts use.
         val samples = if (night) emptyList() else (0 until 6).map { start.plusSeconds(300L + it * 600L) }.map { it to expected(it) }
         val expW = if (samples.isEmpty()) 0.0 else samples.sumOf { it.second.expectedKw } / samples.size * 1000
-        val minW = if (samples.isEmpty()) 0.0 else samples.sumOf { it.second.minKw } / samples.size * 1000
-        val maxW = if (samples.isEmpty()) 0.0 else samples.sumOf { it.second.maxKw } / samples.size * 1000
+        // The ensemble's 80 % range where it covers the hour (the weather models' own spread); otherwise the
+        // engine's confidence band.
+        val ens = if (night) null else ensemble?.hour(start)
+        val minW = ens?.p10 ?: if (samples.isEmpty()) 0.0 else samples.sumOf { it.second.minKw } / samples.size * 1000
+        val maxW = ens?.p90 ?: if (samples.isEmpty()) 0.0 else samples.sumOf { it.second.maxKw } / samples.size * 1000
         val peak = samples.maxByOrNull { it.second.expectedKw }
         val clear = if (night) 0.0 else clearSky?.let { f -> (0 until 6).sumOf { f(start.plusSeconds(300L + it * 600L)) } / 6 * 1000 }
         val csi = w?.let { com.solartracker.pro.core.weather.WeatherEffects.clearSkyIndex(it, sun.position, mid) }
@@ -240,6 +260,7 @@ class HourlyPvForecastEngine(
             samples.map { it.second.confidence }.takeIf { it.isNotEmpty() }?.average() ?: 1.0,
             samples.firstOrNull()?.second?.basis ?: "noc",
             actual(start, end, now, rows),
+            ens,
         )
     }
 
@@ -276,9 +297,11 @@ class HourlyPvForecastEngine(
         val source = daylight.map { sourceAt(it.start.plus(Duration.ofMinutes(30))) }.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key ?: WeatherSource.CLEAR_SKY
         val (condition, icon) = condition(daylight)
         val temps = hours.mapNotNull { h -> h.weather?.temperatureC?.let { h to it } }
+        val ens = ensemble?.day(d, zone)
         return DayForecast(d, expectedKwh, clearKwh, peak?.expectedPeakW ?: 0.0, peak?.expectedPeakAt, SolarCalculator.sunTimes(location, d),
-            actualKwh, expectedSoFar, performance, confidence(d, today, daylight, source, accuracy, stale), condition, icon, source,
-            temps.maxOfOrNull { it.second }, temps.minOfOrNull { it.second }, temps.maxByOrNull { it.second }?.first?.start, hours)
+            actualKwh, expectedSoFar, performance, confidence(d, today, daylight, source, accuracy, stale, ens, clearKwh), condition, icon, source,
+            temps.maxOfOrNull { it.second }, temps.minOfOrNull { it.second }, temps.maxByOrNull { it.second }?.first?.start, hours,
+            ensemble = ens, ensembleModel = ens?.let { ensemble?.modelLabel })
     }
 
     private fun fraction(h: HourForecast, now: Instant): Double =
@@ -305,8 +328,13 @@ class HourlyPvForecastEngine(
      * Product of explicit factors (each 0..1, all listed): weather source, lead time (forecast skill falls with
      * horizon), broken-cloud uncertainty (20–80 % blocked is hardest to place in time), completeness of irradiance
      * in the forecast, the PV model's own confidence (calibration, shading) and the measured accuracy history.
+     *
+     * With an ensemble for the day ([ensemble], whole-day kWh per member) the lead-time and broken-cloud rules of
+     * thumb are replaced by the measured spread of the weather scenarios – it already grows with the horizon and with
+     * hard-to-place clouds, but for THIS day rather than on average.
      */
-    fun confidence(d: LocalDate, today: LocalDate, daylight: List<HourForecast>, source: WeatherSource, accuracy: AccuracyReport?, stale: Boolean): ForecastConfidence {
+    fun confidence(d: LocalDate, today: LocalDate, daylight: List<HourForecast>, source: WeatherSource, accuracy: AccuracyReport?, stale: Boolean,
+                   ensemble: PvQuantiles? = null, clearSkyKwh: Double? = null): ForecastConfidence {
         val f = mutableListOf<Pair<String, Double>>()
         f += when (source) {
             WeatherSource.FORECAST -> "prognoza pogody" to 1.0
@@ -315,9 +343,14 @@ class HourlyPvForecastEngine(
         }
         if (stale) f += "prognoza z pamięci (nieaktualna)" to 0.8
         val lead = java.time.temporal.ChronoUnit.DAYS.between(today, d)
-        f += "horyzont +$lead d" to when { lead <= 1 -> 1.0; lead <= 3 -> 0.85; lead <= 7 -> 0.65; else -> 0.45 }
-        val clouds = daylight.mapNotNull { it.effectiveCloudPercent }.takeIf { it.isNotEmpty() }?.average()
-        if (clouds != null && clouds in 20.0..80.0) f += "zmienne zachmurzenie (${clouds.roundToInt()}%)" to 0.75
+        if (ensemble != null && source == WeatherSource.FORECAST) {
+            val rel = ensemble.relativeWidth((clearSkyKwh ?: 0.0) * 0.15)
+            f += "zgodność ${ensemble.members} scenariuszy pogody (zakres 80% = ${(rel * 100).roundToInt()}% mediany)" to PvQuantiles.spreadFactor(ensemble, (clearSkyKwh ?: 0.0) * 0.15)
+        } else {
+            f += "horyzont +$lead d" to when { lead <= 1 -> 1.0; lead <= 3 -> 0.85; lead <= 7 -> 0.65; else -> 0.45 }
+            val clouds = daylight.mapNotNull { it.effectiveCloudPercent }.takeIf { it.isNotEmpty() }?.average()
+            if (clouds != null && clouds in 20.0..80.0) f += "zmienne zachmurzenie (${clouds.roundToInt()}%)" to 0.75
+        }
         if (daylight.isNotEmpty()) {
             val complete = daylight.count { it.weather?.hasIrradiance == true }.toDouble() / daylight.size
             if (complete < 1.0) f += "kompletność danych ${(complete * 100).roundToInt()}%" to complete.coerceAtLeast(0.2)
