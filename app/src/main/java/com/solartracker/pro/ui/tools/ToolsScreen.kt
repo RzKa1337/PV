@@ -85,6 +85,7 @@ private enum class Tool(@StringRes val label: Int, val feature: Feature) {
     LOCATIONS(R.string.tool_locations, Feature.LOCATION_COMPARISON),
     VEHICLE(R.string.tool_vehicle, Feature.VEHICLE),
     TILT(R.string.tool_tilt, Feature.TILT_OPTIMIZER),
+    PRODUCTION(R.string.tool_production, Feature.ACTUAL_PRODUCTION),
 }
 
 /** Planning tools. Pure calculations from core; inputs come from the user or the saved installation. */
@@ -111,15 +112,16 @@ fun ToolsScreen(settings: AppSettings, access: FeatureAccessManager, subscriptio
             Tool.LOCATIONS -> LocationsTool(settings)
             Tool.VEHICLE -> VehicleTool(settings)
             Tool.TILT -> TiltTool(settings)
+            Tool.PRODUCTION -> ProductionTool(settings)
         }
     }
 }
 
-private fun String.num(): Double? = replace(',', '.').trim().toDoubleOrNull()?.takeIf { it.isFinite() }
-private fun f(v: Double, d: Int = 1) = String.format(Locale.ROOT, "%.${d}f", v)
+internal fun String.num(): Double? = replace(',', '.').trim().toDoubleOrNull()?.takeIf { it.isFinite() }
+internal fun f(v: Double, d: Int = 1) = String.format(Locale.ROOT, "%.${d}f", v)
 
 @Composable
-private fun Num(label: String, value: String, onChange: (String) -> Unit, modifier: Modifier = Modifier) {
+internal fun Num(label: String, value: String, onChange: (String) -> Unit, modifier: Modifier = Modifier) {
     OutlinedTextField(value, { onChange(it.take(12)) }, label = { Text(label) }, singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = modifier)
 }
@@ -130,7 +132,7 @@ private fun Pair2(a: @Composable (Modifier) -> Unit, b: @Composable (Modifier) -
 }
 
 @Composable
-private fun Line(label: String, value: String) {
+internal fun Line(label: String, value: String) {
     Row(Modifier.fillMaxWidth()) {
         Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
         Text(value, fontWeight = FontWeight.SemiBold)

@@ -21,7 +21,7 @@ All in `core/src/main/kotlin/com/solartracker/pro/core`.
 | `export.HistoryExport` | samples, totals | CSV / JSON text |
 | `access.FeatureAccessManager` | `SubscriptionState` | enabled / reason per `Feature` |
 
-External network APIs used by the app (all optional, cached): Open-Meteo (forecast, climate, geocoding, elevation), Nominatim (address search), Overpass (OSM buildings/trees), GitHub Releases (updates). No API keys are embedded.
+External network APIs used by the app (all optional, cached): Open-Meteo (forecast, climate, hourly archive for past days, geocoding, elevation), Nominatim (address search), Overpass (OSM buildings/trees), GitHub Releases (updates). No API keys are embedded.
 
 ## PV Reality & Diagnostics (0.13.0)
 

@@ -53,6 +53,19 @@ object OpenMeteo {
             "&longitude=${coord(location.longitude)}&start_date=$firstYear-01-01&end_date=$lastYear-12-31" +
             "&daily=shortwave_radiation_sum,temperature_2m_mean&timezone=GMT&timeformat=unixtime"
 
+    private const val ARCHIVE_HOURLY_VARIABLES =
+        "temperature_2m,cloud_cover,shortwave_radiation,direct_normal_irradiance,diffuse_radiation," +
+            "wind_speed_10m,precipitation,snow_depth"
+
+    /**
+     * Hourly weather of the past local days [start]…[end] from the archive (reanalysis and past model runs).
+     * The answer has the same `hourly` block as the forecast, so [parseForecast] reads it.
+     */
+    fun archiveHourlyUrl(location: GeoLocation, start: LocalDate, end: LocalDate): String =
+        "https://archive-api.open-meteo.com/v1/archive?latitude=${coord(location.latitude)}" +
+            "&longitude=${coord(location.longitude)}&start_date=$start&end_date=$end&hourly=$ARCHIVE_HOURLY_VARIABLES" +
+            "&wind_speed_unit=ms&timezone=auto&timeformat=unixtime"
+
     private fun coord(v: Double) = String.format(Locale.ROOT, "%.4f", v)
 
     /** @throws IllegalArgumentException when the response is not a valid forecast */

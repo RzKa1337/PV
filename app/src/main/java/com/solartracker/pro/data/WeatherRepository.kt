@@ -135,22 +135,6 @@ class WeatherRepository(
     private fun parseForecastOrNull(cache: CacheEntry): WeatherForecast? =
         runCatching { OpenMeteo.parseForecast(cache.json, cache.fetchedAt) }.getOrNull()
 
-    private fun download(url: String, timeoutMs: Int = TIMEOUT_MS): String {
-        val connection = URL(url).openConnection() as HttpURLConnection
-        try {
-            connection.connectTimeout = timeoutMs
-            connection.readTimeout = timeoutMs
-            connection.setRequestProperty("Accept", "application/json")
-            val code = connection.responseCode
-            val stream = if (code in 200..299) connection.inputStream else connection.errorStream
-            val body = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
-            if (code !in 200..299) throw IOException("HTTP $code")
-            return body
-        } finally {
-            connection.disconnect()
-        }
-    }
-
     private fun reason(e: Exception): String = when (e) {
         is java.net.UnknownHostException -> tr("brak internetu", "no internet")
         is java.net.SocketTimeoutException -> tr("przekroczono czas", "timed out")
@@ -189,5 +173,22 @@ class WeatherRepository(
         val FORECAST_MAX_AGE: Duration = Duration.ofHours(1)
         val FORECAST_STALE_LIMIT: Duration = Duration.ofDays(3)
         val CLIMATE_MAX_AGE: Duration = Duration.ofDays(180)
+
+        /** Plain HTTPS GET of a JSON document; throws on a non-2xx answer. Blocking – call from Dispatchers.IO. */
+        internal fun download(url: String, timeoutMs: Int = TIMEOUT_MS): String {
+            val connection = URL(url).openConnection() as HttpURLConnection
+            try {
+                connection.connectTimeout = timeoutMs
+                connection.readTimeout = timeoutMs
+                connection.setRequestProperty("Accept", "application/json")
+                val code = connection.responseCode
+                val stream = if (code in 200..299) connection.inputStream else connection.errorStream
+                val body = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+                if (code !in 200..299) throw IOException("HTTP $code")
+                return body
+            } finally {
+                connection.disconnect()
+            }
+        }
     }
 }

@@ -10,6 +10,7 @@ enum class Feature(val label: String, val minPlan: Plan) {
     LIVE_SOLAR("Słońce live", Plan.FREE),
     BASIC_FORECAST("Prognoza PV", Plan.FREE),
     INVERTER_MONITORING("Monitoring falownika", Plan.FREE),
+    ACTUAL_PRODUCTION("Rzeczywista produkcja (odczyty ręczne)", Plan.FREE),
     SHADING_ANALYSIS("Analiza zacienienia", Plan.PRO),
     EMS("Optymalizacja energii (EMS)", Plan.PRO),
     HEALTH("Zdrowie instalacji i predykcja usterek", Plan.PRO),

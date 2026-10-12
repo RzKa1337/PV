@@ -208,5 +208,6 @@ Zaimplementowane, kompiluje się i przechodzi lint w CI — **czeka na ręczny t
 - [x] Śnieg na panelach z `snow_depth` w prognozie – v0.9.0
 - [ ] Wpływ temperatury na pojemność i moc ładowania baterii
 - [x] Tryb pojazdu (v0.8.0, Narzędzia)
-- [ ] Wpisywanie rzeczywistej produkcji i porównanie z szacunkiem
+- [x] Wpisywanie rzeczywistej produkcji i porównanie z szacunkiem (Narzędzia → Produkcja, pogoda historyczna Open-Meteo) – testy JVM, build, lint; ręczny test na telefonie do zrobienia
+- [ ] Zastosowanie współczynnika z ręcznych odczytów w prognozach (dziś tylko pokazywany)
 - [x] Widget na ekran główny (v0.7.0) – build/lint + test rejestracji na emulatorze; ręczny test na telefonie do zrobienia
